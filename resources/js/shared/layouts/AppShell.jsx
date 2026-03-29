@@ -1,0 +1,29 @@
+import AppHeader from '@/shared/layouts/app-shell/AppHeader';
+import { getInitials } from '@/shared/layouts/app-shell/getInitials';
+import SidebarContent from '@/shared/layouts/app-shell/SidebarContent';
+import { getAdminNavSections } from '@/shared/navigation/adminNav';
+import { usePage } from '@inertiajs/react';
+
+export default function AppShell({ title, children }) {
+    const user = usePage().props.auth.user;
+    const initials = getInitials(user.name, user.username);
+    const sections = getAdminNavSections();
+
+    return (
+        <div className="h-screen overflow-hidden bg-[#e9edf5] text-xs text-slate-900">
+            <div className="flex h-full">
+                <aside className="hidden h-full w-56 flex-col lg:flex">
+                    <SidebarContent sections={sections} />
+                </aside>
+
+                <div className="flex min-w-0 flex-1 flex-col overflow-hidden text-xs">
+                    <AppHeader sections={sections} user={user} initials={initials} />
+
+                    <main className="min-h-0 flex-1 overflow-y-auto px-4 py-5 text-xs sm:px-6">
+                        {children}
+                    </main>
+                </div>
+            </div>
+        </div>
+    );
+}

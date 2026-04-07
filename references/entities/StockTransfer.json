@@ -1,0 +1,207 @@
+{
+  "name": "StockTransfer",
+  "type": "object",
+  "properties": {
+    "transfer_number": {
+      "type": "string",
+      "description": "Unique transfer number (auto-generated)"
+    },
+    "source_location_id": {
+      "type": "string",
+      "description": "Source warehouse/branch ID"
+    },
+    "destination_location_id": {
+      "type": "string",
+      "description": "Destination warehouse/branch ID"
+    },
+    "dates_json": {
+      "type": "object",
+      "description": "All transfer-related dates",
+      "properties": {
+        "picked_date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "shipped_date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "received_date": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "product_lines": {
+      "type": "array",
+      "description": "Products being transferred",
+      "items": {
+        "type": "object",
+        "properties": {
+          "inventory_id": {
+            "type": "string"
+          },
+          "is_received": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "picked",
+        "shipped",
+        "partially_received",
+        "fully_received",
+        "consolidated"
+      ],
+      "default": "draft"
+    },
+    "reference": {
+      "type": "string"
+    },
+    "actors_json": {
+      "type": "object",
+      "description": "All users involved in the transfer",
+      "properties": {
+        "created_by": {
+          "type": "string"
+        },
+        "picked_by": {
+          "type": "string"
+        },
+        "shipped_by": {
+          "type": "string"
+        },
+        "received_by": {
+          "type": "string"
+        }
+      }
+    },
+    "logistics_json": {
+      "type": "object",
+      "description": "Logistics and shipping information",
+      "properties": {
+        "driver_name": {
+          "type": "string"
+        },
+        "driver_contact": {
+          "type": "string"
+        },
+        "courier_name": {
+          "type": "string",
+          "default": "iWarehouse Logistics"
+        },
+        "proof_of_dispatch_url": {
+          "type": "string"
+        },
+        "remarks": {
+          "type": "string"
+        }
+      }
+    },
+    "missing_items_json": {
+      "type": "array",
+      "description": "Items that were expected but not received",
+      "items": {
+        "type": "object",
+        "properties": {
+          "inventory_id": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "picklist_items_json": {
+      "type": "array",
+      "description": "Items that are in the picklist/manifest for the transfer",
+      "items": {
+        "type": "object",
+        "properties": {
+          "inventory_id": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "overage_items_json": {
+      "type": "array",
+      "description": "Excess/unplanned items received that were not on the manifest",
+      "items": {
+        "type": "object",
+        "properties": {
+          "inventory_id": {
+            "type": "string"
+          },
+          "variant_id": {
+            "type": "string"
+          },
+          "imei": {
+            "type": "string"
+          },
+          "serial_number": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "unknown_items_json": {
+      "type": "array",
+      "description": "Barcodes scanned that do not exist in the inventory database",
+      "items": {
+        "type": "object",
+        "properties": {
+          "barcode": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "consolidation_json": {
+      "type": "object",
+      "description": "Metadata for consolidated transfer lineage",
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": [
+            "master",
+            "source"
+          ]
+        },
+        "source_transfer_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source_transfer_numbers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "merged_into_transfer_id": {
+          "type": "string"
+        },
+        "merged_into_transfer_number": {
+          "type": "string"
+        },
+        "consolidated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "consolidated_by": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "required": [
+    "source_location_id",
+    "destination_location_id",
+    "product_lines"
+  ]
+}

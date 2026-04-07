@@ -1,0 +1,194 @@
+{
+  "name": "DeliveryReceipt",
+  "type": "object",
+  "properties": {
+    "dr_number": {
+      "type": "string",
+      "description": "Supplier's DR/Invoice number"
+    },
+    "po_id": {
+      "type": "string",
+      "description": "Related Purchase Order ID (nullable if direct purchase without PO)"
+    },
+    "reference_number": {
+      "type": "string",
+      "description": "Any reference number declared"
+    },
+    "supplier_id": {
+      "type": "string",
+      "description": "Supplier ID"
+    },
+    "date_received": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Date and time DR was received"
+    },
+    "date_encoded": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Date and time DR was encoded into the system"
+    },
+    "received_by": {
+      "type": "string",
+      "description": "UserProfile ID of the person who received the delivery"
+    },
+    "encoded_by": {
+      "type": "string",
+      "description": "UserProfile ID of the person who encoded the DR"
+    },
+    "logistics_json": {
+      "type": "object",
+      "description": "Delivery/logistics information",
+      "properties": {
+        "logistics_company": {
+          "type": "string"
+        },
+        "waybill_number": {
+          "type": "string"
+        },
+        "driver_name": {
+          "type": "string"
+        },
+        "driver_contact": {
+          "type": "string"
+        },
+        "origin": {
+          "type": "string"
+        },
+        "destination": {
+          "type": "string"
+        },
+        "freight_cost": {
+          "type": "number"
+        }
+      }
+    },
+    "declared_items_json": {
+      "type": "object",
+      "description": "All items declared in the DR",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "product_master_id": {
+                "type": "string"
+              },
+              "product_spec": {
+                "type": "object",
+                "description": "Product specification",
+                "properties": {
+                  "ram": {
+                    "type": "string"
+                  },
+                  "rom": {
+                    "type": "string"
+                  },
+                  "condition": {
+                    "type": "string"
+                  }
+                }
+              },
+              "expected_quantity": {
+                "type": "number"
+              },
+              "actual_quantity": {
+                "type": "number"
+              },
+              "unit_cost": {
+                "type": "number"
+              },
+              "cash_price": {
+                "type": "number"
+              },
+              "srp_price": {
+                "type": "number"
+              },
+              "total_value": {
+                "type": "number"
+              },
+              "variance_flag": {
+                "type": "boolean",
+                "default": false
+              },
+              "variance_notes": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "box_count_declared": {
+          "type": "number"
+        },
+        "box_count_received": {
+          "type": "number"
+        },
+        "has_variance": {
+          "type": "boolean",
+          "default": false
+        },
+        "variance_notes": {
+          "type": "string"
+        },
+        "dr_value": {
+          "type": "number"
+        },
+        "total_landed_cost": {
+          "type": "number"
+        }
+      }
+    },
+    "payment_terms": {
+      "type": "string",
+      "description": "Payment terms declared by the supplier (e.g. Net7, Net 15, Net 30, etc.)"
+    },
+    "uploads_json": {
+      "type": "object",
+      "description": "All related document uploads",
+      "properties": {
+        "vendor_dr_url": {
+          "type": "string"
+        },
+        "waybill_url": {
+          "type": "string"
+        },
+        "freight_invoice_url": {
+          "type": "string"
+        },
+        "box_photos": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "driver_id_url": {
+          "type": "string"
+        },
+        "uploads_complete": {
+          "type": "boolean",
+          "default": false
+        },
+        "purchase_file_url": {
+          "type": "string"
+        }
+      }
+    },
+    "has_goods_receipt": {
+      "type": "boolean",
+      "description": "Indicates if a goods receipt has been created for this DR",
+      "default": false
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the delivery receipt was created"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the delivery receipt was last updated"
+    }
+  },
+  "required": []
+}

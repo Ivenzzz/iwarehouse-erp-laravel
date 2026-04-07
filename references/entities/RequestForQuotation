@@ -1,0 +1,161 @@
+{
+  "name": "RequestForQuotation",
+  "type": "object",
+  "properties": {
+    "rfq_number": {
+      "type": "string",
+      "description": "RFQ number (auto-generated)"
+    },
+    "sr_id": {
+      "type": "string",
+      "description": "Related Stock Request ID"
+    },
+    "items": {
+      "type": "object",
+      "description": "JSON object storing all items for the RFQ",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "variant_id": {
+                "type": "string"
+              },
+              "quantity": {
+                "type": "number"
+              },
+              "description": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "supplier_quotes": {
+      "type": "object",
+      "description": "JSON containing all supplier quotes",
+      "properties": {
+        "supplier_quotes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "supplier_id": {
+                "type": "string"
+              },
+              "quote_date": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "variant_id": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "number"
+                    },
+                    "unit_price": {
+                      "type": "number"
+                    },
+                    "discount": {
+                      "type": "number"
+                    },
+                    "total_price": {
+                      "type": "number"
+                    }
+                  }
+                }
+              },
+              "subtotal": {
+                "type": "number"
+              },
+              "tax_amount": {
+                "type": "number"
+              },
+              "shipping_cost": {
+                "type": "number"
+              },
+              "total_amount": {
+                "type": "number"
+              },
+              "payment_terms": {
+                "type": "string"
+              },
+              "eta": {
+                "type": "string",
+                "format": "date",
+                "description": "Estimated Time of Arrival"
+              }
+            }
+          }
+        }
+      }
+    },
+    "selected_supplier_id": {
+      "type": "string",
+      "description": "Choosen supplier ID"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "receiving_quotes",
+        "converted_to_po",
+        "consolidated",
+        "closed",
+        "cancelled"
+      ],
+      "default": "draft"
+    },
+    "status_history": {
+      "type": "object",
+      "description": "JSON storing status history records",
+      "properties": {
+        "history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string"
+              },
+              "timestamp": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "changed_by": {
+                "type": "string"
+              },
+              "changed_by_name": {
+                "type": "string"
+              },
+              "notes": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "created_by": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "sr_id"
+  ]
+}

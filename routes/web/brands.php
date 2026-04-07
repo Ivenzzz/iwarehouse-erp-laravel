@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\ProductBrandController;
+use App\Features\Brands\Http\Controllers\ProductBrandController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth')->group(function () {

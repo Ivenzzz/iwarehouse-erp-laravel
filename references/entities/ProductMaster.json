@@ -1,0 +1,150 @@
+{
+  "name": "ProductMaster",
+  "type": "object",
+  "properties": {
+    "product_master_id": {
+      "type": "string",
+      "description": "Incremental product master ID (e.g., PM0001, PM0002)",
+      "indexed": true
+    },
+    "master_sku": {
+      "type": "string",
+      "description": "Master SKU code (unique identifier, format: BRAND-MODEL)"
+    },
+    "name": {
+      "type": "string",
+      "description": "Product name"
+    },
+    "category_id": {
+      "type": "string",
+      "description": "Product category ID"
+    },
+    "subcategory_id": {
+      "type": "string",
+      "description": "Product subcategory ID"
+    },
+    "brand_id": {
+      "type": "string",
+      "description": "Product brand ID"
+    },
+    "model": {
+      "type": "string",
+      "description": "Product model"
+    },
+    "model_code": {
+      "type": "string",
+      "description": "Model code identifier"
+    },
+    "specs": {
+      "type": "object",
+      "description": "Product specifications (key-value pairs)",
+      "properties": {
+        "release_date": {
+          "type": "string",
+          "description": "Release date"
+        },
+        "dimensions": {
+          "type": "string",
+          "description": "Device dimensions (L\u00d7W\u00d7H)"
+        },
+        "weight": {
+          "type": "string",
+          "description": "Device weight"
+        },
+        "materials": {
+          "type": "string",
+          "description": "Materials (Glass/Metal/Plastic)"
+        },
+        "display_size": {
+          "type": "string",
+          "description": "Screen size (e.g., 6.1 inches, 15.6 inches)"
+        },
+        "display_type": {
+          "type": "string",
+          "description": "Display technology (e.g., AMOLED, IPS, OLED, LTPO)"
+        },
+        "display_resolution": {
+          "type": "string",
+          "description": "Screen resolution (e.g., 1920x1080, 2560x1440)"
+        },
+        "display_refresh_rate": {
+          "type": "string",
+          "description": "Refresh rate (e.g., 60Hz, 90Hz, 120Hz, 144Hz)"
+        },
+        "display_brightness": {
+          "type": "string",
+          "description": "Brightness (nits)"
+        },
+        "display_protection": {
+          "type": "string",
+          "description": "Screen protection (Gorilla Glass, etc.)"
+        },
+        "platform_os": {
+          "type": "string",
+          "description": "Operating System + Version"
+        },
+        "platform_chipset": {
+          "type": "string",
+          "description": "Chipset (SoC)"
+        },
+        "platform_cpu": {
+          "type": "string",
+          "description": "Processor model (CPU)"
+        },
+        "platform_gpu": {
+          "type": "string",
+          "description": "Graphics processor (GPU)"
+        },
+        "rear_camera_specs": {
+          "type": "string",
+          "description": "Rear camera specifications (MP, Aperture, Sensor Type)"
+        },
+        "rear_camera_features": {
+          "type": "string",
+          "description": "Features (OIS, HDR, AI Enhancements)"
+        },
+        "rear_camera_video": {
+          "type": "string",
+          "description": "Video recording capabilities"
+        },
+        "front_camera_specs": {
+          "type": "string",
+          "description": "Front camera (MP, Aperture)"
+        },
+        "front_camera_video": {
+          "type": "string",
+          "description": "Front camera video capabilities"
+        },
+        "wlan": {
+          "type": "string",
+          "description": "WLAN (WiFi version)"
+        },
+        "bluetooth": {
+          "type": "string",
+          "description": "Bluetooth Version"
+        },
+        "network": {
+          "type": "string",
+          "description": "4G Bands"
+        },
+        "battery_capacity": {
+          "type": "string",
+          "description": "Battery capacity"
+        },
+        "battery_charging_speed": {
+          "type": "string",
+          "description": "Charging Speed (Wattage)"
+        }
+      }
+    },
+    "image_url": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "master_sku"
+  ]
+}

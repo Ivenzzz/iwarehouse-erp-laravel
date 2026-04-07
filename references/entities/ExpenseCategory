@@ -1,0 +1,25 @@
+{
+  "name": "ExpenseCategory",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Category name (e.g., Office Supplies, Travel, Utilities)"
+    },
+    "description": {
+      "type": "string",
+      "description": "Category description"
+    },
+    "parent_category_id": {
+      "type": "string",
+      "description": "Parent category ID for hierarchical categories"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

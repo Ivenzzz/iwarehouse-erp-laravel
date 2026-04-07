@@ -1,0 +1,88 @@
+{
+  "name": "Customer",
+  "type": "object",
+  "properties": {
+    "customer_code": {
+      "type": "string",
+      "description": "Unique customer code"
+    },
+    "full_name": {
+      "type": "string",
+      "description": "Customer full name"
+    },
+    "firstname": {
+      "type": "string",
+      "description": "Customer full name"
+    },
+    "lastname": {
+      "type": "string",
+      "description": "Customer full name"
+    },
+    "email": {
+      "type": "string",
+      "description": "Customer email"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Customer phone number (11 digits Philippine format)"
+    },
+    "address_json": {
+      "type": "object",
+      "description": "Normalized address JSON storage (PSGC-backed when Philippines)",
+      "properties": {
+        "country": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "province": {
+          "type": "string"
+        },
+        "city_municipality": {
+          "type": "string"
+        },
+        "barangay": {
+          "type": "string"
+        },
+        "postal_code": {
+          "type": "string"
+        },
+        "street": {
+          "type": "string"
+        }
+      }
+    },
+    "date_of_birth": {
+      "type": "string",
+      "format": "date",
+      "description": "Birthday"
+    },
+    "customer_group": {
+      "type": "string",
+      "enum": [
+        "Walk-in",
+        "Corporate",
+        "Government",
+        "Employee",
+        "Wholesale",
+        "Online"
+      ],
+      "default": "Walk-in",
+      "description": "Customer group or tier"
+    },
+    "customer_type": {
+      "type": "string",
+      "enum": [
+        "retail",
+        "wholesale"
+      ],
+      "default": "retail"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": []
+}

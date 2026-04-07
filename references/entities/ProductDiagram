@@ -1,0 +1,40 @@
+{
+  "name": "ProductDiagram",
+  "type": "object",
+  "properties": {
+    "category_id": {
+      "type": "string",
+      "description": "Reference to ProductCategory entity"
+    },
+    "subcategory_id": {
+      "type": "string",
+      "description": "Reference to ProductSubcategory entity (optional)"
+    },
+    "device_type": {
+      "type": "string",
+      "description": "Device type name (e.g., Smartphones, Laptops, SSD)"
+    },
+    "front_image_url": {
+      "type": "string",
+      "description": "URL to the front view diagram image"
+    },
+    "back_image_url": {
+      "type": "string",
+      "description": "URL to the back view diagram image"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this diagram is active"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes about this diagram"
+    }
+  },
+  "required": [
+    "device_type",
+    "front_image_url",
+    "back_image_url"
+  ]
+}

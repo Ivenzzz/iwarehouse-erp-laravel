@@ -1,0 +1,52 @@
+{
+  "name": "Log",
+  "type": "object",
+  "properties": {
+    "module": {
+      "type": "string",
+      "description": "Module where the action occurred (e.g., rfq, stock_request, purchase_order)"
+    },
+    "record_id": {
+      "type": "string",
+      "description": "Primary record affected (sr_id, rfq_id, po_id)"
+    },
+    "action": {
+      "type": "string",
+      "description": "Action performed (e.g., quote_added, rfq_awarded, po_created)"
+    },
+    "old_values": {
+      "type": "object",
+      "description": "Previous values before the action",
+      "additionalProperties": true
+    },
+    "new_values": {
+      "type": "object",
+      "description": "New values after the action",
+      "additionalProperties": true
+    },
+    "user_id": {
+      "type": "string",
+      "description": "User who performed the action"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of the action"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata in JSON format",
+      "additionalProperties": true
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when the log was created"
+    }
+  },
+  "required": [
+    "module",
+    "record_id",
+    "action",
+    "created_at"
+  ]
+}

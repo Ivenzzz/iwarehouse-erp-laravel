@@ -1,0 +1,80 @@
+{
+  "name": "Programs",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Program name"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Program start date"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Program end date"
+    },
+    "payment_methods_json": {
+      "type": "object",
+      "description": "Valid payment methods with loan term configurations",
+      "properties": {
+        "methods": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "payment_type_id": {
+                "type": "string"
+              },
+              "payment_type_name": {
+                "type": "string"
+              },
+              "payment_type_code": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "loan_terms": {
+                "type": "array",
+                "description": "For credit cards: loan term configurations including Straight (0 months) and installment terms",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "term_months": {
+                      "type": "number",
+                      "description": "0 for Straight, 6/12/etc for installments"
+                    },
+                    "mdr_percent": {
+                      "type": "number",
+                      "description": "MDR percentage for Straight payments (term_months = 0)"
+                    },
+                    "dealer_share_percent": {
+                      "type": "number",
+                      "description": "Dealer share percentage for installment terms"
+                    },
+                    "brand_subsidy_percent": {
+                      "type": "number",
+                      "description": "Brand subsidy percentage for installment terms"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "name",
+    "start_date",
+    "end_date"
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "name": "UserProfiles",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "Reference to the User entity"
+    },
+    "google_id": {
+      "type": "string",
+      "description": "Google account ID"
+    },
+    "full_name": {
+      "type": "string",
+      "description": "User's full display name"
+    },
+    "avatar_url": {
+      "type": "string",
+      "description": "URL of the user's avatar image"
+    },
+    "employee_id": {
+      "type": "string",
+      "description": "Linked employee id"
+    }
+  },
+  "required": [
+    "user_id",
+    "google_id"
+  ]
+}

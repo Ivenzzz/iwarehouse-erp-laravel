@@ -1,0 +1,15 @@
+{
+  "name": "ProductCategory",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Category name (e.g., Laptops, Smartphones, Tablets)"
+    },
+    "parent_category_id": {
+      "type": "string",
+      "description": "Parent category ID for hierarchical categories (optional)"
+    }
+  },
+  "required": []
+}

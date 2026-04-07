@@ -1,0 +1,99 @@
+{
+  "name": "Expense",
+  "type": "object",
+  "properties": {
+    "expense_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the expense occurred"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed explanation of the expense"
+    },
+    "amount": {
+      "type": "number",
+      "description": "Cost of the expense"
+    },
+    "currency_id": {
+      "type": "string",
+      "description": "Currency ID"
+    },
+    "category_id": {
+      "type": "string",
+      "description": "Expense category ID"
+    },
+    "paid_by_user_id": {
+      "type": "string",
+      "description": "User/Employee who paid"
+    },
+    "payment_method": {
+      "type": "string",
+      "enum": [
+        "cash",
+        "company_card",
+        "personal_card",
+        "bank_transfer",
+        "other"
+      ],
+      "description": "Payment method used"
+    },
+    "receipt_url": {
+      "type": "string",
+      "description": "URL to uploaded receipt/invoice"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "submitted",
+        "approved",
+        "paid",
+        "rejected",
+        "reconciled"
+      ],
+      "default": "draft",
+      "description": "Expense status"
+    },
+    "reference_number": {
+      "type": "string",
+      "description": "Invoice number or transaction ID"
+    },
+    "department": {
+      "type": "string",
+      "description": "Department this expense belongs to"
+    },
+    "project_id": {
+      "type": "string",
+      "description": "Project ID if tracking per project"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes"
+    },
+    "vendor_id": {
+      "type": "string",
+      "description": "Vendor/Supplier ID if applicable"
+    },
+    "approved_by": {
+      "type": "string",
+      "description": "User who approved the expense"
+    },
+    "approved_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the expense was approved"
+    },
+    "paid_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the expense was paid"
+    }
+  },
+  "required": [
+    "expense_date",
+    "description",
+    "amount",
+    "category_id"
+  ]
+}

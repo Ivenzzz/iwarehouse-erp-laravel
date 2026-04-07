@@ -1,20 +1,20 @@
-import BrandDialog from '@/features/brands/components/BrandDialog';
-import BrandsHeader from '@/features/brands/components/BrandsHeader';
-import BrandsTable from '@/features/brands/components/BrandsTable';
+import CategoryDialog from '@/features/categories/components/CategoryDialog';
+import CategoriesHeader from '@/features/categories/components/CategoriesHeader';
+import CategoriesTable from '@/features/categories/components/CategoriesTable';
 import AppShell from '@/shared/layouts/AppShell';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useRef, useState } from 'react';
 
-export default function BrandsPage({ brands, filters }) {
+export default function CategoriesPage({ categories, topLevelCategories, filters }) {
     const { errors, flash } = usePage().props;
     const [dialogOpen, setDialogOpen] = useState(false);
-    const [editingBrand, setEditingBrand] = useState(null);
+    const [editingCategory, setEditingCategory] = useState(null);
     const [search, setSearch] = useState(filters.search ?? '');
     const fileInputRef = useRef(null);
 
-    const visitBrands = (params) => {
+    const visitCategories = (params) => {
         router.get(
-            route('brands.index'),
+            route('categories.index'),
             {
                 search: params.search ?? filters.search,
                 sort: params.sort ?? filters.sort,
@@ -30,29 +30,29 @@ export default function BrandsPage({ brands, filters }) {
     };
 
     const openCreate = () => {
-        setEditingBrand(null);
+        setEditingCategory(null);
         setDialogOpen(true);
     };
 
-    const openEdit = (brand) => {
-        setEditingBrand(brand);
+    const openEdit = (category) => {
+        setEditingCategory(category);
         setDialogOpen(true);
     };
 
-    const deleteBrand = (brand) => {
-        if (!window.confirm(`Delete ${brand.name} and all associated models?`)) {
+    const deleteCategory = (category) => {
+        if (!window.confirm(`Delete ${category.name}? Subcategories will become top-level categories.`)) {
             return;
         }
 
-        router.delete(route('brands.destroy', brand.id), {
+        router.delete(route('categories.destroy', category.id), {
             preserveScroll: true,
         });
     };
 
-    const searchBrands = (event) => {
+    const searchCategories = (event) => {
         event.preventDefault();
 
-        visitBrands({
+        visitCategories({
             search: search.trim(),
             page: undefined,
         });
@@ -60,17 +60,17 @@ export default function BrandsPage({ brands, filters }) {
 
     const clearSearch = () => {
         setSearch('');
-        visitBrands({
+        visitCategories({
             search: '',
             page: undefined,
         });
     };
 
-    const sortBrands = (sort) => {
+    const sortCategories = (sort) => {
         const direction =
             filters.sort === sort && filters.direction === 'asc' ? 'desc' : 'asc';
 
-        visitBrands({
+        visitCategories({
             sort,
             direction,
             page: undefined,
@@ -78,7 +78,7 @@ export default function BrandsPage({ brands, filters }) {
     };
 
     const goToPage = (page) => {
-        visitBrands({ page });
+        visitCategories({ page });
     };
 
     const handleImport = (event) => {
@@ -89,7 +89,7 @@ export default function BrandsPage({ brands, filters }) {
         }
 
         router.post(
-            route('brands.import'),
+            route('categories.import'),
             { file },
             {
                 forceFormData: true,
@@ -102,13 +102,14 @@ export default function BrandsPage({ brands, filters }) {
     };
 
     return (
-        <AppShell title="Brands">
-            <Head title="Brands" />
+        <AppShell title="Categories">
+            <Head title="Categories" />
 
-            <BrandDialog
+            <CategoryDialog
                 open={dialogOpen}
                 onOpenChange={setDialogOpen}
-                brand={editingBrand}
+                category={editingCategory}
+                topLevelCategories={topLevelCategories}
             />
 
             <input
@@ -121,7 +122,7 @@ export default function BrandsPage({ brands, filters }) {
 
             <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-4">
                 <section className="bg-white shadow-[0_14px_40px_rgba(15,23,42,0.08)]">
-                    <BrandsHeader
+                    <CategoriesHeader
                         onImport={() => fileInputRef.current?.click()}
                         onCreate={openCreate}
                     />
@@ -141,26 +142,26 @@ export default function BrandsPage({ brands, filters }) {
 
                         <section className="bg-white shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
                             <div className="px-5 py-5">
-                                <BrandsTable
-                                    brands={brands.data}
+                                <CategoriesTable
+                                    categories={categories.data}
                                     pagination={{
-                                        currentPage: brands.current_page,
-                                        from: brands.from,
-                                        lastPage: brands.last_page,
-                                        links: brands.links,
-                                        perPage: brands.per_page,
-                                        to: brands.to,
-                                        total: brands.total,
+                                        currentPage: categories.current_page,
+                                        from: categories.from,
+                                        lastPage: categories.last_page,
+                                        links: categories.links,
+                                        perPage: categories.per_page,
+                                        to: categories.to,
+                                        total: categories.total,
                                     }}
                                     filters={filters}
                                     search={search}
                                     onSearchChange={setSearch}
-                                    onSearch={searchBrands}
+                                    onSearch={searchCategories}
                                     onClearSearch={clearSearch}
-                                    onSort={sortBrands}
+                                    onSort={sortCategories}
                                     onPageChange={goToPage}
                                     onEdit={openEdit}
-                                    onDelete={deleteBrand}
+                                    onDelete={deleteCategory}
                                 />
                             </div>
                         </section>

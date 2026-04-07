@@ -1,0 +1,25 @@
+{
+  "name": "ProductBrand",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Brand name (e.g., Apple, Samsung, Dell)"
+    },
+    "models": {
+      "type": "array",
+      "description": "List of models associated with this brand",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

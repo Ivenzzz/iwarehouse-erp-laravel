@@ -1,0 +1,86 @@
+{
+  "name": "POSTenderFeed",
+  "type": "object",
+  "properties": {
+    "tender_id": {
+      "type": "string",
+      "description": "System-generated unique identifier"
+    },
+    "transaction_id": {
+      "type": "string",
+      "description": "Reference to SalesTransaction"
+    },
+    "transaction_number": {
+      "type": "string"
+    },
+    "or_number": {
+      "type": "string"
+    },
+    "business_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date from transaction_date"
+    },
+    "warehouse_id": {
+      "type": "string"
+    },
+    "cashier_id": {
+      "type": "string"
+    },
+    "pos_session_id": {
+      "type": "string"
+    },
+    "payment_method": {
+      "type": "string"
+    },
+    "payment_type_id": {
+      "type": "string"
+    },
+    "amount": {
+      "type": "number"
+    },
+    "reference_number": {
+      "type": "string"
+    },
+    "approval_code": {
+      "type": "string"
+    },
+    "loan_term_months": {
+      "type": "number"
+    },
+    "program_id": {
+      "type": "string"
+    },
+    "contract_id": {
+      "type": "string"
+    },
+    "sender_mobile_last4": {
+      "type": "string"
+    },
+    "control_account_type": {
+      "type": "string",
+      "enum": [
+        "CASH_IN_TILL",
+        "CARD_CLEARING",
+        "WALLET_CLEARING",
+        "FINANCING_RECEIVABLE"
+      ],
+      "description": "Control account assignment based on payment method"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "EXTRACTED",
+        "PROCESSED"
+      ],
+      "default": "EXTRACTED"
+    }
+  },
+  "required": [
+    "transaction_id",
+    "transaction_number",
+    "business_date",
+    "payment_method",
+    "amount"
+  ]
+}

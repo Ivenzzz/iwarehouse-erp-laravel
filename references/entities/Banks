@@ -1,0 +1,17 @@
+{
+  "name": "Banks",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Bank name (Title Case)"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

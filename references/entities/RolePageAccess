@@ -1,0 +1,21 @@
+{
+  "name": "RolePageAccess",
+  "type": "object",
+  "properties": {
+    "department_role": {
+      "type": "string",
+      "description": "The department role this configuration applies to"
+    },
+    "allowed_pages": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "Array of page path identifiers this role can access"
+    }
+  },
+  "required": [
+    "department_role"
+  ]
+}

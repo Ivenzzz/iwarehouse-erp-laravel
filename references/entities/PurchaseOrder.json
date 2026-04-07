@@ -1,0 +1,199 @@
+{
+  "name": "PurchaseOrder",
+  "type": "object",
+  "properties": {
+    "po_number": {
+      "type": "string",
+      "description": "Auto-generated Purchase Order number"
+    },
+    "rfq_id": {
+      "type": "string",
+      "description": "Related RFQ ID"
+    },
+    "supplier_id": {
+      "type": "string",
+      "description": "Supplier ID"
+    },
+    "expected_delivery_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "items_json": {
+      "type": "object",
+      "description": "JSON containing all PO line items",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "product_master_id": {
+                "type": "string"
+              },
+              "product_spec": {
+                "type": "object",
+                "description": "Product specification",
+                "properties": {
+                  "ram": {
+                    "type": "string"
+                  },
+                  "rom": {
+                    "type": "string"
+                  },
+                  "condition": {
+                    "type": "string"
+                  }
+                }
+              },
+              "quantity": {
+                "type": "number"
+              },
+              "unit_price": {
+                "type": "number"
+              },
+              "discount": {
+                "type": "number"
+              },
+              "total_price": {
+                "type": "number"
+              },
+              "description": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "financials_json": {
+      "type": "object",
+      "description": "JSON summarizing financial information",
+      "properties": {
+        "subtotal": {
+          "type": "number"
+        },
+        "shipping_amount": {
+          "type": "number"
+        },
+        "total_amount": {
+          "type": "number"
+        },
+        "payment_terms": {
+          "type": "string"
+        }
+      }
+    },
+    "shipping_json": {
+      "type": "object",
+      "description": "JSON for shipping-related data",
+      "properties": {
+        "shipping_method": {
+          "type": "string"
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "approved", "rejected"],
+      "default": "pending"
+    },
+    "status_history": {
+      "type": "object",
+      "description": "JSON storing all status change logs",
+      "properties": {
+        "history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string"
+              },
+              "timestamp": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "changed_by": {
+                "type": "string",
+                "description": "User ID of the person who made the change"
+              },
+              "changed_by_name": {
+                "type": "string",
+                "description": "Name of the person who made the change"
+              },
+              "notes": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "approval_json": {
+      "type": "object",
+      "description": "JSON column containing approval status and history",
+      "properties": {
+        "approver_id": {
+          "type": "string",
+          "description": "User ID of the approver"
+        },
+        "approver_name": {
+          "type": "string",
+          "description": "Name of the approver"
+        },
+        "approved_date": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "payable_json": {
+      "type": "object",
+      "description": "JSON column containing payable status and history",
+      "properties": {
+        "has_paid": {
+          "type": "boolean",
+          "description": "Indicates if the purchase order has been paid"
+        },
+        "paid_by": {
+          "type": "string",
+          "description": "Name of the person who made the payment"
+        },
+        "paid_date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "attached_documents": {
+          "type": "object",
+          "properties": {
+            "document_url": {
+              "type": "string"
+            },
+            "document_name": {
+              "type": "string"
+            }
+          }
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "has_delivery_receipt": {
+      "type": "boolean",
+      "description": "Indicates if a delivery receipt has been recorded for this PO",
+      "default": false
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the purchase order was created"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the purchase order was last updated"
+    }
+  },
+  "required": ["po_number"]
+}

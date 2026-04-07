@@ -1,0 +1,113 @@
+{
+  "name": "StockTransferDiscrepancyReport",
+  "type": "object",
+  "properties": {
+    "stock_transfer_id": {
+      "type": "string",
+      "description": "Stock transfer ID with discrepancy"
+    },
+    "transfer_number": {
+      "type": "string",
+      "description": "Transfer number for reference"
+    },
+    "tag": {
+      "type": "string",
+      "enum": [
+        "DAMAGED_IN_TRANSIT",
+        "LOST_IN_TRANSIT",
+        "PACKING_ERROR",
+        "SHORT_RECEIVED",
+        "BRANCH_ERROR",
+        "TO_BE_INVESTIGATED"
+      ],
+      "description": "Discrepancy type tag"
+    },
+    "branch_remark": {
+      "type": "string",
+      "description": "Branch remarks about the discrepancy"
+    },
+    "photo_proof_url": {
+      "type": "string",
+      "description": "Photo proof URL for the discrepancy"
+    },
+    "reported_by": {
+      "type": "string",
+      "description": "User who reported the discrepancy"
+    },
+    "reported_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the discrepancy was reported"
+    },
+    "resolved_by": {
+      "type": "string",
+      "description": "User who resolved the discrepancy"
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the discrepancy was resolved"
+    },
+    "resolution_action": {
+      "type": "string",
+      "description": "Action taken to resolve the discrepancy"
+    },
+    "resolution_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "warehouse_fault",
+        "branch_fault",
+        "approved",
+        "closed"
+      ],
+      "default": "pending",
+      "description": "Current resolution status"
+    },
+    "missing_items_count": {
+      "type": "number",
+      "description": "Number of missing items"
+    },
+    "expected_items_count": {
+      "type": "number",
+      "description": "Total expected items"
+    },
+    "received_items_count": {
+      "type": "number",
+      "description": "Total received items"
+    },
+    "discrepancy_details": {
+      "type": "array",
+      "description": "Details of each missing item",
+      "items": {
+        "type": "object",
+        "properties": {
+          "inventory_id": {
+            "type": "string"
+          },
+          "imei1": {
+            "type": "string"
+          },
+          "imei2": {
+            "type": "string"
+          },
+          "serial_number": {
+            "type": "string"
+          },
+          "product_name": {
+            "type": "string"
+          },
+          "variant_name": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "stock_transfer_id",
+    "tag",
+    "reported_by",
+    "reported_at"
+  ]
+}

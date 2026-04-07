@@ -1,0 +1,143 @@
+{
+  "name": "Warehouse",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Warehouse name (e.g., 'Central Hub')"
+    },
+    "warehouse_type": {
+      "type": "string",
+      "enum": [
+        "main_warehouse",
+        "warehouse",
+        "store",
+        "kiosk",
+        "third_party"
+      ],
+      "default": "store",
+      "description": "Categorization for filtering and logic"
+    },
+    "manager_id": {
+      "type": "string",
+      "description": "UUID of the user/staff responsible for this location"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Soft delete flag"
+    },
+    "contact_info": {
+      "type": "object",
+      "properties": {
+        "phone_number": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        }
+      }
+    },
+    "address": {
+      "type": "object",
+      "description": "Structured address for shipping integrations",
+      "properties": {
+        "street": {
+          "type": "string",
+          "description": "Unit, Building, Street"
+        },
+        "city": {
+          "type": "string"
+        },
+        "province": {
+          "type": "string",
+          "description": "State or Province"
+        },
+        "zip_code": {
+          "type": "string"
+        },
+        "country": {
+          "type": "string",
+          "default": "PH"
+        }
+      }
+    },
+    "coordinates": {
+      "type": "object",
+      "description": "Geolocation for map views and route optimization",
+      "properties": {
+        "latitude": {
+          "type": "number"
+        },
+        "longitude": {
+          "type": "number"
+        }
+      }
+    },
+    "capacity_config": {
+      "type": "object",
+      "description": "Metrics for utilization calculation",
+      "properties": {
+        "max_capacity_units": {
+          "type": "integer",
+          "description": "Total number of items this location can hold"
+        },
+        "area_sqm": {
+          "type": "number",
+          "description": "Physical size in square meters (optional)"
+        }
+      }
+    },
+    "inventory_rules": {
+      "type": "object",
+      "description": "Logic for automated alerts",
+      "properties": {
+        "low_stock_threshold": {
+          "type": "integer",
+          "default": 10,
+          "description": "Alert when total stock count drops below this number"
+        }
+      }
+    },
+    "logistics_config": {
+      "type": "object",
+      "description": "Permissions for stock movement",
+      "properties": {
+        "allow_inbound": {
+          "type": "boolean",
+          "default": true,
+          "description": "Can receive shipments"
+        },
+        "allow_outbound": {
+          "type": "boolean",
+          "default": true,
+          "description": "Can transfer stock to other internal locations"
+        }
+      }
+    },
+    "operating_hours": {
+      "type": "object",
+      "description": "Store/Warehouse availability",
+      "properties": {
+        "open_time": {
+          "type": "string"
+        },
+        "close_time": {
+          "type": "string"
+        },
+        "is_open_weekends": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "sort_order": {
+      "type": "integer",
+      "description": "Legacy UI sorting order"
+    }
+  },
+  "required": [
+    "name",
+    "warehouse_type"
+  ]
+}

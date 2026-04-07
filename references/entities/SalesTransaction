@@ -1,0 +1,268 @@
+{
+  "name": "SalesTransaction",
+  "type": "object",
+  "properties": {
+    "transaction_number": {
+      "type": "string",
+      "description": "Unique transaction number"
+    },
+    "or_number": {
+      "type": "string",
+      "description": "Official Receipt Number"
+    },
+    "mode_of_release": {
+      "type": "string",
+      "enum": [
+        "Item Claimed / Pick-up",
+        "Delivery",
+        "Store Transfer"
+      ],
+      "default": "Item Claimed / Pick-up",
+      "description": "Mode of release for the transaction"
+    },
+    "remarks": {
+      "type": "string",
+      "description": "Remarks or special instructions for the transaction"
+    },
+    "transaction_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "customer_id": {
+      "type": "string",
+      "description": "Customer ID"
+    },
+    "warehouse_id": {
+      "type": "string",
+      "description": "Store/Warehouse where sale occurred"
+    },
+    "cashier_id": {
+      "type": "string",
+      "description": "Cashier user ID"
+    },
+    "pos_session_id": {
+      "type": "string",
+      "description": "POS Session ID this transaction belongs to"
+    },
+    "sales_representative_id": {
+      "type": "string",
+      "description": "Sales representative ID"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "inventory_id": {
+            "type": "string",
+            "description": "Inventory unit ID"
+          },
+          "unit_price": {
+            "type": "number"
+          },
+          "price_basis": {
+            "type": "string",
+            "enum": [
+              "cash",
+              "srp"
+            ],
+            "default": "cash",
+            "description": "Pricing basis used for this item (cash price or SRP)"
+          },
+          "snapshot_cash_price": {
+            "type": "number",
+            "description": "Cash price of the product at the time of sale (price snapshot)"
+          },
+          "snapshot_srp": {
+            "type": "number",
+            "description": "SRP of the product at the time of sale (price snapshot)"
+          },
+          "snapshot_cost_price": {
+            "type": "number",
+            "description": "Cost price of the product at the time of sale (price snapshot)"
+          },
+          "discount_amount": {
+            "type": "number",
+            "default": 0
+          },
+          "discount_validation": {
+            "type": "object",
+            "description": "Item-level discount validation data including supervisor proof",
+            "properties": {
+              "discount_amount": {
+                "type": "number"
+              },
+              "proof_image_url": {
+                "type": "string",
+                "description": "URL of proof of validation image"
+              },
+              "validated_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
+          "line_total": {
+            "type": "number"
+          },
+          "is_bundle": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether this item is a product bundle"
+          },
+          "bundle_serial": {
+            "type": "string",
+            "description": "Bundle serial number if item is a bundle"
+          },
+          "bundle_components": {
+            "type": "array",
+            "default": [],
+            "description": "Component items included in the bundle",
+            "items": {
+              "type": "object",
+              "properties": {
+                "inventory_id": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "subtotal": {
+      "type": "number"
+    },
+    "total_amount": {
+      "type": "number"
+    },
+    "payments_json": {
+      "type": "object",
+      "description": "All payment information including credit card program details",
+      "properties": {
+        "payments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "payment_type_id": {
+                "type": "string"
+              },
+              "payment_method": {
+                "type": "string"
+              },
+              "amount": {
+                "type": "number"
+              },
+              "payment_details": {
+                "type": "object",
+                "description": "Dynamic payment-specific data based on payment type",
+                "properties": {
+                  "reference_number": {
+                    "type": "string"
+                  },
+                  "downpayment": {
+                    "type": "string"
+                  },
+                  "bank": {
+                    "type": "string"
+                  },
+                  "terminal_used": {
+                    "type": "string"
+                  },
+                  "card_holder_name": {
+                    "type": "string"
+                  },
+                  "loan_term_months": {
+                    "type": "number"
+                  },
+                  "sender_mobile": {
+                    "type": "string"
+                  },
+                  "contract_id": {
+                    "type": "string"
+                  },
+                  "registered_mobile": {
+                    "type": "string"
+                  },
+                  "supporting_doc_urls": {
+                    "type": "array",
+                    "description": "Supporting documents uploaded for financing payments",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "url": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "amount_paid": {
+      "type": "number"
+    },
+    "change_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "notes": {
+      "type": "string"
+    },
+    "discount_validation": {
+      "type": "object",
+      "description": "Discount validation data including supervisor password and proof",
+      "properties": {
+        "discount_amount": {
+          "type": "number"
+        },
+        "proof_image_url": {
+          "type": "string",
+          "description": "URL of proof of validation image"
+        },
+        "validated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "supporting_documents": {
+      "type": "object",
+      "properties": {
+        "official_receipt_url": {
+          "type": "string"
+        },
+        "customer_id_url": {
+          "type": "string"
+        },
+        "customer_agreement_url": {
+          "type": "string"
+        },
+        "other_supporting_documents": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "description": "Required supporting documents for transaction"
+    }
+  },
+  "required": []
+}

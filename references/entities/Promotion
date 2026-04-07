@@ -1,0 +1,117 @@
+{
+  "name": "Promotion",
+  "type": "object",
+  "properties": {
+    "promo_code": {
+      "type": "string",
+      "description": "Unique promo code"
+    },
+    "promo_name": {
+      "type": "string",
+      "description": "Display name of the promotion"
+    },
+    "promo_type": {
+      "type": "string",
+      "enum": [
+        "percentage_discount",
+        "fixed_discount",
+        "bundle",
+        "financing"
+      ],
+      "description": "Type of promotion"
+    },
+    "discount_percentage": {
+      "type": "number",
+      "description": "Percentage discount (for percentage_discount type)"
+    },
+    "discount_amount": {
+      "type": "number",
+      "description": "Fixed discount amount (for fixed_discount type)"
+    },
+    "applicable_products": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Product Master IDs eligible for this promo"
+    },
+    "applicable_categories": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Category IDs eligible for this promo"
+    },
+    "applicable_brands": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Brand IDs eligible for this promo"
+    },
+    "min_purchase_amount": {
+      "type": "number",
+      "description": "Minimum purchase amount to qualify"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "priority": {
+      "type": "number",
+      "default": 0,
+      "description": "Higher priority promos apply first"
+    },
+    "bundle_config": {
+      "type": "object",
+      "description": "Bundle configuration",
+      "properties": {
+        "required_items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "product_master_id": {
+                "type": "string"
+              },
+              "quantity": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "bundle_price": {
+          "type": "number"
+        }
+      }
+    },
+    "financing_config": {
+      "type": "object",
+      "description": "Financing configuration",
+      "properties": {
+        "term_months": {
+          "type": "number"
+        },
+        "interest_rate": {
+          "type": "number"
+        },
+        "down_payment_percentage": {
+          "type": "number"
+        }
+      }
+    }
+  },
+  "required": [
+    "promo_code",
+    "promo_name",
+    "promo_type"
+  ]
+}

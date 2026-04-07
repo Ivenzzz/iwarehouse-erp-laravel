@@ -1,0 +1,76 @@
+{
+  "name": "RMARequests",
+  "type": "object",
+  "properties": {
+    "request_number": {
+      "type": "string",
+      "description": "Unique RMA request identifier (e.g., RMA-39458775)"
+    },
+    "sales_transaction_id": {
+      "type": "string",
+      "description": "Identifier for the original sales transaction (e.g., receipt number or order ID)"
+    },
+    "rma_items": {
+      "type": "object",
+      "description": "JSON storing RMA item details",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "inventory_id": {
+                "type": "string"
+              },
+              "reason_for_return": {
+                "type": "string"
+              },
+              "requested_resolution": {
+                "type": "string"
+              },
+              "issues": {
+                "type": "string"
+              },
+              "accessories_received": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "accessory_name": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "device_photos": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "photo_name": {
+                      "type": "string"
+                    },
+                    "photo_url": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "inspected"
+      ],
+      "default": "draft"
+    }
+  },
+  "required": [
+    "request_number"
+  ]
+}

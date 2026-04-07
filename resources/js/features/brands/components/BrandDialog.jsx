@@ -14,16 +14,27 @@ import { Label } from '@/shared/components/ui/label';
 import { buildFormData, emptyModelRow } from '@/features/brands/lib/brandForm';
 import { useForm } from '@inertiajs/react';
 import { Plus, Trash2 } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 export default function BrandDialog({ open, onOpenChange, brand = null }) {
     const isEditing = brand !== null;
     const form = useForm(buildFormData(brand));
+    const modelInputRefs = useRef([]);
+    const pendingModelFocusIndex = useRef(null);
 
     useEffect(() => {
         form.setData(buildFormData(brand));
         form.clearErrors();
     }, [brand]);
+
+    useEffect(() => {
+        if (pendingModelFocusIndex.current === null) {
+            return;
+        }
+
+        modelInputRefs.current[pendingModelFocusIndex.current]?.focus();
+        pendingModelFocusIndex.current = null;
+    }, [form.data.models.length]);
 
     const close = () => {
         onOpenChange(false);
@@ -44,11 +55,36 @@ export default function BrandDialog({ open, onOpenChange, brand = null }) {
         form.setData('models', [...form.data.models, emptyModelRow()]);
     };
 
+    const insertModelRowAfter = (index) => {
+        const nextIndex = index + 1;
+
+        pendingModelFocusIndex.current = nextIndex;
+        form.setData('models', [
+            ...form.data.models.slice(0, nextIndex),
+            emptyModelRow(),
+            ...form.data.models.slice(nextIndex),
+        ]);
+    };
+
     const removeModelRow = (index) => {
         form.setData(
             'models',
             form.data.models.filter((_, rowIndex) => rowIndex !== index),
         );
+    };
+
+    const handleModelKeyDown = (event, index) => {
+        if (event.key !== 'Enter') {
+            return;
+        }
+
+        event.preventDefault();
+
+        if (form.data.models[index].model_name.trim() === '') {
+            return;
+        }
+
+        insertModelRowAfter(index);
     };
 
     const submit = (event) => {
@@ -116,9 +152,15 @@ export default function BrandDialog({ open, onOpenChange, brand = null }) {
                                             <Label htmlFor={`model-${index}`}>Model Name</Label>
                                             <Input
                                                 id={`model-${index}`}
+                                                ref={(element) => {
+                                                    modelInputRefs.current[index] = element;
+                                                }}
                                                 value={model.model_name}
                                                 onChange={(event) =>
                                                     updateModel(index, event.target.value)
+                                                }
+                                                onKeyDown={(event) =>
+                                                    handleModelKeyDown(event, index)
                                                 }
                                             />
                                             <InputError

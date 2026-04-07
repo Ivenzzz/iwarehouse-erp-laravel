@@ -1,0 +1,61 @@
+{
+  "name": "RMAFinalDecisions",
+  "type": "object",
+  "properties": {
+    "rma_ticket_id": {
+      "type": "string",
+      "description": "Reference to RMATickets entity"
+    },
+    "decision_type": {
+      "type": "string",
+      "enum": [
+        "replacement",
+        "repair",
+        "refund",
+        "exchange_credit",
+        "rejected"
+      ],
+      "description": "Final decision type for the RMA"
+    },
+    "decision_reason": {
+      "type": "string",
+      "description": "Reason for the decision"
+    },
+    "decision_notes": {
+      "type": "string",
+      "description": "Additional notes"
+    },
+    "approved_by_user_id": {
+      "type": "string"
+    },
+    "approved_by_email": {
+      "type": "string"
+    },
+    "decision_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "customer_notified": {
+      "type": "boolean",
+      "default": false
+    },
+    "customer_notified_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected",
+        "completed"
+      ],
+      "default": "pending"
+    }
+  },
+  "required": [
+    "rma_ticket_id",
+    "decision_type"
+  ]
+}

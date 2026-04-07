@@ -1,0 +1,147 @@
+{
+  "name": "WarehousePickListLogs",
+  "type": "object",
+  "properties": {
+    "picklist_code": {
+      "type": "string",
+      "description": "Unique code (e.g. PL-2025-00123)"
+    },
+    "stock_transfer_id": {
+      "type": "string",
+      "description": "Reference to the stock transfer ID"
+    },
+    "warehouse_id": {
+      "type": "string",
+      "description": "Warehouse where items are picked"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "In Progress",
+        "Completed",
+        "Partial",
+        "Cancelled"
+      ],
+      "default": "In Progress",
+      "description": "Current status of the picklist. 'Partial' indicates not all requested items were found."
+    },
+    "picked_by": {
+      "type": "string",
+      "description": "User ID of the staff who performed the picking"
+    },
+    "items": {
+      "type": "array",
+      "description": "Actual items in picklist with variant details and pickup results",
+      "items": {
+        "type": "object",
+        "properties": {
+          "product_master_id": {
+            "type": "string"
+          },
+          "variant_id": {
+            "type": "string"
+          },
+          "product_name": {
+            "type": "string"
+          },
+          "variant_name": {
+            "type": "string"
+          },
+          "brand_name": {
+            "type": "string",
+            "description": "Snapshot of brand name for easier sorting/history viewing"
+          },
+          "sku": {
+            "type": "string",
+            "description": "Snapshot of SKU for visual verification in history"
+          },
+          "quantity": {
+            "type": "number",
+            "description": "The quantity requested by the Stock Transfer"
+          },
+          "picked_quantity": {
+            "type": "number",
+            "default": 0,
+            "description": "The actual quantity physically picked from the shelf"
+          },
+          "photo_url": {
+            "type": "string",
+            "description": "Optional URL to image proof (required only if configured or damaged)"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "picked",
+              "partial",
+              "not_picked",
+              "over_picked"
+            ],
+            "default": "not_picked",
+            "description": "Line item status based on quantity vs picked_quantity"
+          }
+        }
+      }
+    },
+    "scanned_items": {
+      "type": "array",
+      "description": "Detailed list of individually scanned items with serial/IMEI info",
+      "items": {
+        "type": "object",
+        "properties": {
+          "inventory_id": {
+            "type": "string",
+            "description": "Reference to the Inventory item ID"
+          },
+          "serial_number": {
+            "type": "string"
+          },
+          "imei1": {
+            "type": "string"
+          },
+          "imei2": {
+            "type": "string"
+          },
+          "product_master_id": {
+            "type": "string"
+          },
+          "variant_id": {
+            "type": "string"
+          },
+          "product_name": {
+            "type": "string"
+          },
+          "variant_name": {
+            "type": "string"
+          },
+          "brand_name": {
+            "type": "string"
+          },
+          "scanned_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when this item was scanned"
+          },
+          "scanned_barcode": {
+            "type": "string",
+            "description": "The actual barcode/QR value that was scanned"
+          }
+        }
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When picking was completed"
+    }
+  },
+  "required": [
+    "picklist_code",
+    "stock_transfer_id",
+    "warehouse_id",
+    "status"
+  ]
+}

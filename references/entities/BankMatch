@@ -1,0 +1,64 @@
+{
+  "name": "BankMatch",
+  "type": "object",
+  "properties": {
+    "match_id": {
+      "type": "string",
+      "description": "System-generated unique identifier"
+    },
+    "statement_line_id": {
+      "type": "string",
+      "description": "Reference to BankStatementLine"
+    },
+    "match_type": {
+      "type": "string",
+      "enum": [
+        "DEPOSIT",
+        "CARD_SETTLEMENT",
+        "WALLET_SETTLEMENT",
+        "FINANCING_SETTLEMENT",
+        "UNMATCHED",
+        "OTHER"
+      ],
+      "description": "Type of bank match"
+    },
+    "matched_entity_type": {
+      "type": "string",
+      "enum": [
+        "EXPECTED_SETTLEMENT",
+        "VOUCHER",
+        "EXPENSE",
+        "OTHER"
+      ],
+      "description": "Type of entity matched"
+    },
+    "matched_entity_id": {
+      "type": "string",
+      "description": "Reference to matched entity (expected_settlement_id or other)"
+    },
+    "matched_amount": {
+      "type": "number"
+    },
+    "match_notes": {
+      "type": "string"
+    },
+    "gl_posted": {
+      "type": "boolean",
+      "default": false
+    },
+    "gl_journal_ref": {
+      "type": "string"
+    },
+    "approved_by": {
+      "type": "string"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "statement_line_id",
+    "match_type"
+  ]
+}

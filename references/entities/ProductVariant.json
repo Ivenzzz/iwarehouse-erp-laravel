@@ -1,0 +1,41 @@
+{
+  "name": "ProductVariant",
+  "type": "object",
+  "properties": {
+    "product_master_id": {
+      "type": "string",
+      "description": "Master product ID"
+    },
+    "product_variant_id": {
+      "type": "string",
+      "description": "Incremental product variant ID (e.g., PV0001, PV0002)",
+      "indexed": true
+    },
+    "variant_sku": {
+      "type": "string",
+      "description": "Variant SKU code"
+    },
+    "variant_name": {
+      "type": "string",
+      "description": "Variant name (e.g., Space Gray 256GB 16GB RAM)"
+    },
+    "condition": {
+      "type": "string",
+      "enum": [
+        "Brand New",
+        "Certified Pre-Owned"
+      ],
+      "default": "Brand New",
+      "description": "Product condition"
+    },
+    "attributes": {
+      "type": "object",
+      "description": "Flexible attributes per product (e.g., RAM, Storage, Color, CPU, GPU)"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": []
+}

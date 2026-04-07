@@ -68,7 +68,11 @@ export function getAdminNavSections() {
                     href: route('brands.index'),
                     active: route().current('brands.*'),
                 },
-                { label: 'Categories', href: route('dashboard') },
+                {
+                    label: 'Categories',
+                    href: route('categories.index'),
+                    active: route().current('categories.*'),
+                },
             ],
         },
         {

@@ -1,0 +1,29 @@
+{
+  "name": "PaymentType",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "cash",
+        "card",
+        "ewallet",
+        "financing",
+        "bank_transfer",
+        "cheque"
+      ],
+      "description": "Payment type classification"
+    },
+    "logo": {
+      "type": "string"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": []
+}

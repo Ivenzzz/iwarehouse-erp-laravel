@@ -1,0 +1,101 @@
+{
+  "name": "LogisticsCompanies",
+  "type": "object",
+  "properties": {
+    "company_profile": {
+      "type": "object",
+      "description": "Core company identity and status",
+      "properties": {
+        "legal_name": {
+          "type": "string",
+          "description": "Official registered company name"
+        },
+        "trade_name": {
+          "type": "string",
+          "description": "Brand or trading name"
+        },
+        "company_type": {
+          "type": "string",
+          "enum": [
+            "Courier",
+            "Freight Forwarder",
+            "Trucking",
+            "Shipping Line",
+            "Air Cargo",
+            "Third-Party Logistics",
+            "Last-Mile Delivery"
+          ],
+          "description": "Primary logistics company type"
+        },
+        "business_classification": {
+          "type": "string",
+          "enum": [
+            "Corporation",
+            "Partnership",
+            "Sole Proprietor"
+          ],
+          "description": "Legal business classification"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "Active",
+            "On-Hold",
+            "Blacklisted",
+            "Archived"
+          ],
+          "default": "Active",
+          "description": "Current company status"
+        }
+      }
+    },
+    "contact_details": {
+      "type": "object",
+      "description": "Primary contact information",
+      "properties": {
+        "main_contact_person": {
+          "type": "string"
+        },
+        "position_department": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "mobile_landline": {
+          "type": "string"
+        },
+        "preferred_channel": {
+          "type": "string",
+          "enum": [
+            "Email",
+            "Phone",
+            "WhatsApp",
+            "Viber",
+            "SMS",
+            "Facebook Messenger"
+          ]
+        }
+      }
+    },
+    "addresses": {
+      "type": "object",
+      "description": "Operational and billing addresses",
+      "properties": {
+        "head_office_address": {
+          "type": "string"
+        },
+        "billing_address": {
+          "type": "string"
+        },
+        "pickup_address": {
+          "type": "string"
+        },
+        "returns_address": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "required": []
+}

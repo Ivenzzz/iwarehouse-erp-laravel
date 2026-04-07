@@ -1,0 +1,148 @@
+{
+  "name": "Inventory",
+  "type": "object",
+  "properties": {
+    "product_master_id": {
+      "type": "string",
+      "description": "Product Master ID"
+    },
+    "variant_id": {
+      "type": "string",
+      "description": "Variant ID"
+    },
+    "warehouse_id": {
+      "type": "string",
+      "description": "Current Warehouse ID where the item physically resides"
+    },
+    "quantity": {
+      "type": "number",
+      "default": 1
+    },
+    "imei1": {
+      "type": "string",
+      "description": "IMEI 1"
+    },
+    "imei2": {
+      "type": "string",
+      "description": "IMEI 2"
+    },
+    "serial_number": {
+      "type": "string",
+      "description": "Serial number"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "available",
+        "transfer",
+        "sold",
+        "quality_check",
+        "rma",
+        "returned_to_supplier",
+        "lost",
+        "in_transit",
+        "bundled"
+      ],
+      "default": "available",
+      "description": "Current status of the inventory item"
+    },
+    "cost_price": {
+      "type": "number"
+    },
+    "cash_price": {
+      "type": "number",
+      "description": "Cash selling price"
+    },
+    "srp": {
+      "type": "number",
+      "description": "Suggested retail price"
+    },
+    "package": {
+      "type": "string",
+      "description": "Package description or inclusions"
+    },
+    "warranty_description": {
+      "type": "string",
+      "description": "Warranty description"
+    },
+    "cpu": {
+      "type": "string",
+      "description": "CPU / Processor info"
+    },
+    "gpu": {
+      "type": "string",
+      "description": "GPU / Graphics info"
+    },
+    "submodel": {
+      "type": "string"
+    },
+    "ram_type": {
+      "type": "string"
+    },
+    "rom_type": {
+      "type": "string"
+    },
+    "ram_slots": {
+      "type": "string"
+    },
+    "product_type": {
+      "type": "string"
+    },
+    "country_model": {
+      "type": "string"
+    },
+    "with_charger": {
+      "type": "boolean",
+      "default": false
+    },
+    "resolution": {
+      "type": "string"
+    },
+    "logs": {
+      "type": "array",
+      "default": [],
+      "description": "Flexible log of all lifecycle events (Transfers, Sales, Returns, Adjustments)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Exact time the event occurred"
+          },
+          "action": {
+            "type": "string",
+            "description": "The type of event (e.g., 'TRANSFER_OUT', 'SALE', 'STATUS_CHANGE', 'GRN', 'RMA_IN')"
+          },
+          "actor_id": {
+            "type": "string",
+            "description": "UUID of the user who performed the action"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Human-readable remarks or notes"
+          }
+        },
+        "required": [
+          "timestamp",
+          "action"
+        ]
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the inventory record was created"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the inventory record was last updated"
+    }
+  },
+  "required": [
+    "product_master_id",
+    "warehouse_id",
+    "status"
+  ]
+}

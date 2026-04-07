@@ -1,0 +1,104 @@
+{
+  "name": "StockRequest",
+  "type": "object",
+  "properties": {
+    "request_number": {
+      "type": "string",
+      "description": "Unique request number (auto-generated)"
+    },
+    "branch_id": {
+      "type": "string",
+      "description": "Requesting branch/store ID"
+    },
+    "requestor_id": {
+      "type": "string",
+      "description": "User who created the request"
+    },
+    "required_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When items are needed"
+    },
+    "purpose": {
+      "type": "string",
+      "enum": [
+        "Replenishment",
+        "Display Refill",
+        "Fast-Moving Refill",
+        "Customer Reservation",
+        "Pre-Event Stock",
+        "New Store Opening",
+        "Other"
+      ],
+      "default": "Replenishment"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "variant_id": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "declined",
+        "rfq_created",
+        "stock_transfer_created",
+        "split_operation_created"
+      ],
+      "default": "pending"
+    },
+    "status_history": {
+      "type": "array",
+      "description": "History of status changes with timestamps",
+      "items": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "actor_id": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the request was created"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the request was last updated"
+    }
+  },
+  "required": [
+    "branch_id",
+    "required_date",
+    "purpose"
+  ]
+}

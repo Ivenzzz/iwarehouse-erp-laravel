@@ -1,0 +1,63 @@
+{
+  "name": "BankStatementLine",
+  "type": "object",
+  "properties": {
+    "statement_line_id": {
+      "type": "string",
+      "description": "System-generated unique identifier"
+    },
+    "bank_account_id": {
+      "type": "string",
+      "description": "Reference to bank account"
+    },
+    "bank_account_name": {
+      "type": "string"
+    },
+    "transaction_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "value_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "description": {
+      "type": "string"
+    },
+    "reference": {
+      "type": "string"
+    },
+    "debit_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "credit_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "running_balance": {
+      "type": "number"
+    },
+    "match_status": {
+      "type": "string",
+      "enum": [
+        "UNMATCHED",
+        "MATCHED",
+        "EXCEPTION"
+      ],
+      "default": "UNMATCHED"
+    },
+    "import_batch_id": {
+      "type": "string"
+    },
+    "imported_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "bank_account_id",
+    "transaction_date",
+    "description"
+  ]
+}

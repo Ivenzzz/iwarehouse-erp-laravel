@@ -1,0 +1,77 @@
+{
+  "name": "StockRequestApproval",
+  "type": "object",
+  "properties": {
+    "sr_id": {
+      "type": "string",
+      "description": "Related Stock Request ID"
+    },
+    "approval_data": {
+      "type": "object",
+      "description": "Approval details including admin info, action taken, and item adjustments",
+      "properties": {
+        "approver_id": {
+          "type": "string"
+        },
+        "approver_name": {
+          "type": "string"
+        },
+        "approval_date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "declined",
+            "rfq_created",
+            "stock_transfer_created",
+            "split_operation_created"
+          ]
+        },
+        "notes": {
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "description": "Items with original and approved quantities",
+          "items": {
+            "type": "object",
+            "properties": {
+              "variant_id": {
+                "type": "string"
+              },
+              "original_quantity": {
+                "type": "number"
+              },
+              "approved_quantity": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      }
+    },
+    "result_references": {
+      "type": "array",
+      "description": "References to created downstream records such as RFQs, stock transfers, or split operations",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "rfq",
+              "stock_transfer",
+              "split_operation"
+            ]
+          },
+          "reference_number": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "required": []
+}

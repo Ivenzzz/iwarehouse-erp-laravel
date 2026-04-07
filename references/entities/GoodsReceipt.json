@@ -1,0 +1,144 @@
+{
+  "name": "GoodsReceipt",
+  "type": "object",
+  "properties": {
+    "grn_number": {
+      "type": "string",
+      "description": "Goods receipt number"
+    },
+    "dr_id": {
+      "type": "string",
+      "description": "Related delivery receipt ID"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ongoing",
+        "completed",
+        "completed_with_discrepancy"
+      ],
+      "default": "ongoing"
+    },
+    "total_amount": {
+      "type": "number",
+      "description": "Total value of all received items"
+    },
+    "discrepancy_info": {
+      "type": "object",
+      "description": "Discrepancy summary for the entire goods receipt",
+      "properties": {
+        "has_discrepancy": {
+          "type": "boolean",
+          "default": false
+        },
+        "discrepancy_summary": {
+          "type": "string"
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    },
+    "items": {
+      "type": "array",
+      "description": "Each entry represents one individually received item with its own spec",
+      "items": {
+        "type": "object",
+        "properties": {
+          "variant_id": {
+            "type": "string",
+            "description": "Product variant ID"
+          },
+          "identifiers": {
+            "type": "object",
+            "description": "Unique identifiers for this specific item",
+            "properties": {
+              "serial_number": {
+                "type": "string"
+              },
+              "imei1": {
+                "type": "string"
+              },
+              "imei2": {
+                "type": "string"
+              }
+            }
+          },
+          "package": {
+            "type": "string",
+            "description": "Package/bundle type for this item"
+          },
+          "warranty": {
+            "type": "string",
+            "description": "Warranty information for this item"
+          },
+          "pricing": {
+            "type": "object",
+            "properties": {
+              "cost_price": {
+                "type": "number"
+              },
+              "cash_price": {
+                "type": "number"
+              },
+              "srp": {
+                "type": "number"
+              }
+            }
+          },
+          "spec": {
+            "type": "object",
+            "description": "Technical specifications for this exact received item",
+            "properties": {
+              "cpu": {
+                "type": "string"
+              },
+              "gpu": {
+                "type": "string"
+              },
+              "submodel": {
+                "type": "string"
+              },
+              "ram_type": {
+                "type": "string"
+              },
+              "rom_type": {
+                "type": "string"
+              },
+              "ram_slots": {
+                "type": "string"
+              },
+              "product_type": {
+                "type": "string"
+              },
+              "country_model": {
+                "type": "string"
+              },  
+              "with_charger": {
+                "type": "boolean",
+                "default": false
+              },
+              "resolution": {
+                "type": "string"
+              }
+            }
+          },
+          "item_notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the goods receipt was created"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the goods receipt was last updated"
+    }
+  },
+  "required": []
+}

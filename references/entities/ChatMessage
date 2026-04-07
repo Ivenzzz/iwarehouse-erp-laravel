@@ -1,0 +1,86 @@
+{
+  "name": "ChatMessage",
+  "type": "object",
+  "properties": {
+    "entity_id": {
+      "type": "string",
+      "description": "ID of the related entity (e.g., stock_request_id, order_id)"
+    },
+    "entity_type": {
+      "type": "string",
+      "description": "Type of entity (e.g., 'stock_request', 'purchase_order')"
+    },
+    "sender_id": {
+      "type": "string",
+      "description": "User ID of the sender"
+    },
+    "sender_name": {
+      "type": "string",
+      "description": "Name of the sender"
+    },
+    "sender_email": {
+      "type": "string",
+      "description": "Email of the sender"
+    },
+    "message": {
+      "type": "string",
+      "description": "Message content"
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "file_name": {
+            "type": "string"
+          },
+          "file_url": {
+            "type": "string"
+          },
+          "file_size": {
+            "type": "number"
+          },
+          "file_type": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Attached files with metadata"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the message was sent"
+    },
+    "read_by": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Array of user IDs who have read this message"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "sent",
+        "delivered",
+        "read"
+      ],
+      "default": "sent",
+      "description": "Message delivery status"
+    },
+    "is_typing": {
+      "type": "boolean",
+      "default": false,
+      "description": "Typing indicator flag"
+    }
+  },
+  "required": [
+    "entity_id",
+    "entity_type",
+    "sender_id",
+    "sender_name",
+    "message",
+    "timestamp"
+  ]
+}

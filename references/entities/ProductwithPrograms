@@ -1,0 +1,87 @@
+{
+  "name": "ProductwithPrograms",
+  "type": "object",
+  "properties": {
+    "program_id": {
+      "type": "string",
+      "description": "Reference to Programs entity"
+    },
+    "variant_id": {
+      "type": "string",
+      "description": "Reference to ProductVariant entity"
+    },
+    "program_details_json": {
+      "type": "object",
+      "description": "Detailed program information for this product variant",
+      "properties": {
+        "program_name": {
+          "type": "string"
+        },
+        "variant_name": {
+          "type": "string"
+        },
+        "variant_sku": {
+          "type": "string"
+        },
+        "master_sku": {
+          "type": "string"
+        },
+        "start_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "end_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "payment_methods": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "payment_type_id": {
+                "type": "string"
+              },
+              "payment_type_name": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "loan_terms": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "term_months": {
+                      "type": "number",
+                      "description": "0 for Straight, 6/12/etc for installments"
+                    },
+                    "mdr_percent": {
+                      "type": "number",
+                      "description": "MDR percentage for Straight payments"
+                    },
+                    "dealer_share_percent": {
+                      "type": "number"
+                    },
+                    "brand_subsidy_percent": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "program_id",
+    "variant_id"
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "name": "Employee",
+  "type": "object",
+  "properties": {
+    "employee_code": {
+      "type": "string",
+      "description": "Unique employee identifier"
+    },
+    "personal_info": {
+      "type": "object",
+      "description": "Personal information",
+      "properties": {
+        "first_name": {
+          "type": "string"
+        },
+        "middle_name": {
+          "type": "string"
+        },
+        "last_name": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        }
+      }
+    },
+    "employment_info": {
+      "type": "object",
+      "description": "Employment details",
+      "properties": {
+        "department_id": {
+          "type": "string"
+        },
+        "job_title_id": {
+          "type": "string"
+        },
+        "hire_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "employment_type": {
+          "type": "string",
+          "enum": [
+            "Full-Time",
+            "Part-Time",
+            "Contract"
+          ]
+        },
+        "warehouse_id": {
+          "type": "string"
+        },
+        "oic_password": {
+          "type": "string",
+          "description": "OIC password for sales operations (only for OIC role)"
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Active",
+        "Inactive",
+        "Terminated"
+      ],
+      "default": "Active"
+    }
+  },
+  "required": [
+    "employee_code",
+    "personal_info"
+  ]
+}

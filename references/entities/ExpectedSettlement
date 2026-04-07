@@ -1,0 +1,56 @@
+{
+  "name": "ExpectedSettlement",
+  "type": "object",
+  "properties": {
+    "expected_settlement_id": {
+      "type": "string",
+      "description": "System-generated unique identifier"
+    },
+    "tender_id": {
+      "type": "string",
+      "description": "Reference to POSTenderFeed"
+    },
+    "control_account_type": {
+      "type": "string",
+      "enum": [
+        "CASH_IN_TILL",
+        "CARD_CLEARING",
+        "WALLET_CLEARING",
+        "FINANCING_RECEIVABLE"
+      ]
+    },
+    "expected_amount": {
+      "type": "number"
+    },
+    "expected_settlement_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "settlement_status": {
+      "type": "string",
+      "enum": [
+        "OPEN",
+        "SETTLED",
+        "OVERDUE"
+      ],
+      "default": "OPEN"
+    },
+    "matched_statement_line_id": {
+      "type": "string",
+      "description": "Reference to BankStatementLine when matched"
+    },
+    "settled_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "settled_by": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "tender_id",
+    "control_account_type",
+    "expected_amount",
+    "expected_settlement_date"
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "name": "POSSession",
+  "type": "object",
+  "properties": {
+    "session_number": {
+      "type": "string",
+      "description": "Unique session number (auto-generated)"
+    },
+    "cashier_id": {
+      "type": "string",
+      "description": "Cashier user ID"
+    },
+    "warehouse_id": {
+      "type": "string",
+      "description": "Store/Terminal location"
+    },
+    "opening_balance": {
+      "type": "number",
+      "description": "Cash float at shift start"
+    },
+    "closing_balance": {
+      "type": "number",
+      "description": "Cash at shift end"
+    },
+    "shift_start_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When shift started"
+    },
+    "shift_end_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When shift ended"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "opened",
+        "closed"
+      ],
+      "default": "opened",
+      "description": "Session status"
+    },
+    "cashier_remarks": {
+      "type": "string",
+      "description": "Cashier's remarks on turnover"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": []
+}

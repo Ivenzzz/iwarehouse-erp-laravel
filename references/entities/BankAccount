@@ -1,0 +1,42 @@
+{
+  "name": "BankAccount",
+  "type": "object",
+  "properties": {
+    "account_name": {
+      "type": "string",
+      "description": "Display name for the bank account"
+    },
+    "bank_name": {
+      "type": "string"
+    },
+    "account_number": {
+      "type": "string"
+    },
+    "account_type": {
+      "type": "string",
+      "enum": [
+        "CHECKING",
+        "SAVINGS",
+        "SETTLEMENT"
+      ],
+      "default": "CHECKING"
+    },
+    "currency": {
+      "type": "string",
+      "default": "PHP"
+    },
+    "gl_account_code": {
+      "type": "string",
+      "description": "General ledger account code"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "account_name",
+    "bank_name",
+    "account_number"
+  ]
+}

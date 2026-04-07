@@ -1,0 +1,34 @@
+{
+  "name": "CompanyInfo",
+  "type": "object",
+  "properties": {
+    "company_name": {
+      "type": "string"
+    },
+    "legal_name": {
+      "type": "string"
+    },
+    "tax_id": {
+      "type": "string",
+      "description": "Tax identification number"
+    },
+    "address": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "website": {
+      "type": "string"
+    },
+    "logo_url": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "company_name"
+  ]
+}

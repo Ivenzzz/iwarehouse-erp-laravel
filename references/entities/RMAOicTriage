@@ -1,0 +1,127 @@
+{
+  "name": "RMAOicTriage",
+  "type": "object",
+  "properties": {
+    "rma_ticket_id": {
+      "type": "string",
+      "description": "Reference to RMATickets entity"
+    },
+    "receive_crosscheck_data": {
+      "type": "object",
+      "description": "JSON storing receive/cross-check info (invoice, customer, items read-only context)",
+      "additionalProperties": true
+    },
+    "triage_items": {
+      "type": "array",
+      "description": "Per-item triage data including inspection, diagnosis, and decisions",
+      "items": {
+        "type": "object",
+        "properties": {
+          "inventory_id": {
+            "type": "string"
+          },
+          "inspection_data": {
+            "type": "object",
+            "description": "Inspection data: complaint verification, physical condition checklist, functional tests, damage markers",
+            "additionalProperties": true
+          },
+          "diagnosis_summary": {
+            "type": "object",
+            "description": "Technician diagnosis summary",
+            "properties": {
+              "initial_findings": {
+                "type": "string"
+              },
+              "suspected_issue": {
+                "type": "string"
+              },
+              "recommended_action": {
+                "type": "string"
+              }
+            }
+          },
+          "rma_decision": {
+            "type": "object",
+            "description": "RMA acceptance decision",
+            "properties": {
+              "accepted_for_rma": {
+                "type": "boolean"
+              },
+              "rejection_reason": {
+                "type": "string"
+              }
+            }
+          },
+          "customer_acknowledgment": {
+            "type": "object",
+            "properties": {
+              "customer_name": {
+                "type": "string"
+              },
+              "technician_name": {
+                "type": "string"
+              },
+              "customer_signature_url": {
+                "type": "string"
+              },
+              "received_date_time": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      }
+    },
+    "overall_recommendation": {
+      "type": "string",
+      "enum": [
+        "valid_rma",
+        "customer_damage",
+        "no_issue_found",
+        "for_service_center",
+        "mixed"
+      ],
+      "description": "Overall OIC recommendation for the RMA ticket"
+    },
+    "overall_notes": {
+      "type": "string",
+      "description": "Overall notes for the RMA"
+    },
+    "customer_name": {
+      "type": "string",
+      "description": "Customer name from acknowledgment"
+    },
+    "oic_user_id": {
+      "type": "string",
+      "description": "User ID of OIC who performed inspection"
+    },
+    "oic_user_email": {
+      "type": "string",
+      "description": "Email of OIC who performed inspection"
+    },
+    "oic_user_name": {
+      "type": "string",
+      "description": "Name of OIC who performed inspection"
+    },
+    "triage_started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "triage_completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "in_progress",
+        "completed"
+      ],
+      "default": "in_progress"
+    }
+  },
+  "required": [
+    "rma_ticket_id"
+  ]
+}

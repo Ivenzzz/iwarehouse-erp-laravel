@@ -5,8 +5,65 @@ import {
 } from '@/shared/components/ui/collapsible';
 import { Link } from '@inertiajs/react';
 import { ChevronRight } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
-export default function SidebarNav({ sections }) {
+const SIDEBAR_STATE_KEY = 'iwarehouse:admin-sidebar:sections';
+
+function getDefaultOpenSections(sections) {
+    return sections.reduce((openSections, section) => {
+        openSections[section.label] = Boolean(section.defaultOpen);
+
+        return openSections;
+    }, {});
+}
+
+function getStoredOpenSections(sections) {
+    if (typeof window === 'undefined') {
+        return getDefaultOpenSections(sections);
+    }
+
+    try {
+        const storedValue = window.localStorage.getItem(SIDEBAR_STATE_KEY);
+
+        if (!storedValue) {
+            return getDefaultOpenSections(sections);
+        }
+
+        const parsedValue = JSON.parse(storedValue);
+
+        return sections.reduce((openSections, section) => {
+            openSections[section.label] =
+                typeof parsedValue[section.label] === 'boolean'
+                    ? parsedValue[section.label]
+                    : Boolean(section.defaultOpen);
+
+            return openSections;
+        }, {});
+    } catch {
+        return getDefaultOpenSections(sections);
+    }
+}
+
+export default function SidebarNav({ sections, onNavigate }) {
+    const defaultOpenSections = useMemo(() => getDefaultOpenSections(sections), [sections]);
+    const [openSections, setOpenSections] = useState(() => getStoredOpenSections(sections));
+
+    const handleOpenChange = (sectionLabel, isOpen) => {
+        setOpenSections((currentOpenSections) => {
+            const nextOpenSections = {
+                ...defaultOpenSections,
+                ...currentOpenSections,
+                [sectionLabel]: isOpen,
+            };
+
+            if (typeof window !== 'undefined') {
+                window.localStorage.setItem(SIDEBAR_STATE_KEY, JSON.stringify(nextOpenSections));
+            }
+
+            return nextOpenSections;
+        });
+    };
+
     return (
         <div className="space-y-6 px-3">
             <div className="space-y-2">
@@ -16,7 +73,8 @@ export default function SidebarNav({ sections }) {
                     return (
                         <Collapsible
                             key={section.label}
-                            defaultOpen={section.defaultOpen}
+                            open={openSections[section.label] ?? Boolean(section.defaultOpen)}
+                            onOpenChange={(isOpen) => handleOpenChange(section.label, isOpen)}
                             className="group/collapsible"
                         >
                             <CollapsibleTrigger asChild>
@@ -44,6 +102,7 @@ export default function SidebarNav({ sections }) {
                                                 <Link
                                                     key={link.label}
                                                     href={link.href}
+                                                    onBefore={onNavigate}
                                                     className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
                                                         link.active
                                                             ? 'bg-white/8 text-white'

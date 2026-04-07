@@ -73,6 +73,11 @@ export function getAdminNavSections() {
                     href: route('categories.index'),
                     active: route().current('categories.*'),
                 },
+                {
+                    label: 'Suppliers',
+                    href: route('suppliers.index'),
+                    active: route().current('suppliers.*'),
+                },
             ],
         },
         {

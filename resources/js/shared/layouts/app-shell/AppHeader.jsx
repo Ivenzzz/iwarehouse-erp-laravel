@@ -27,7 +27,7 @@ export default function AppHeader({ sections, user, initials }) {
                             <SheetHeader className="sr-only">
                                 <SheetTitle>Navigation</SheetTitle>
                             </SheetHeader>
-                            <SidebarContent sections={sections} />
+                            <SidebarContent sections={sections} storageKey="mobile" />
                         </SheetContent>
                     </Sheet>
                 </div>

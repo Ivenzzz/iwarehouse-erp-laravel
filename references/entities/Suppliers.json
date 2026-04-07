@@ -1,0 +1,67 @@
+{
+    "name": "Supplier",
+    "type": "object",
+    "properties": {
+        "supplier_code": {
+            "type": "string",
+            "description": "Unique supplier identifier, incremental S001, S002, etc."
+        },
+        "legal_business_name": {
+            "type": "string",
+            "description": "Official registered name"
+        },
+        "trade_name": {
+            "type": "string",
+            "description": "Brand/trading name"
+        },
+        "supplier_type": {
+            "type": "string",
+            "enum": [
+                "Manufacturer",
+                "Distributor",
+                "Wholesaler",
+                "Importer",
+                "Service Provider"
+            ],
+            "description": "Type of supplier"
+        },
+        "business_classification": {
+            "type": "string",
+            "enum": ["Corporation", "Partnership", "Sole Proprietor"],
+            "description": "Legal entity type"
+        },
+        "status": {
+            "type": "string",
+            "enum": ["Active", "On-Hold", "Blacklisted", "Archived"],
+            "default": "Active",
+            "description": "Current supplier status"
+        },
+        "contact_details": {
+            "type": "object",
+            "description": "Primary contact information",
+            "properties": {
+                "main_contact_person": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "mobile": {
+                    "type": "string"
+                },
+                "preferred_channel": {
+                    "type": "string",
+                    "enum": [
+                        "Email",
+                        "WhatsApp",
+                        "Viber",
+                        "SMS",
+                        "Facebook Messenger"
+                    ],
+                    "description": "Preferred communication method"
+                }
+            }
+        }
+    },
+    "required": []
+}

@@ -13,7 +13,7 @@ export default function AppShell({ title, children }) {
         <div className="h-screen overflow-hidden bg-[#e9edf5] text-xs text-slate-900">
             <div className="flex h-full">
                 <aside className="hidden h-full w-56 flex-col lg:flex">
-                    <SidebarContent sections={sections} />
+                    <SidebarContent sections={sections} storageKey="desktop" />
                 </aside>
 
                 <div className="flex min-w-0 flex-1 flex-col overflow-hidden text-xs">

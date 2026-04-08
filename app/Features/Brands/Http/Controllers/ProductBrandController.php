@@ -42,6 +42,12 @@ class ProductBrandController extends Controller
 
     public function destroy(ProductBrand $productBrand): RedirectResponse
     {
+        if ($productBrand->models()->whereHas('productMaster')->exists()) {
+            return back()->withErrors([
+                'brand' => 'This brand has models used by product masters and cannot be deleted.',
+            ]);
+        }
+
         $productBrand->delete();
 
         return redirect()->route('brands.index');

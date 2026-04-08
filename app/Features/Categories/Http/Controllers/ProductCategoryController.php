@@ -42,6 +42,18 @@ class ProductCategoryController extends Controller
 
     public function destroy(ProductCategory $productCategory): RedirectResponse
     {
+        $hasProductMasters = $productCategory->productMasters()->exists()
+            || ProductCategory::query()
+                ->where('parent_category_id', $productCategory->id)
+                ->whereHas('productMasters')
+                ->exists();
+
+        if ($hasProductMasters) {
+            return back()->withErrors([
+                'category' => 'This category or its subcategories are used by product masters and cannot be deleted.',
+            ]);
+        }
+
         $productCategory->delete();
 
         return redirect()->route('categories.index');

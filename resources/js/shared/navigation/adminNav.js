@@ -3,9 +3,13 @@ import {
     Home,
     LayoutDashboard,
     Mail,
+    Package2,
     Settings,
     ShieldCheck,
     ShoppingCart,
+    Tags,
+    CreditCard,
+    Truck,
     Warehouse,
 } from 'lucide-react';
 
@@ -21,6 +25,7 @@ export function getAdminNavSections() {
         {
             label: 'Operations',
             icon: ChartColumn,
+            defaultOpen: false,
             links: [
                 { label: 'POS', href: route('dashboard') },
                 { label: 'Daily Sales Reports', href: route('dashboard') },
@@ -33,6 +38,7 @@ export function getAdminNavSections() {
         {
             label: 'Warehouse',
             icon: Warehouse,
+            defaultOpen: false,
             links: [
                 { label: 'Inventory', href: route('dashboard') },
                 { label: 'Stock Transfers', href: route('dashboard') },
@@ -42,6 +48,7 @@ export function getAdminNavSections() {
         {
             label: 'Purchasing',
             icon: ShoppingCart,
+            defaultOpen: false,
             links: [
                 { label: 'Stock Requests', href: route('dashboard') },
                 { label: 'RFQs', href: route('dashboard') },
@@ -53,6 +60,7 @@ export function getAdminNavSections() {
         {
             label: 'Finance',
             icon: Mail,
+            defaultOpen: false,
             links: [
                 { label: '3 Way Matching', href: route('dashboard') },
                 { label: 'Price Control', href: route('dashboard') },
@@ -61,28 +69,44 @@ export function getAdminNavSections() {
         {
             label: 'Master Data',
             icon: LayoutDashboard,
+            defaultOpen: true,
             links: [
-                { label: 'Product Masters', href: route('dashboard') },
+                {
+                    label: 'Product Masters',
+                    href: route('product-masters.index'),
+                    active: route().current('product-masters.*'),
+                    icon: Package2,
+                },
                 {
                     label: 'Brands',
                     href: route('brands.index'),
                     active: route().current('brands.*'),
+                    icon: Tags,
                 },
                 {
                     label: 'Categories',
                     href: route('categories.index'),
                     active: route().current('categories.*'),
+                    icon: Tags,
                 },
                 {
                     label: 'Suppliers',
                     href: route('suppliers.index'),
                     active: route().current('suppliers.*'),
+                    icon: Truck,
+                },
+                {
+                    label: 'Payment Methods',
+                    href: route('payment-methods.index'),
+                    active: route().current('payment-methods.*'),
+                    icon: CreditCard,
                 },
             ],
         },
         {
             label: 'Settings',
             icon: Settings,
+            defaultOpen: false,
             links: [
                 { label: 'General', href: route('dashboard') },
                 { label: 'Companies', href: route('dashboard') },

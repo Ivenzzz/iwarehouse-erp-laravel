@@ -1,5 +1,5 @@
 {
-  "name": "PaymentType",
+  "name": "PaymentMethods",
   "type": "object",
   "properties": {
     "name": {
@@ -13,16 +13,13 @@
         "ewallet",
         "financing",
         "bank_transfer",
-        "cheque"
+        "cheque",
+        "others"
       ],
       "description": "Payment type classification"
     },
     "logo": {
       "type": "string"
-    },
-    "is_active": {
-      "type": "boolean",
-      "default": true
     }
   },
   "required": []

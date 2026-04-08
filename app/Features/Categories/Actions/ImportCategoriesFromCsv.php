@@ -2,6 +2,7 @@
 
 namespace App\Features\Categories\Actions;
 
+use App\Features\ProductMasters\Actions\SyncCategoryVariantAttributes;
 use App\Models\ProductCategory;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -10,6 +11,10 @@ use Illuminate\Validation\ValidationException;
 
 class ImportCategoriesFromCsv
 {
+    public function __construct(
+        private readonly SyncCategoryVariantAttributes $syncCategoryVariantAttributes,
+    ) {}
+
     public function handle(UploadedFile $file): string
     {
         $handle = fopen($file->getRealPath(), 'r');
@@ -112,6 +117,8 @@ class ImportCategoriesFromCsv
                         ]);
                     }
 
+                    $this->syncCategoryVariantAttributes->handle($category);
+
                     $categoryCache[$categoryKey] = $category;
 
                     if ($category->wasRecentlyCreated) {
@@ -137,6 +144,8 @@ class ImportCategoriesFromCsv
                         'parent_category_id' => $category->id,
                     ]);
                 }
+
+                $this->syncCategoryVariantAttributes->handle($subcategory);
 
                 if ($subcategory->wasRecentlyCreated) {
                     $summary['subcategories_created']++;

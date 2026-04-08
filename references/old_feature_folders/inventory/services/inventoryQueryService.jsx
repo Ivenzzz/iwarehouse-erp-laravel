@@ -1,0 +1,279 @@
+import { base44 } from "@/api/base44Client";
+import {
+  buildSearchableRecord,
+  matchesSearchTokens,
+  tokenizeInventorySearch,
+} from "./inventorySearchService";
+
+const INVENTORY_TIME_ZONE = "Asia/Manila";
+const HAS_TIME_ZONE_SUFFIX = /(Z|[+-]\d{2}:\d{2})$/i;
+const INVENTORY_DATE_FORMATTER = new Intl.DateTimeFormat("en-CA", {
+  timeZone: INVENTORY_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+});
+
+export const INVENTORY_FETCH_LIMIT = 5000;
+export const INVENTORY_EXACT_LOOKUP_LIMIT = 20;
+
+export const STOCK_AGE_OPTIONS = [
+  { value: "all", label: "All Stock Age" },
+  { value: "today", label: "Today" },
+  { value: "1-7", label: "1-7 days" },
+  { value: "8-30", label: "8-30 days" },
+  { value: "31-60", label: "31-60 days" },
+  { value: "61-90", label: "61-90 days" },
+  { value: "90+", label: "90+ days" },
+];
+
+const SORT_FIELD_MAP = {
+  created_date: "created_date",
+  cost_price: "cost_price",
+  cash_price: "cash_price",
+  srp: "srp",
+  status: "status",
+};
+
+const DEFAULT_SORT = [{ id: "created_date", desc: true }];
+
+const parseInventoryDate = (dateString) => {
+  if (!dateString) return null;
+
+  const normalized = String(dateString).trim();
+  if (!normalized) return null;
+
+  const safeDateString = HAS_TIME_ZONE_SUFFIX.test(normalized)
+    ? normalized
+    : `${normalized}Z`;
+
+  const date = new Date(safeDateString);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const getZonedTimestamp = (dateString) => {
+  const date = dateString instanceof Date ? dateString : parseInventoryDate(dateString);
+  if (!date) return null;
+
+  const parts = INVENTORY_DATE_FORMATTER.formatToParts(date);
+  const getPart = (type) => parts.find((part) => part.type === type)?.value;
+
+  return Date.UTC(
+    Number(getPart("year")),
+    Number(getPart("month")) - 1,
+    Number(getPart("day")),
+    Number(getPart("hour")),
+    Number(getPart("minute")),
+    Number(getPart("second"))
+  );
+};
+
+export const calculateDetailedStockAge = (encodedDate) => {
+  if (!encodedDate) return { display: "N/A", days: 0 };
+
+  const encodedTs = getZonedTimestamp(encodedDate);
+  const nowTs = getZonedTimestamp(new Date());
+  if (encodedTs === null || nowTs === null) return { display: "N/A", days: 0 };
+
+  const diffMs = nowTs - encodedTs;
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 1) {
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+    if (diffHours > 0) return { display: `${diffHours}h ${diffMinutes}m`, days: 0 };
+    return { display: `${diffMinutes}m`, days: 0 };
+  }
+
+  if (diffDays === 1) return { display: "Yesterday", days: 1 };
+  return { display: `${diffDays} days`, days: diffDays };
+};
+
+const matchesStockAgeFilter = (days, stockAgeFilter) => {
+  if (stockAgeFilter === "all") return true;
+
+  switch (stockAgeFilter) {
+    case "today":
+      return days === 0;
+    case "1-7":
+      return days >= 1 && days <= 7;
+    case "8-30":
+      return days >= 8 && days <= 30;
+    case "31-60":
+      return days >= 31 && days <= 60;
+    case "61-90":
+      return days >= 61 && days <= 90;
+    case "90+":
+      return days >= 90;
+    default:
+      return true;
+  }
+};
+
+export const createDefaultInventoryFilters = () => ({
+  search: "",
+  location: "all",
+  status: "all",
+  category: "all",
+  brand: "all",
+  condition: "all",
+  stockAge: "all",
+  sorting: DEFAULT_SORT,
+});
+
+export const isExactInventoryIdSearch = (query) => {
+  const trimmed = String(query || "").trim();
+  if (!trimmed || trimmed.includes(" ")) return false;
+
+  if (trimmed.length < 8) return false;
+
+  return /^[A-Za-z0-9-]+$/.test(trimmed);
+};
+
+export const enrichInventoryItems = ({
+  items = [],
+  productMasters = [],
+  variants = [],
+  warehouses = [],
+  brands = [],
+}) => {
+  const pmMap = new Map(productMasters.map((item) => [item.id, item]));
+  const variantMap = new Map(variants.map((item) => [item.id, item]));
+  const warehouseMap = new Map(warehouses.map((item) => [item.id, item]));
+  const brandMap = new Map(brands.map((item) => [item.id, item]));
+
+  return items.map((item) => {
+    const pm = pmMap.get(item.product_master_id);
+    const variant = variantMap.get(item.variant_id);
+    const warehouse = warehouseMap.get(item.warehouse_id);
+    const stockAgeData = calculateDetailedStockAge(item.created_date);
+    const brand = pm ? brandMap.get(pm.brand_id) : null;
+
+    const enrichedItem = {
+      ...item,
+      productName: variant?.variant_name || "",
+      brandName: brand?.name || "",
+      masterModel: pm?.model || "",
+      warehouseName: warehouse?.name || "N/A",
+      barcode: [item.imei1, item.imei2, item.serial_number].filter(Boolean).join(" "),
+      stockAgeDisplay: stockAgeData.display,
+      stockAgeDays: stockAgeData.days,
+      brandId: pm?.brand_id || null,
+      categoryId: pm?.category_id || null,
+      variantCondition: variant?.condition || null,
+      cpu: item.cpu || pm?.fixed_specifications?.platform_cpu || "",
+      gpu: item.gpu || pm?.fixed_specifications?.platform_gpu || "",
+      attrRAM: variant?.attributes?.RAM || variant?.attributes?.ram || "",
+      attrROM: variant?.attributes?.ROM || variant?.attributes?.rom || variant?.attributes?.Storage || variant?.attributes?.storage || "",
+      attrColor: variant?.attributes?.Color || variant?.attributes?.color || "",
+      _variantAttributes: variant?.attributes || {},
+    };
+
+    return {
+      ...enrichedItem,
+      _searchRecord: buildSearchableRecord(enrichedItem),
+    };
+  });
+};
+
+export const applyClientInventoryFilters = ({ items = [], filters }) => {
+  const search = filters.search?.trim() || "";
+  const searchTokens = search ? tokenizeInventorySearch(search) : [];
+
+  return items.filter((item) => {
+    if (searchTokens.length > 0) {
+      const record = item._searchRecord || buildSearchableRecord(item);
+      if (!matchesSearchTokens(record, searchTokens)) return false;
+    }
+
+    if (filters.location !== "all" && item.warehouse_id !== filters.location) return false;
+    if (filters.status !== "all" && item.status !== filters.status) return false;
+    if (filters.category !== "all" && item.categoryId !== filters.category) return false;
+    if (filters.brand !== "all" && item.brandId !== filters.brand) return false;
+    if (filters.condition !== "all" && item.variantCondition !== filters.condition) return false;
+    if (!matchesStockAgeFilter(item.stockAgeDays, filters.stockAge)) return false;
+
+    return true;
+  });
+};
+
+export const matchesBrowseFiltersWithoutSearch = (item, filters) => {
+  if (filters.location !== "all" && item.warehouse_id !== filters.location) return false;
+  if (filters.status !== "all" && item.status !== filters.status) return false;
+  if (filters.category !== "all" && item.categoryId !== filters.category) return false;
+  if (filters.brand !== "all" && item.brandId !== filters.brand) return false;
+  if (filters.condition !== "all" && item.variantCondition !== filters.condition) return false;
+  if (!matchesStockAgeFilter(item.stockAgeDays, filters.stockAge)) return false;
+
+  return true;
+};
+
+export const buildInventorySortParam = (sorting = DEFAULT_SORT) => {
+  const activeSort = Array.isArray(sorting) && sorting.length > 0 ? sorting[0] : DEFAULT_SORT[0];
+  const mappedField = SORT_FIELD_MAP[activeSort?.id];
+
+  if (!mappedField) {
+    return "-created_date";
+  }
+
+  return activeSort?.desc ? `-${mappedField}` : mappedField;
+};
+
+export const fetchInventoryPage = async ({ skip = 0, limit = INVENTORY_FETCH_LIMIT } = {}) =>
+  base44.entities.Inventory.list("-created_date", limit, skip);
+
+export const fetchAllFilteredInventory = async ({
+  filters,
+  productMasters = [],
+  variants = [],
+  warehouses = [],
+  brands = [],
+}) => {
+  const allItems = [];
+  let skip = 0;
+
+  while (true) {
+    const page = await fetchInventoryPage({ skip, limit: INVENTORY_FETCH_LIMIT });
+    if (!page?.length) {
+      break;
+    }
+
+    allItems.push(...page);
+    skip += page.length;
+
+    if (page.length < INVENTORY_FETCH_LIMIT) {
+      break;
+    }
+  }
+
+  const enriched = enrichInventoryItems({
+    items: allItems,
+    productMasters,
+    variants,
+    warehouses,
+    brands,
+  });
+
+  return applyClientInventoryFilters({ items: enriched, filters });
+};
+
+export const searchInventoryExactMatches = async ({
+  search,
+  sorting = DEFAULT_SORT,
+  limit = INVENTORY_EXACT_LOOKUP_LIMIT,
+}) => {
+  const response = await base44.functions.invoke("searchInventory", {
+    search,
+    exact: true,
+    sort: buildInventorySortParam(sorting),
+    limit,
+    skip: 0,
+  });
+
+  return response?.data || response || { rows: [], total: 0, hasMore: false };
+};

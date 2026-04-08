@@ -15,6 +15,9 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->call(ProductSpecDefinitionSeeder::class);
+        $this->call(ProductVariantAttributeSeeder::class);
+
         User::updateOrCreate([
             'username' => 'admin',
         ], [

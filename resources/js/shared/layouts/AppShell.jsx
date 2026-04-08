@@ -3,11 +3,13 @@ import { getInitials } from '@/shared/layouts/app-shell/getInitials';
 import SidebarContent from '@/shared/layouts/app-shell/SidebarContent';
 import { getAdminNavSections } from '@/shared/navigation/adminNav';
 import { usePage } from '@inertiajs/react';
+import { useMemo } from 'react';
 
 export default function AppShell({ title, children }) {
-    const user = usePage().props.auth.user;
+    const { props, url } = usePage();
+    const user = props.auth.user;
     const initials = getInitials(user.name, user.username);
-    const sections = getAdminNavSections();
+    const sections = useMemo(() => getAdminNavSections(), [url]);
 
     return (
         <div className="h-screen overflow-hidden bg-[#e9edf5] text-xs text-slate-900">

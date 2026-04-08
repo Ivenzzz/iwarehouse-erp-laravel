@@ -48,6 +48,10 @@ class SaveCategoryRequest extends FormRequest
                 $validator->errors()->add('parent_category_id', 'A parent category with subcategories cannot be assigned to another parent.');
             }
 
+            if ($category !== null && $category->productMasters()->exists() && $parentId === null) {
+                $validator->errors()->add('parent_category_id', 'A subcategory used by product masters cannot be converted to a top-level category.');
+            }
+
             if ($parentId !== null) {
                 $parent = ProductCategory::find($parentId);
 

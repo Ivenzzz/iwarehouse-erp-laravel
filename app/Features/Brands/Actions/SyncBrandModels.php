@@ -3,6 +3,7 @@
 namespace App\Features\Brands\Actions;
 
 use App\Models\ProductBrand;
+use Illuminate\Validation\ValidationException;
 
 class SyncBrandModels
 {
@@ -16,6 +17,18 @@ class SyncBrandModels
             ->filter()
             ->map(fn ($id) => (int) $id)
             ->values();
+
+        $protectedModels = $brand->models()
+            ->whereHas('productMaster')
+            ->when($existingIds->isNotEmpty(), fn ($query) => $query->whereNotIn('id', $existingIds))
+            ->when($existingIds->isEmpty(), fn ($query) => $query)
+            ->exists();
+
+        if ($protectedModels) {
+            throw ValidationException::withMessages([
+                'models' => 'Models used by product masters cannot be removed.',
+            ]);
+        }
 
         $brand->models()
             ->when($existingIds->isNotEmpty(), fn ($query) => $query->whereNotIn('id', $existingIds))

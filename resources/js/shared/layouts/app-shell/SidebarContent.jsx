@@ -1,7 +1,7 @@
 import SidebarNav from '@/shared/layouts/app-shell/SidebarNav';
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { Warehouse } from 'lucide-react';
-import { useLayoutEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 const SIDEBAR_SCROLL_KEY_PREFIX = 'iwarehouse:admin-sidebar:scroll-top';
 
@@ -20,10 +20,30 @@ function getStoredScrollTop(storageKey) {
 }
 
 export default function SidebarContent({ sections, storageKey = 'default' }) {
+    const { url } = usePage();
     const scrollContainerRef = useRef(null);
     const storageKeyRef = useRef(storageKey);
+    const restoreFrameIdsRef = useRef([]);
+    const restoreTimeoutIdsRef = useRef([]);
+    const [restoreVersion, setRestoreVersion] = useState(0);
 
-    const persistScrollTop = () => {
+    const clearRestoreWork = useCallback(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        restoreFrameIdsRef.current.forEach((animationFrameId) => {
+            window.cancelAnimationFrame(animationFrameId);
+        });
+        restoreTimeoutIdsRef.current.forEach((timeoutId) => {
+            window.clearTimeout(timeoutId);
+        });
+
+        restoreFrameIdsRef.current = [];
+        restoreTimeoutIdsRef.current = [];
+    }, []);
+
+    const persistScrollTop = useCallback(() => {
         const scrollContainer = scrollContainerRef.current;
 
         if (!scrollContainer || typeof window === 'undefined') {
@@ -34,7 +54,43 @@ export default function SidebarContent({ sections, storageKey = 'default' }) {
             getScrollStorageKey(storageKeyRef.current),
             String(scrollContainer.scrollTop),
         );
-    };
+    }, []);
+
+    const scheduleRestoreScrollTop = useCallback(() => {
+        const scrollContainer = scrollContainerRef.current;
+
+        if (!scrollContainer || typeof window === 'undefined') {
+            return;
+        }
+
+        clearRestoreWork();
+
+        const restoreScrollTop = () => {
+            scrollContainer.scrollTop = getStoredScrollTop(storageKeyRef.current);
+        };
+
+        restoreScrollTop();
+
+        [1, 2, 3, 4, 5, 8].forEach(() => {
+            const animationFrameId = window.requestAnimationFrame(() => {
+                restoreScrollTop();
+            });
+
+            restoreFrameIdsRef.current.push(animationFrameId);
+        });
+
+        [50, 150, 300, 500].forEach((delay) => {
+            const timeoutId = window.setTimeout(() => {
+                restoreScrollTop();
+            }, delay);
+
+            restoreTimeoutIdsRef.current.push(timeoutId);
+        });
+    }, [clearRestoreWork]);
+
+    const handleSidebarLayoutChange = useCallback(() => {
+        setRestoreVersion((current) => current + 1);
+    }, []);
 
     useLayoutEffect(() => {
         storageKeyRef.current = storageKey;
@@ -47,63 +103,59 @@ export default function SidebarContent({ sections, storageKey = 'default' }) {
             return undefined;
         }
 
-        const restoreScrollTop = () => {
-            scrollContainer.scrollTop = getStoredScrollTop(storageKey);
-        };
-
-        restoreScrollTop();
-        const animationFrameIds = [];
-        const timeoutIds = [];
-
-        const restoreOnNextFrame = (remainingFrames) => {
-            if (remainingFrames <= 0) {
-                return;
-            }
-
-            const animationFrameId = window.requestAnimationFrame(() => {
-                restoreScrollTop();
-                restoreOnNextFrame(remainingFrames - 1);
-            });
-
-            animationFrameIds.push(animationFrameId);
-        };
-
-        restoreOnNextFrame(5);
-
-        [50, 150, 300].forEach((delay) => {
-            timeoutIds.push(window.setTimeout(restoreScrollTop, delay));
-        });
-
         scrollContainer.addEventListener('scroll', persistScrollTop, { passive: true });
         window.addEventListener('beforeunload', persistScrollTop);
 
         return () => {
-            animationFrameIds.forEach((animationFrameId) => {
-                window.cancelAnimationFrame(animationFrameId);
-            });
-            timeoutIds.forEach((timeoutId) => {
-                window.clearTimeout(timeoutId);
-            });
             persistScrollTop();
+            clearRestoreWork();
             scrollContainer.removeEventListener('scroll', persistScrollTop);
             window.removeEventListener('beforeunload', persistScrollTop);
         };
-    }, [storageKey]);
+    }, [clearRestoreWork, persistScrollTop]);
+
+    useLayoutEffect(() => {
+        scheduleRestoreScrollTop();
+    }, [scheduleRestoreScrollTop, storageKey, url, restoreVersion]);
+
+    useEffect(() => {
+        const scrollContainer = scrollContainerRef.current;
+
+        if (!scrollContainer || typeof window === 'undefined' || typeof ResizeObserver === 'undefined') {
+            return undefined;
+        }
+
+        const resizeObserver = new ResizeObserver(() => {
+            scheduleRestoreScrollTop();
+        });
+
+        resizeObserver.observe(scrollContainer);
+
+        const firstElementChild = scrollContainer.firstElementChild;
+
+        if (firstElementChild instanceof HTMLElement) {
+            resizeObserver.observe(firstElementChild);
+        }
+
+        return () => {
+            resizeObserver.disconnect();
+        };
+    }, [scheduleRestoreScrollTop]);
 
     return (
-        <div className="flex h-full flex-col overflow-hidden bg-[linear-gradient(180deg,#24385f_0%,#1d2d4d_45%,#172640_100%)] text-xs text-white">
-            <div className="border-b border-white/10 px-6 py-6">
+        <div className="flex h-full flex-col overflow-hidden bg-sidebar text-sidebar-foreground">
+            <div className="border-b border-sidebar-border px-5 py-5">
                 <Link
                     href={route('dashboard')}
                     onBefore={persistScrollTop}
                     className="flex items-center gap-3"
                 >
-                    <div className="flex size-10 items-center justify-center rounded-xl border border-white/15 bg-white/8">
-                        <Warehouse className="size-5" />
+                    <div className="flex size-10 items-center justify-center rounded-2xl border border-sidebar-border bg-sidebar-accent">
+                        <Warehouse className="size-[18px]" />
                     </div>
-                    <div className="space-y-0.5">
-                        <p className="text-xs uppercase tracking-[0.24em] text-white/55">
-                            iWarehouse ERP 3.0
+                    <div className="min-w-0">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-sidebar-foreground/70">
+                            IWAREHOUSE ERP 3.0
                         </p>
                     </div>
                 </Link>
@@ -114,9 +166,13 @@ export default function SidebarContent({ sections, storageKey = 'default' }) {
                 scroll-region="true"
                 onClickCapture={persistScrollTop}
                 onPointerDownCapture={persistScrollTop}
-                className="sidebar-scroll min-h-0 flex-1 overflow-y-auto py-5"
+                className="sidebar-scroll min-h-0 flex-1 overflow-y-auto py-6"
             >
-                <SidebarNav sections={sections} onNavigate={persistScrollTop} />
+                <SidebarNav
+                    sections={sections}
+                    onNavigate={persistScrollTop}
+                    onLayoutChange={handleSidebarLayoutChange}
+                />
             </div>
         </div>
     );

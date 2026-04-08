@@ -2,38 +2,23 @@
   "name": "ProductMaster",
   "type": "object",
   "properties": {
-    "product_master_id": {
-      "type": "string",
-      "description": "Incremental product master ID (e.g., PM0001, PM0002)",
-      "indexed": true
-    },
     "master_sku": {
       "type": "string",
       "description": "Master SKU code (unique identifier, format: BRAND-MODEL)"
-    },
-    "name": {
-      "type": "string",
-      "description": "Product name"
-    },
-    "category_id": {
-      "type": "string",
-      "description": "Product category ID"
     },
     "subcategory_id": {
       "type": "string",
       "description": "Product subcategory ID"
     },
-    "brand_id": {
+    "model_id": {
       "type": "string",
-      "description": "Product brand ID"
+      "description": "Product model ID"
     },
-    "model": {
-      "type": "string",
-      "description": "Product model"
+    "image_url": {
+      "type": "string"
     },
-    "model_code": {
-      "type": "string",
-      "description": "Model code identifier"
+    "description": {
+      "type": "string"
     },
     "specs": {
       "type": "object",
@@ -136,12 +121,6 @@
           "description": "Charging Speed (Wattage)"
         }
       }
-    },
-    "image_url": {
-      "type": "string"
-    },
-    "description": {
-      "type": "string"
     }
   },
   "required": [

@@ -1,0 +1,61 @@
+export function normalizeVariantSkuToken(value) {
+    return String(value ?? '')
+        .trim()
+        .replace(/[^A-Za-z0-9]/g, '')
+        .toUpperCase();
+}
+
+export function buildVariantSkuPreview(brandName, modelName, condition, attributes = {}) {
+    const parts = [
+        normalizeVariantSkuToken(brandName),
+        normalizeVariantSkuToken(modelName),
+        normalizeVariantSkuToken(attributes.ram),
+        normalizeVariantSkuToken(attributes.storage),
+        normalizeVariantSkuToken(attributes.color),
+    ].filter(Boolean);
+
+    const sku = parts.join('-');
+
+    return condition === 'Certified Pre-Owned' ? `CPO-${sku}` : sku;
+}
+
+export function buildVariantNamePreview(brandName, modelName, condition, attributes = {}) {
+    return [
+        String(brandName ?? '').trim(),
+        String(modelName ?? '').trim(),
+        String(attributes.ram ?? '').trim(),
+        String(attributes.storage ?? '').trim(),
+        String(attributes.color ?? '').trim(),
+    ]
+        .filter(Boolean)
+        .join(' ');
+}
+
+export function calculateVariantGenerationCount({
+    conditions = [],
+    colors = [],
+    rams = [],
+    storages = [],
+}) {
+    const colorCount = colors.length > 0 ? colors.length : 1;
+    const ramCount = rams.length > 0 ? rams.length : 1;
+    const storageCount = storages.length > 0 ? storages.length : 1;
+
+    return conditions.length * colorCount * ramCount * storageCount;
+}
+
+export function getVariantDefinitionMap(variantDefinitions) {
+    return (variantDefinitions?.groups ?? []).flatMap((group) => group.definitions ?? []);
+}
+
+export function getVisibleVariantDefinitions(variantDefinitions, supportsComputerVariants) {
+    return getVariantDefinitionMap(variantDefinitions).filter((definition) =>
+        supportsComputerVariants ? true : !definition.is_computer_only,
+    );
+}
+
+export function getEditableAttributeDefinitions(variantDefinitions, supportsComputerVariants) {
+    return getVisibleVariantDefinitions(variantDefinitions, supportsComputerVariants).filter(
+        (definition) => definition.key !== 'condition',
+    );
+}

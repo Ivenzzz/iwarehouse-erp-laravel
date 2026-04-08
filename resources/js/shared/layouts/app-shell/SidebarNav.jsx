@@ -4,8 +4,8 @@ import {
     CollapsibleTrigger,
 } from '@/shared/components/ui/collapsible';
 import { Link } from '@inertiajs/react';
-import { ChevronRight } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 
 const SIDEBAR_STATE_KEY = 'iwarehouse:admin-sidebar:sections';
 
@@ -44,9 +44,51 @@ function getStoredOpenSections(sections) {
     }
 }
 
-export default function SidebarNav({ sections, onNavigate }) {
+function areOpenSectionsEqual(currentOpenSections, nextOpenSections) {
+    const currentKeys = Object.keys(currentOpenSections);
+    const nextKeys = Object.keys(nextOpenSections);
+
+    if (currentKeys.length !== nextKeys.length) {
+        return false;
+    }
+
+    return nextKeys.every(
+        (key) => currentOpenSections[key] === nextOpenSections[key],
+    );
+}
+
+export default function SidebarNav({ sections, onNavigate, onLayoutChange }) {
     const defaultOpenSections = useMemo(() => getDefaultOpenSections(sections), [sections]);
     const [openSections, setOpenSections] = useState(() => getStoredOpenSections(sections));
+
+    useEffect(() => {
+        setOpenSections((currentOpenSections) => {
+            const nextOpenSections = sections.reduce((accumulator, section) => {
+                const hasActiveChild = section.links.some((link) => Boolean(link.active));
+
+                accumulator[section.label] =
+                    hasActiveChild || section.active
+                        ? true
+                        : (currentOpenSections[section.label] ?? Boolean(section.defaultOpen));
+
+                return accumulator;
+            }, {});
+
+            if (areOpenSectionsEqual(currentOpenSections, nextOpenSections)) {
+                return currentOpenSections;
+            }
+
+            if (typeof window !== 'undefined') {
+                window.localStorage.setItem(SIDEBAR_STATE_KEY, JSON.stringify(nextOpenSections));
+            }
+
+            return nextOpenSections;
+        });
+    }, [sections]);
+
+    useEffect(() => {
+        onLayoutChange?.();
+    }, [onLayoutChange, openSections, sections]);
 
     const handleOpenChange = (sectionLabel, isOpen) => {
         setOpenSections((currentOpenSections) => {
@@ -62,39 +104,42 @@ export default function SidebarNav({ sections, onNavigate }) {
 
             return nextOpenSections;
         });
+        onNavigate?.();
     };
 
     return (
-        <div className="space-y-6 px-3">
-            <div className="space-y-2">
+        <div className="px-4">
+            <div className="space-y-1.5">
                 {sections.map((section) => {
                     const Icon = section.icon;
+                    const isOpen =
+                        openSections[section.label] ?? Boolean(section.defaultOpen);
 
                     return (
                         <Collapsible
                             key={section.label}
-                            open={openSections[section.label] ?? Boolean(section.defaultOpen)}
+                            open={isOpen}
                             onOpenChange={(isOpen) => handleOpenChange(section.label, isOpen)}
                             className="group/collapsible"
                         >
                             <CollapsibleTrigger asChild>
                                 <button
                                     type="button"
-                                    className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition ${
-                                        section.active
-                                            ? 'bg-white/10 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
-                                            : 'text-slate-200/85 hover:bg-white/8 hover:text-white'
-                                    }`}
+                                    className="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left text-[15px] font-medium text-sidebar-foreground/85 transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                                 >
-                                    <Icon className="size-4" />
+                                    <Icon className="size-[15px] shrink-0 text-current" />
                                     <span className="flex-1">{section.label}</span>
-                                    <ChevronRight className="size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                                    {isOpen ? (
+                                        <ChevronDown className="size-4 shrink-0 text-current/75" />
+                                    ) : (
+                                        <ChevronRight className="size-4 shrink-0 text-current/75" />
+                                    )}
                                 </button>
                             </CollapsibleTrigger>
 
-                            <CollapsibleContent className="px-3 pt-2">
-                                <div className="ml-3 rounded-xl border-l border-white/10 pl-4">
-                                    <div className="space-y-1.5">
+                            <CollapsibleContent className="px-3 pb-1 pt-2">
+                                <div className="ml-3 rounded-l-2xl border-l border-sidebar-border pl-4">
+                                    <div className="space-y-1">
                                         {section.links.map((link) => {
                                             const LinkIcon = link.icon;
 
@@ -103,14 +148,14 @@ export default function SidebarNav({ sections, onNavigate }) {
                                                     key={link.label}
                                                     href={link.href}
                                                     onBefore={onNavigate}
-                                                    className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
+                                                    className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-[15px] transition ${
                                                         link.active
-                                                            ? 'bg-white/8 text-white'
-                                                            : 'text-slate-300/80 hover:bg-white/6 hover:text-white'
+                                                            ? 'bg-secondary text-secondary-foreground'
+                                                            : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
                                                     }`}
                                                 >
                                                     {LinkIcon ? (
-                                                        <LinkIcon className="size-3.5" />
+                                                        <LinkIcon className="size-3.5 shrink-0 text-current/70" />
                                                     ) : null}
                                                     <span>{link.label}</span>
                                                 </Link>

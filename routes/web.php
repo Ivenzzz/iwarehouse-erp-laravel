@@ -8,3 +8,5 @@ require __DIR__.'/web/categories.php';
 require __DIR__.'/web/payment-methods.php';
 require __DIR__.'/web/product-masters.php';
 require __DIR__.'/web/suppliers.php';
+require __DIR__.'/web/warehouses.php';
+require __DIR__.'/web/inventory.php';

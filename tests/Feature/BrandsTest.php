@@ -32,6 +32,25 @@ class BrandsTest extends TestCase
                 ->where('filters.search', '')
                 ->where('filters.sort', 'name')
                 ->where('filters.direction', 'asc')
+                ->where('flash.success', null)
+                ->where('flash.error', null)
+            );
+    }
+
+    public function test_brands_page_shares_flash_success_and_error_props(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->withSession([
+                'success' => 'Saved successfully',
+                'error' => 'Import failed',
+            ])
+            ->get('/brands')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('flash.success', 'Saved successfully')
+                ->where('flash.error', 'Import failed')
             );
     }
 

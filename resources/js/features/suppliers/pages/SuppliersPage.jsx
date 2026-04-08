@@ -1,16 +1,19 @@
 import SupplierDialog from '@/features/suppliers/components/SupplierDialog';
 import SuppliersHeader from '@/features/suppliers/components/SuppliersHeader';
 import SuppliersTable from '@/features/suppliers/components/SuppliersTable';
+import { usePageToasts } from '@/shared/hooks/use-page-toasts';
 import AppShell from '@/shared/layouts/AppShell';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useRef, useState } from 'react';
 
 export default function SuppliersPage({ suppliers, filters }) {
-    const { errors, flash } = usePage().props;
+    const { errors } = usePage().props;
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingSupplier, setEditingSupplier] = useState(null);
     const [search, setSearch] = useState(filters.search ?? '');
     const fileInputRef = useRef(null);
+
+    usePageToasts([errors?.file], 'destructive');
 
     const visitSuppliers = (params) => {
         router.get(
@@ -127,18 +130,6 @@ export default function SuppliersPage({ suppliers, filters }) {
                     />
 
                     <div className="space-y-5 px-5 py-5">
-                        {flash?.success && (
-                            <div className="border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
-                                {flash.success}
-                            </div>
-                        )}
-
-                        {errors?.file && (
-                            <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-                                {errors.file}
-                            </div>
-                        )}
-
                         <section className="bg-white shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
                             <div className="px-5 py-5">
                                 <SuppliersTable

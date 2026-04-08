@@ -4,6 +4,7 @@ import ProductMasterDetailsDialog from '@/features/product-masters/components/Pr
 import ProductMasterDialog from '@/features/product-masters/components/ProductMasterDialog';
 import ProductMastersHeader from '@/features/product-masters/components/ProductMastersHeader';
 import ProductMastersTable from '@/features/product-masters/components/ProductMastersTable';
+import { usePageToasts } from '@/shared/hooks/use-page-toasts';
 import AppShell from '@/shared/layouts/AppShell';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useRef, useState } from 'react';
@@ -16,7 +17,7 @@ export default function ProductMastersPage({
     variantDefinitions,
     filters,
 }) {
-    const { errors, flash } = usePage().props;
+    const { errors } = usePage().props;
     const [dialogOpen, setDialogOpen] = useState(false);
     const [detailsOpen, setDetailsOpen] = useState(false);
     const [generateOpen, setGenerateOpen] = useState(false);
@@ -27,6 +28,8 @@ export default function ProductMastersPage({
     const [managingProductMaster, setManagingProductMaster] = useState(null);
     const [search, setSearch] = useState(filters.search ?? '');
     const fileInputRef = useRef(null);
+
+    usePageToasts([errors?.file, errors?.category, errors?.brand], 'destructive');
 
     const visitProductMasters = (params) => {
         router.get(
@@ -182,18 +185,6 @@ export default function ProductMastersPage({
                     />
 
                     <div className="space-y-5 px-5 py-5">
-                        {flash?.success && (
-                            <div className="border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
-                                {flash.success}
-                            </div>
-                        )}
-
-                        {(errors?.file || errors?.category || errors?.brand) && (
-                            <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-                                {errors.file ?? errors.category ?? errors.brand}
-                            </div>
-                        )}
-
                         <section className="bg-white shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
                             <div className="px-5 py-5">
                                 <ProductMastersTable

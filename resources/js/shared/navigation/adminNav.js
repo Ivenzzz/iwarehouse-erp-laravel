@@ -40,9 +40,9 @@ export function getAdminNavSections() {
             icon: Warehouse,
             defaultOpen: false,
             links: [
-                { label: 'Inventory', href: route('dashboard') },
+                { label: 'Inventory', href: route('inventory.index'), active: route().current('inventory.*') },
                 { label: 'Stock Transfers', href: route('dashboard') },
-                { label: 'Warehouses', href: route('dashboard') },
+                { label: 'Warehouses', href: route('warehouses.index'), active: route().current('warehouses.*') },
             ],
         },
         {
@@ -94,6 +94,12 @@ export function getAdminNavSections() {
                     href: route('suppliers.index'),
                     active: route().current('suppliers.*'),
                     icon: Truck,
+                },
+                {
+                    label: 'Warehouses',
+                    href: route('warehouses.index'),
+                    active: route().current('warehouses.*'),
+                    icon: Warehouse,
                 },
                 {
                     label: 'Payment Methods',

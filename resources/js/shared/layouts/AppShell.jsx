@@ -1,6 +1,8 @@
 import AppHeader from '@/shared/layouts/app-shell/AppHeader';
 import { getInitials } from '@/shared/layouts/app-shell/getInitials';
 import SidebarContent from '@/shared/layouts/app-shell/SidebarContent';
+import Toaster from '@/shared/components/ui/toaster';
+import { usePageToasts } from '@/shared/hooks/use-page-toasts';
 import { getAdminNavSections } from '@/shared/navigation/adminNav';
 import { usePage } from '@inertiajs/react';
 import { useMemo } from 'react';
@@ -11,10 +13,13 @@ export default function AppShell({ title, children }) {
     const initials = getInitials(user.name, user.username);
     const sections = useMemo(() => getAdminNavSections(), [url]);
 
+    usePageToasts([props.flash?.success], 'default');
+    usePageToasts([props.flash?.error], 'destructive');
+
     return (
         <div className="h-screen overflow-hidden bg-[#e9edf5] text-xs text-slate-900">
             <div className="flex h-full">
-                <aside className="hidden h-full w-56 flex-col lg:flex">
+                <aside className="hidden h-full w-58 flex-col lg:flex">
                     <SidebarContent sections={sections} storageKey="desktop" />
                 </aside>
 
@@ -26,6 +31,7 @@ export default function AppShell({ title, children }) {
                     </main>
                 </div>
             </div>
+            <Toaster />
         </div>
     );
 }

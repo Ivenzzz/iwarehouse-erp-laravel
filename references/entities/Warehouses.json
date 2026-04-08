@@ -1,0 +1,77 @@
+{
+  "name": "Warehouse",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Warehouse name (e.g., 'Central Hub')"
+    },
+    "warehouse_type": {
+      "type": "string",
+      "enum": [
+        "main_warehouse",
+        "warehouse",
+        "store",
+        "kiosk",
+        "third_party"
+      ],
+      "default": "store",
+      "description": "Categorization for filtering and logic"
+    },
+    "contact_info": {
+      "type": "object",
+      "properties": {
+        "phone_number": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        }
+      }
+    },
+    "address": {
+      "type": "object",
+      "description": "Structured address for shipping integrations",
+      "properties": {
+        "street": {
+          "type": "string",
+          "description": "Unit, Building, Street"
+        },
+        "city": {
+          "type": "string"
+        },
+        "province": {
+          "type": "string",
+          "description": "State or Province"
+        },
+        "zip_code": {
+          "type": "string"
+        },
+        "country": {
+          "type": "string",
+          "default": "PH"
+        }
+      }
+    },
+    "coordinates": {
+      "type": "object",
+      "description": "Geolocation for map views and route optimization",
+      "properties": {
+        "latitude": {
+          "type": "number"
+        },
+        "longitude": {
+          "type": "number"
+        }
+      }
+    },
+    "sort_order": {
+      "type": "integer",
+      "description": "UI sorting order"
+    }
+  },
+  "required": [
+    "name",
+    "warehouse_type"
+  ]
+}

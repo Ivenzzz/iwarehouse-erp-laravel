@@ -150,12 +150,9 @@ export default function SidebarContent({ sections, storageKey = 'default' }) {
                     onBefore={persistScrollTop}
                     className="flex items-center gap-3"
                 >
-                    <div className="flex size-10 items-center justify-center rounded-2xl border border-sidebar-border bg-sidebar-accent">
-                        <Warehouse className="size-[18px]" />
-                    </div>
                     <div className="min-w-0">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-sidebar-foreground/70">
-                            IWAREHOUSE ERP 3.0
+                        <p className="text-xs font-semibold uppercase text-sidebar-foreground/70">
+                            IWAREHOUSE ERP 2026
                         </p>
                     </div>
                 </Link>

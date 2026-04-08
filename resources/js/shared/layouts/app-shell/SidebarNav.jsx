@@ -125,7 +125,7 @@ export default function SidebarNav({ sections, onNavigate, onLayoutChange }) {
                             <CollapsibleTrigger asChild>
                                 <button
                                     type="button"
-                                    className="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left text-[15px] font-medium text-sidebar-foreground/85 transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                                    className="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left text-xs font-medium text-sidebar-foreground/85 transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                                 >
                                     <Icon className="size-[15px] shrink-0 text-current" />
                                     <span className="flex-1">{section.label}</span>
@@ -148,7 +148,7 @@ export default function SidebarNav({ sections, onNavigate, onLayoutChange }) {
                                                     key={link.label}
                                                     href={link.href}
                                                     onBefore={onNavigate}
-                                                    className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-[15px] transition ${
+                                                    className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs transition ${
                                                         link.active
                                                             ? 'bg-secondary text-secondary-foreground'
                                                             : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'

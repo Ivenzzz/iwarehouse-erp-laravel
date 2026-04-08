@@ -2,10 +2,6 @@
   "name": "Inventory",
   "type": "object",
   "properties": {
-    "product_master_id": {
-      "type": "string",
-      "description": "Product Master ID"
-    },
     "variant_id": {
       "type": "string",
       "description": "Variant ID"
@@ -14,17 +10,9 @@
       "type": "string",
       "description": "Current Warehouse ID where the item physically resides"
     },
-    "quantity": {
-      "type": "number",
-      "default": 1
-    },
-    "imei1": {
+    "imei": {
       "type": "string",
-      "description": "IMEI 1"
-    },
-    "imei2": {
-      "type": "string",
-      "description": "IMEI 2"
+      "description": "IMEI number for mobile devices"
     },
     "serial_number": {
       "type": "string",
@@ -33,7 +21,7 @@
     "status": {
       "type": "string",
       "enum": [
-        "available",
+        "active",
         "transfer",
         "sold",
         "quality_check",
@@ -43,7 +31,7 @@
         "in_transit",
         "bundled"
       ],
-      "default": "available",
+      "default": "active",
       "description": "Current status of the inventory item"
     },
     "cost_price": {
@@ -53,7 +41,7 @@
       "type": "number",
       "description": "Cash selling price"
     },
-    "srp": {
+    "srp_price": {
       "type": "number",
       "description": "Suggested retail price"
     },
@@ -61,7 +49,7 @@
       "type": "string",
       "description": "Package description or inclusions"
     },
-    "warranty_description": {
+    "warranty": {
       "type": "string",
       "description": "Warranty description"
     },
@@ -98,7 +86,7 @@
     "resolution": {
       "type": "string"
     },
-    "logs": {
+    "item_logs": {
       "type": "array",
       "default": [],
       "description": "Flexible log of all lifecycle events (Transfers, Sales, Returns, Adjustments)",
@@ -128,21 +116,8 @@
           "action"
         ]
       }
-    },
-    "created_at": {
-      "type": "string",
-      "format": "date-time",
-      "description": "When the inventory record was created"
-    },
-    "updated_at": {
-      "type": "string",
-      "format": "date-time",
-      "description": "When the inventory record was last updated"
     }
   },
   "required": [
-    "product_master_id",
-    "warehouse_id",
-    "status"
   ]
 }

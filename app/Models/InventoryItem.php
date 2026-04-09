@@ -70,6 +70,16 @@ class InventoryItem extends Model
         return $this->hasMany(InventoryItemLog::class)->orderByDesc('logged_at');
     }
 
+    public function salesTransactionItems(): HasMany
+    {
+        return $this->hasMany(SalesTransactionItem::class);
+    }
+
+    public function salesTransactionItemComponents(): HasMany
+    {
+        return $this->hasMany(SalesTransactionItemComponent::class);
+    }
+
     protected function imei1(): Attribute
     {
         return Attribute::get(fn () => $this->imei);

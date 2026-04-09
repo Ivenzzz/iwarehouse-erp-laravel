@@ -27,7 +27,7 @@ export function getAdminNavSections() {
             icon: ChartColumn,
             defaultOpen: false,
             links: [
-                { label: 'POS', href: route('dashboard') },
+                { label: 'POS', href: route('pos.index'), active: route().current('pos.*') },
                 { label: 'Daily Sales Reports', href: route('dashboard') },
                 { label: 'Sales', href: route('dashboard') },
                 { label: 'Product Reports', href: route('dashboard') },

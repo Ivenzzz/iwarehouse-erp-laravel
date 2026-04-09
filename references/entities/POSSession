@@ -6,9 +6,9 @@
       "type": "string",
       "description": "Unique session number (auto-generated)"
     },
-    "cashier_id": {
+    "employee_id": {
       "type": "string",
-      "description": "Cashier user ID"
+      "description": "Employee responsible for the session"
     },
     "warehouse_id": {
       "type": "string",

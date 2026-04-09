@@ -2,17 +2,13 @@
   "name": "JobTitle",
   "type": "object",
   "properties": {
-    "title": {
+    "name": {
       "type": "string",
       "description": "Job title name"
     },
     "department_id": {
       "type": "string",
       "description": "Department this job title belongs to"
-    },
-    "is_active": {
-      "type": "boolean",
-      "default": true
     }
   },
   "required": [

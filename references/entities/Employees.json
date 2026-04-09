@@ -2,7 +2,7 @@
   "name": "Employee",
   "type": "object",
   "properties": {
-    "employee_code": {
+    "employee_id": {
       "type": "string",
       "description": "Unique employee identifier"
     },
@@ -34,9 +34,6 @@
       "type": "object",
       "description": "Employment details",
       "properties": {
-        "department_id": {
-          "type": "string"
-        },
         "job_title_id": {
           "type": "string"
         },
@@ -48,12 +45,8 @@
           "type": "string",
           "enum": [
             "Full-Time",
-            "Part-Time",
-            "Contract"
+            "Part-Time"
           ]
-        },
-        "warehouse_id": {
-          "type": "string"
         },
         "oic_password": {
           "type": "string",
@@ -72,7 +65,7 @@
     }
   },
   "required": [
-    "employee_code",
+    "employee_id",
     "personal_info"
   ]
 }

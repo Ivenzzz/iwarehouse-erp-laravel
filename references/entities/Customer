@@ -2,21 +2,13 @@
   "name": "Customer",
   "type": "object",
   "properties": {
-    "customer_code": {
-      "type": "string",
-      "description": "Unique customer code"
-    },
-    "full_name": {
-      "type": "string",
-      "description": "Customer full name"
-    },
     "firstname": {
       "type": "string",
-      "description": "Customer full name"
+      "description": "Customer first name"
     },
     "lastname": {
       "type": "string",
-      "description": "Customer full name"
+      "description": "Customer last name"
     },
     "email": {
       "type": "string",
@@ -78,10 +70,6 @@
         "wholesale"
       ],
       "default": "retail"
-    },
-    "is_active": {
-      "type": "boolean",
-      "default": true
     }
   },
   "required": []

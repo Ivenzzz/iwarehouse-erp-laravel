@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PaymentMethod extends Model
 {
@@ -24,4 +25,9 @@ class PaymentMethod extends Model
         'type',
         'logo',
     ];
+
+    public function salesTransactionPayments(): HasMany
+    {
+        return $this->hasMany(SalesTransactionPayment::class);
+    }
 }

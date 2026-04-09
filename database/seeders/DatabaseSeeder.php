@@ -25,5 +25,7 @@ class DatabaseSeeder extends Seeder
             'email' => null,
             'password' => 'Password123!',
         ]);
+
+        $this->call(PosSeeder::class);
     }
 }

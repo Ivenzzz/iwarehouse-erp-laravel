@@ -4,7 +4,7 @@
   "properties": {
     "transaction_number": {
       "type": "string",
-      "description": "Unique transaction number"
+      "description": "Unique transaction number, incremental, ex. '000001', '000002'"
     },
     "or_number": {
       "type": "string",
@@ -14,8 +14,7 @@
       "type": "string",
       "enum": [
         "Item Claimed / Pick-up",
-        "Delivery",
-        "Store Transfer"
+        "Delivery"
       ],
       "default": "Item Claimed / Pick-up",
       "description": "Mode of release for the transaction"
@@ -24,21 +23,9 @@
       "type": "string",
       "description": "Remarks or special instructions for the transaction"
     },
-    "transaction_date": {
-      "type": "string",
-      "format": "date-time"
-    },
     "customer_id": {
       "type": "string",
       "description": "Customer ID"
-    },
-    "warehouse_id": {
-      "type": "string",
-      "description": "Store/Warehouse where sale occurred"
-    },
-    "cashier_id": {
-      "type": "string",
-      "description": "Cashier user ID"
     },
     "pos_session_id": {
       "type": "string",
@@ -46,7 +33,7 @@
     },
     "sales_representative_id": {
       "type": "string",
-      "description": "Sales representative ID"
+      "description": "Sales representative ID, linked to Employees entity"
     },
     "items": {
       "type": "array",
@@ -56,9 +43,6 @@
           "inventory_id": {
             "type": "string",
             "description": "Inventory unit ID"
-          },
-          "unit_price": {
-            "type": "number"
           },
           "price_basis": {
             "type": "string",
@@ -89,9 +73,6 @@
             "type": "object",
             "description": "Item-level discount validation data including supervisor proof",
             "properties": {
-              "discount_amount": {
-                "type": "number"
-              },
               "proof_image_url": {
                 "type": "string",
                 "description": "URL of proof of validation image"
@@ -103,7 +84,8 @@
             }
           },
           "line_total": {
-            "type": "number"
+            "type": "number",
+            "description": "Total price for this line item after deductions"
           },
           "is_bundle": {
             "type": "boolean",
@@ -130,15 +112,9 @@
         }
       }
     },
-    "subtotal": {
-      "type": "number"
-    },
-    "total_amount": {
-      "type": "number"
-    },
     "payments_json": {
       "type": "object",
-      "description": "All payment information including credit card program details",
+      "description": "All payment method extra details",
       "properties": {
         "payments": {
           "type": "array",
@@ -148,9 +124,6 @@
               "payment_type_id": {
                 "type": "string"
               },
-              "payment_method": {
-                "type": "string"
-              },
               "amount": {
                 "type": "number"
               },
@@ -158,6 +131,10 @@
                 "type": "object",
                 "description": "Dynamic payment-specific data based on payment type",
                 "properties": {
+                  "is_cash": {
+                    "type": "boolean",
+                    "description": "Whether the payment is in cash (for cash payments)"
+                  },
                   "reference_number": {
                     "type": "string"
                   },
@@ -210,32 +187,8 @@
         }
       }
     },
-    "amount_paid": {
-      "type": "number"
-    },
-    "change_amount": {
-      "type": "number",
-      "default": 0
-    },
     "notes": {
       "type": "string"
-    },
-    "discount_validation": {
-      "type": "object",
-      "description": "Discount validation data including supervisor password and proof",
-      "properties": {
-        "discount_amount": {
-          "type": "number"
-        },
-        "proof_image_url": {
-          "type": "string",
-          "description": "URL of proof of validation image"
-        },
-        "validated_at": {
-          "type": "string",
-          "format": "date-time"
-        }
-      }
     },
     "supporting_documents": {
       "type": "object",

@@ -1,0 +1,171 @@
+<?php
+
+namespace App\Features\Pos\Http\Controllers;
+
+use App\Features\Pos\Actions\ClosePosSession;
+use App\Features\Pos\Actions\CreatePosCustomer;
+use App\Features\Pos\Actions\CreatePosSalesRep;
+use App\Features\Pos\Actions\CreatePosSession;
+use App\Features\Pos\Actions\CreatePosTransaction;
+use App\Features\Pos\Actions\StorePosUpload;
+use App\Features\Pos\Http\Requests\ClosePosSessionRequest;
+use App\Features\Pos\Http\Requests\StorePosCustomerRequest;
+use App\Features\Pos\Http\Requests\StorePosSalesRepRequest;
+use App\Features\Pos\Http\Requests\StorePosSessionRequest;
+use App\Features\Pos\Http\Requests\StorePosTransactionRequest;
+use App\Features\Pos\Queries\ListPosPageData;
+use App\Features\Pos\Queries\ListPosTransactions;
+use App\Features\Pos\Queries\SearchPosInventory;
+use App\Features\Pos\Support\PosDataTransformer;
+use App\Features\Pos\Support\ResolvesCashier;
+use App\Http\Controllers\Controller;
+use App\Models\PosSession;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
+use InvalidArgumentException;
+
+class PosController extends Controller
+{
+    public function index(Request $request, ListPosPageData $listPosPageData): InertiaResponse
+    {
+        return Inertia::render('POS', $listPosPageData($request));
+    }
+
+    public function inventorySearch(Request $request, SearchPosInventory $searchPosInventory): JsonResponse
+    {
+        $validated = $request->validate([
+            'search' => ['required', 'string'],
+            'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
+
+        return response()->json(
+            $searchPosInventory->handle(
+                $validated['search'],
+                (int) $validated['warehouse_id'],
+                (int) ($validated['limit'] ?? 20),
+            ),
+        );
+    }
+
+    public function transactionNumberPreview(PosDataTransformer $transformer): JsonResponse
+    {
+        return response()->json([
+            'transaction_number' => $transformer->nextTransactionNumberPreview(),
+        ]);
+    }
+
+    public function transactions(Request $request, ListPosTransactions $listPosTransactions): JsonResponse
+    {
+        $validated = $request->validate([
+            'session_id' => ['required', 'integer', 'exists:pos_sessions,id'],
+        ]);
+
+        return response()->json([
+            'rows' => $listPosTransactions->handle((int) $validated['session_id']),
+        ]);
+    }
+
+    public function storeSession(
+        StorePosSessionRequest $request,
+        ResolvesCashier $resolvesCashier,
+        CreatePosSession $createPosSession,
+        PosDataTransformer $transformer,
+    ): JsonResponse {
+        $resolvedCashier = $resolvesCashier->resolve($request->user());
+
+        if ($resolvedCashier['employee'] === null) {
+            return response()->json([
+                'message' => $resolvedCashier['error'],
+            ], 422);
+        }
+
+        $session = $createPosSession->handle(
+            $resolvedCashier['employee'],
+            (int) $request->validated('warehouse_id'),
+            (float) $request->validated('opening_balance'),
+        );
+
+        return response()->json([
+            'session' => $transformer->transformActiveSession($session->fresh(['warehouse', 'employee'])),
+        ]);
+    }
+
+    public function closeSession(
+        ClosePosSessionRequest $request,
+        PosSession $posSession,
+        ClosePosSession $closePosSession,
+        PosDataTransformer $transformer,
+    ): JsonResponse {
+        $session = $closePosSession->handle(
+            $posSession,
+            (float) $request->validated('closing_balance'),
+            $request->validated('cashier_remarks'),
+        );
+
+        return response()->json([
+            'session' => $transformer->transformActiveSession($session),
+        ]);
+    }
+
+    public function storeCustomer(
+        StorePosCustomerRequest $request,
+        CreatePosCustomer $createPosCustomer,
+        PosDataTransformer $transformer,
+    ): JsonResponse {
+        $customer = $createPosCustomer->handle($request->validated());
+
+        return response()->json([
+            'customer' => $transformer->transformCustomer($customer),
+        ]);
+    }
+
+    public function storeSalesRep(
+        StorePosSalesRepRequest $request,
+        CreatePosSalesRep $createPosSalesRep,
+        PosDataTransformer $transformer,
+    ): JsonResponse {
+        try {
+            $employee = $createPosSalesRep->handle(
+                $request->validated('first_name'),
+                $request->validated('last_name'),
+            );
+        } catch (InvalidArgumentException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 422);
+        }
+
+        return response()->json([
+            'salesRep' => $transformer->transformSalesRep($employee),
+        ]);
+    }
+
+    public function storeTransaction(
+        StorePosTransactionRequest $request,
+        CreatePosTransaction $createPosTransaction,
+    ): JsonResponse {
+        try {
+            $transaction = $createPosTransaction->handle($request->validated());
+        } catch (InvalidArgumentException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 422);
+        }
+
+        return response()->json([
+            'transaction' => $transaction,
+        ]);
+    }
+
+    public function upload(Request $request, StorePosUpload $storePosUpload): JsonResponse
+    {
+        $validated = $request->validate([
+            'file' => ['required', 'file', 'max:10240'],
+        ]);
+
+        return response()->json($storePosUpload->handle($validated['file']));
+    }
+}

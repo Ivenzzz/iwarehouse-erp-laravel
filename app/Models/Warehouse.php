@@ -37,4 +37,9 @@ class Warehouse extends Model
     {
         return $this->hasMany(InventoryItem::class);
     }
+
+    public function posSessions(): HasMany
+    {
+        return $this->hasMany(PosSession::class);
+    }
 }

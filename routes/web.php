@@ -11,3 +11,4 @@ require __DIR__.'/web/suppliers.php';
 require __DIR__.'/web/warehouses.php';
 require __DIR__.'/web/inventory.php';
 require __DIR__.'/web/stock-transfers.php';
+require __DIR__.'/web/pos.php';

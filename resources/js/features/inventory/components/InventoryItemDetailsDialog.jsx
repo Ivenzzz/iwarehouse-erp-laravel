@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
+import axios from "axios";
 
 import { QRStickerPreview } from "@/shared/services/qrStickerPrintService";
 import { Badge } from "@/shared/components/ui/badge";
@@ -19,45 +20,63 @@ export default function InventoryItemDetailsDialog({
   open,
   onOpenChange,
   item,
-  productMasters = [],
-  variants = [],
-  brands = [],
-  categories = [],
-  subcategories = [],
-  warehouses = [],
 }) {
-  const productMaster = useMemo(
-    () => productMasters.find((entry) => entry.id === item?.product_master_id),
-    [item, productMasters],
-  );
-  const variant = useMemo(
-    () => variants.find((entry) => entry.id === item?.variant_id),
-    [item, variants],
-  );
-  const brand = useMemo(
-    () => brands.find((entry) => entry.id === productMaster?.brand_id),
-    [brands, productMaster],
-  );
-  const category = useMemo(
-    () => categories.find((entry) => entry.id === productMaster?.category_id),
-    [categories, productMaster],
-  );
-  const subcategory = useMemo(
-    () => subcategories.find((entry) => entry.id === productMaster?.subcategory_id),
-    [subcategories, productMaster],
-  );
-  const warehouse = useMemo(
-    () => warehouses.find((entry) => entry.id === item?.warehouse_id),
-    [item, warehouses],
-  );
+  const [logs, setLogs] = useState(item?.logs || []);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const [logsError, setLogsError] = useState("");
 
-  const attributes = variant?.attributes || item?._variantAttributes || {};
+  useEffect(() => {
+    if (!open || !item?.id) {
+      setLogs([]);
+      setLogsError("");
+      setIsLoadingLogs(false);
+      return undefined;
+    }
+
+    let isActive = true;
+
+    const loadLogs = async () => {
+      setLogs([]);
+      setIsLoadingLogs(true);
+      setLogsError("");
+
+      try {
+        const response = await axios.get(route("inventory.logs", item.id));
+
+        if (isActive) {
+          setLogs(response.data.logs || []);
+        }
+      } catch (error) {
+        if (isActive) {
+          setLogs([]);
+          setLogsError(error.response?.data?.message || error.message || "Failed to load activity log.");
+        }
+      } finally {
+        if (isActive) {
+          setIsLoadingLogs(false);
+        }
+      }
+    };
+
+    loadLogs();
+
+    return () => {
+      isActive = false;
+    };
+  }, [item?.id, open]);
+
   const identifier = item?.imei1 || item?.imei2 || item?.serial_number || "";
-  const headerTitle = [brand?.name, productMaster?.model, variant?.variant_name].filter(Boolean).join(" ");
+  const ramValue = item?.attrRAM || item?.purchase_file_data?.ram || item?.purchase_file_data?.RAM || "";
+  const romValue = item?.attrROM || item?.purchase_file_data?.storage || item?.purchase_file_data?.Storage || item?.purchase_file_data?.rom || item?.purchase_file_data?.ROM || "";
+  const colorValue = item?.attrColor || item?.purchase_file_data?.color || item?.purchase_file_data?.Color || "";
+  const cpuValue = item?.cpu || item?.platform_cpu || "";
+  const gpuValue = item?.gpu || item?.platform_gpu || "";
+  const conditionValue = item?.variantCondition || item?.purchase_file_data?.condition || "";
+  const headerTitle = [item?.brandName, item?.masterModel, item?.productName].filter(Boolean).join(" ");
   const specLines = [
-    [attributes.ram || attributes.RAM, attributes.storage || attributes.Storage || attributes.rom || attributes.ROM].filter(Boolean).join("/"),
-    attributes.color || attributes.Color || item?.purchase_file_data?.color || "",
-    [item?.cpu, item?.gpu].filter(Boolean).join(" | "),
+    [ramValue, romValue].filter(Boolean).join("/"),
+    colorValue,
+    [cpuValue, gpuValue].filter(Boolean).join(" | "),
   ].filter(Boolean);
 
   return (
@@ -84,16 +103,16 @@ export default function InventoryItemDetailsDialog({
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <Badge className={getStatusColor(item.status)}>{item.status.replaceAll("_", " ")}</Badge>
-                      {variant?.condition ? <Badge variant="outline">{variant.condition}</Badge> : null}
-                      {warehouse?.name ? <Badge variant="outline">{warehouse.name}</Badge> : null}
+                      {conditionValue ? <Badge variant="outline">{conditionValue}</Badge> : null}
+                      {item?.warehouseName ? <Badge variant="outline">{item.warehouseName}</Badge> : null}
                     </div>
                   </div>
                   <QRStickerPreview
                     className="self-start"
-                    brand={brand?.name}
-                    model={productMaster?.model}
+                    brand={item?.brandName}
+                    model={item?.masterModel}
                     specLines={specLines}
-                    condition={variant?.condition}
+                    condition={conditionValue}
                     warrantyLines={item.warranty_description ? item.warranty_description.split(",").map((value) => value.trim()).filter(Boolean) : []}
                     cashPrice={item.cash_price}
                     srp={item.srp}
@@ -107,12 +126,12 @@ export default function InventoryItemDetailsDialog({
                   <div>
                     <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">General Information</div>
                     <div className="space-y-2">
-                      <LabelValue label="Brand" value={brand?.name} />
-                      <LabelValue label="Model" value={productMaster?.model} />
-                      <LabelValue label="Variant" value={variant?.variant_name} />
-                      <LabelValue label="Category" value={category?.name} />
-                      <LabelValue label="Subcategory" value={subcategory?.name} />
-                      <LabelValue label="Warehouse" value={warehouse?.name} />
+                      <LabelValue label="Brand" value={item?.brandName} />
+                      <LabelValue label="Model" value={item?.masterModel} />
+                      <LabelValue label="Variant" value={item?.productName} />
+                      <LabelValue label="Category" value={item?.categoryName} />
+                      <LabelValue label="Subcategory" value={item?.subcategoryName} />
+                      <LabelValue label="Warehouse" value={item?.warehouseName} />
                       <LabelValue label="IMEI 1" value={item.imei1} />
                       <LabelValue label="IMEI 2" value={item.imei2} />
                       <LabelValue label="Serial Number" value={item.serial_number} />
@@ -124,12 +143,12 @@ export default function InventoryItemDetailsDialog({
                   <div>
                     <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Specifications</div>
                     <div className="space-y-2">
-                      <LabelValue label="Condition" value={variant?.condition || item.purchase_file_data?.condition} />
-                      <LabelValue label="RAM" value={attributes.ram || attributes.RAM} />
-                      <LabelValue label="ROM" value={attributes.storage || attributes.Storage || attributes.rom || attributes.ROM} />
-                      <LabelValue label="Color" value={attributes.color || attributes.Color || item.purchase_file_data?.color} />
-                      <LabelValue label="CPU" value={item.cpu || productMaster?.fixed_specifications?.platform_cpu} />
-                      <LabelValue label="GPU" value={item.gpu || productMaster?.fixed_specifications?.platform_gpu} />
+                      <LabelValue label="Condition" value={conditionValue} />
+                      <LabelValue label="RAM" value={ramValue} />
+                      <LabelValue label="ROM" value={romValue} />
+                      <LabelValue label="Color" value={colorValue} />
+                      <LabelValue label="CPU" value={cpuValue} />
+                      <LabelValue label="GPU" value={gpuValue} />
                       <LabelValue label="RAM Type" value={item.ram_type || item.purchase_file_data?.ram_type} />
                       <LabelValue label="ROM Type" value={item.rom_type || item.purchase_file_data?.rom_type} />
                       <LabelValue label="RAM Slots" value={item.ram_slots || item.purchase_file_data?.ram_slots} />
@@ -158,7 +177,11 @@ export default function InventoryItemDetailsDialog({
                   <div>
                     <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Activity Log</div>
                     <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
-                      {item.logs?.length ? item.logs.map((log) => (
+                      {isLoadingLogs ? (
+                        <div className="text-sm text-slate-500 dark:text-slate-400">Loading activity log...</div>
+                      ) : logsError ? (
+                        <div className="text-sm text-red-600 dark:text-red-300">{logsError}</div>
+                      ) : logs.length ? logs.map((log) => (
                         <div key={log.id} className="space-y-1 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0 dark:border-slate-800">
                           <div className="flex items-center justify-between gap-3">
                             <Badge variant="outline">{log.action}</Badge>

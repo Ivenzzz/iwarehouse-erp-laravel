@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 
 class InventoryListQuery
 {
@@ -53,7 +54,6 @@ class InventoryListQuery
     {
         $query = InventoryItem::query()
             ->select('inventory_items.*')
-            ->with(InventoryDataTransformer::INVENTORY_RELATIONS)
             ->leftJoin('product_variants', 'product_variants.id', '=', 'inventory_items.product_variant_id')
             ->leftJoin('product_masters', 'product_masters.id', '=', 'product_variants.product_master_id')
             ->leftJoin('product_models', 'product_models.id', '=', 'product_masters.model_id')
@@ -62,6 +62,8 @@ class InventoryListQuery
             ->leftJoin('product_categories as categories', 'categories.id', '=', 'subcategories.parent_category_id')
             ->leftJoin('warehouses', 'warehouses.id', '=', 'inventory_items.warehouse_id');
 
+        $this->addProjection($query);
+
         $this->applyBrowseFilters($query, $filters);
 
         if ($includeSearch) {
@@ -69,6 +71,11 @@ class InventoryListQuery
         }
 
         return $query;
+    }
+
+    public function withInventoryRelations(Builder $query): Builder
+    {
+        return $query->with(InventoryDataTransformer::INVENTORY_RELATIONS);
     }
 
     public function applySorting(Builder $query, array $filters): Builder
@@ -241,5 +248,61 @@ class InventoryListQuery
     private function encodedAtExpression(): string
     {
         return 'COALESCE(inventory_items.encoded_at, inventory_items.created_at)';
+    }
+
+    private function addProjection(Builder $query): void
+    {
+        $query->addSelect([
+            DB::raw('product_masters.id as product_master_id'),
+            DB::raw('product_brands.id as brand_id'),
+            DB::raw("COALESCE(product_brands.name, '') as brand_name"),
+            DB::raw("COALESCE(product_models.model_name, '') as master_model"),
+            DB::raw("COALESCE(product_variants.variant_name, '') as product_name"),
+            DB::raw("COALESCE(warehouses.name, 'N/A') as warehouse_name"),
+            DB::raw('categories.id as category_id'),
+            DB::raw("COALESCE(categories.name, '') as category_name"),
+            DB::raw('subcategories.id as subcategory_id'),
+            DB::raw("COALESCE(subcategories.name, '') as subcategory_name"),
+            DB::raw('product_variants.condition as variant_condition'),
+        ])->addSelect([
+            'attr_ram' => $this->variantAttributeValueSubquery(['ram']),
+            'attr_rom' => $this->variantAttributeValueSubquery(['storage', 'rom']),
+            'attr_color' => $this->variantAttributeValueSubquery(['color']),
+            'platform_cpu' => $this->productMasterSpecValueSubquery(['platform_cpu', 'cpu']),
+            'platform_gpu' => $this->productMasterSpecValueSubquery(['platform_gpu', 'gpu']),
+        ]);
+    }
+
+    private function variantAttributeValueSubquery(array $keys): QueryBuilder
+    {
+        return DB::table('product_variant_values')
+            ->select('product_variant_values.value')
+            ->join('product_variant_attributes', 'product_variant_attributes.id', '=', 'product_variant_values.product_variant_attribute_id')
+            ->whereColumn('product_variant_values.product_variant_id', 'inventory_items.product_variant_id')
+            ->whereIn('product_variant_attributes.key', $keys)
+            ->orderByRaw($this->keyPriorityOrderExpression('product_variant_attributes.key', $keys))
+            ->orderBy('product_variant_attributes.sort_order')
+            ->limit(1);
+    }
+
+    private function productMasterSpecValueSubquery(array $keys): QueryBuilder
+    {
+        return DB::table('product_master_spec_values')
+            ->select('product_master_spec_values.value')
+            ->join('product_spec_definitions', 'product_spec_definitions.id', '=', 'product_master_spec_values.product_spec_definition_id')
+            ->whereColumn('product_master_spec_values.product_master_id', 'product_masters.id')
+            ->whereIn('product_spec_definitions.key', $keys)
+            ->orderByRaw($this->keyPriorityOrderExpression('product_spec_definitions.key', $keys))
+            ->orderBy('product_spec_definitions.sort_order')
+            ->limit(1);
+    }
+
+    private function keyPriorityOrderExpression(string $column, array $keys): string
+    {
+        $cases = collect(array_values($keys))
+            ->map(fn (string $key, int $index) => "WHEN '{$key}' THEN {$index}")
+            ->implode(' ');
+
+        return "CASE {$column} {$cases} ELSE ".count($keys).' END';
     }
 }

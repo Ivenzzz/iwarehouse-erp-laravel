@@ -11,8 +11,11 @@ use App\Features\Inventory\Actions\ImportInventoryItemsFromCsv;
 use App\Features\Inventory\Http\Requests\ImportInventoryBatchRequest;
 use App\Features\Inventory\Http\Requests\ValidateInventoryImportRequest;
 use App\Features\Inventory\Queries\FindExactInventoryMatches;
+use App\Features\Inventory\Queries\ListInventoryItemLogs;
 use App\Features\Inventory\Queries\ListInventoryPageData;
+use App\Features\Inventory\Queries\ListInventoryVariantOptions;
 use App\Http\Controllers\Controller;
+use App\Models\InventoryItem;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use InvalidArgumentException;
@@ -42,6 +45,16 @@ class InventoryController extends Controller
         return response()->json(
             $findExactInventoryMatches->handle($validated['search'], (int) ($validated['limit'] ?? 20)),
         );
+    }
+
+    public function logs(InventoryItem $inventoryItem, ListInventoryItemLogs $listInventoryItemLogs): JsonResponse
+    {
+        return response()->json($listInventoryItemLogs($inventoryItem));
+    }
+
+    public function variantOptions(Request $request, ListInventoryVariantOptions $listInventoryVariantOptions): JsonResponse
+    {
+        return response()->json($listInventoryVariantOptions($request));
     }
 
     public function validateImport(ValidateInventoryImportRequest $request, ImportInventoryItemsFromCsv $importInventoryItemsFromCsv): JsonResponse

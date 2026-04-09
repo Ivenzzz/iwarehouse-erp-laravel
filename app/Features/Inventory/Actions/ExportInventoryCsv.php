@@ -24,6 +24,8 @@ class ExportInventoryCsv
             $filters,
         );
 
+        $this->inventoryListQuery->withInventoryRelations($query);
+
         $inventory = $query->get();
 
         if (
@@ -44,7 +46,10 @@ class ExportInventoryCsv
                     $filters['search'],
                 ),
                 $filters,
-            )->get();
+            );
+
+            $this->inventoryListQuery->withInventoryRelations($inventory);
+            $inventory = $inventory->get();
         }
 
         $rows = $inventory

@@ -41,8 +41,7 @@ export function getAdminNavSections() {
             defaultOpen: false,
             links: [
                 { label: 'Inventory', href: route('inventory.index'), active: route().current('inventory.*') },
-                { label: 'Stock Transfers', href: route('dashboard') },
-                { label: 'Warehouses', href: route('warehouses.index'), active: route().current('warehouses.*') },
+                { label: 'Stock Transfers', href: route('stock-transfers.index'), active: route().current('stock-transfers.*') },
             ],
         },
         {

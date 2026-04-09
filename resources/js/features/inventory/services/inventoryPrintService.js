@@ -21,14 +21,14 @@ const getPrintStyles = () => `
 const formatCurrency = (amount) =>
   (amount || 0).toLocaleString("en-PH", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
-const getSpecsText = (productMaster, category, variantAttrs, inventoryItem) => {
-  const modelName = String(productMaster?.model || "").toLowerCase();
-  const categoryName = String(category?.name || "").toLowerCase();
+const getSpecsText = (inventoryItem) => {
+  const modelName = String(inventoryItem?.masterModel || "").toLowerCase();
+  const categoryName = String(inventoryItem?.categoryName || "").toLowerCase();
   const isIphone = modelName.includes("iphone") || categoryName.includes("iphone");
 
-  const ram = variantAttrs.ram || variantAttrs.RAM || "";
-  const storage = variantAttrs.storage || variantAttrs.Storage || variantAttrs.rom || variantAttrs.ROM || "";
-  const color = variantAttrs.color || variantAttrs.Color || "";
+  const ram = inventoryItem?.attrRAM || "";
+  const storage = inventoryItem?.attrROM || "";
+  const color = inventoryItem?.attrColor || "";
 
   let mainSpecs = "";
   if (isIphone) {
@@ -38,33 +38,26 @@ const getSpecsText = (productMaster, category, variantAttrs, inventoryItem) => {
     mainSpecs = [specsBase, color].filter(Boolean).join(" ");
   }
 
-  const fixed = productMaster?.fixed_specifications || {};
-  const cpu = inventoryItem?.cpu || fixed.platform_cpu || fixed.cpu || "";
-  const gpu = inventoryItem?.gpu || fixed.platform_gpu || fixed.gpu || "";
+  const cpu = inventoryItem?.cpu || inventoryItem?.platform_cpu || "";
+  const gpu = inventoryItem?.gpu || inventoryItem?.platform_gpu || "";
   const subSpecs = cpu && gpu ? `${cpu} | ${gpu}` : cpu || gpu || "";
 
   return { mainSpecs, subSpecs };
 };
 
-const mapInventoryToStickerItems = (items, { variants, productMasters, brands, categories }) =>
+const mapInventoryToStickerItems = (items) =>
   items.map((item) => {
-    const variant = variants.find((entry) => entry.id === item.variant_id);
-    const productMaster = productMasters.find((entry) => entry.id === item.product_master_id);
-    const brand = productMaster ? brands.find((entry) => entry.id === productMaster.brand_id) : null;
-    const category = productMaster ? categories.find((entry) => entry.id === productMaster.category_id) : null;
-
     const identifier = item.imei1 || item.imei2 || item.serial_number;
     if (!identifier) return null;
 
-    const variantAttrs = variant?.attributes || {};
-    const { mainSpecs, subSpecs } = getSpecsText(productMaster, category, variantAttrs, item);
+    const { mainSpecs, subSpecs } = getSpecsText(item);
 
     return {
-      brand: brand?.name?.toUpperCase() || "",
-      model: productMaster?.model?.toUpperCase() || "",
+      brand: item.brandName?.toUpperCase() || "",
+      model: item.masterModel?.toUpperCase() || "",
       specLine: mainSpecs,
       subSpecLine: subSpecs,
-      condition: variant?.condition || "Brand New",
+      condition: item.variantCondition || "Brand New",
       warrantyLines: (item.warranty_description || "No Warranty")
         .split(",")
         .map((value) => value.trim())
@@ -75,28 +68,22 @@ const mapInventoryToStickerItems = (items, { variants, productMasters, brands, c
     };
   }).filter(Boolean);
 
-export const printInventoryQRStickers = async ({ items, variants, productMasters, brands, categories }) => {
-  const stickerItems = mapInventoryToStickerItems(items, { variants, productMasters, brands, categories });
+export const printInventoryQRStickers = async ({ items }) => {
+  const stickerItems = mapInventoryToStickerItems(items);
   await printQRStickers({ items: stickerItems, title: "QR Stickers - Inventory" });
 };
 
-export const printInventoryBarcodes = ({ items, variants, productMasters, brands, categories }) => {
+export const printInventoryBarcodes = ({ items }) => {
   if (!items?.length) {
     window.alert("No items selected to print barcodes.");
     return;
   }
 
   const barcodeHTML = items.map((item) => {
-    const variant = variants.find((entry) => entry.id === item.variant_id);
-    const productMaster = productMasters.find((entry) => entry.id === item.product_master_id);
-    const brand = productMaster ? brands.find((entry) => entry.id === productMaster.brand_id) : null;
-    const category = productMaster ? categories.find((entry) => entry.id === productMaster.category_id) : null;
-
     const barcodeValue = item.imei1 || item.imei2 || item.serial_number || "";
     if (!barcodeValue) return "";
 
-    const variantAttrs = variant?.attributes || {};
-    const { mainSpecs, subSpecs } = getSpecsText(productMaster, category, variantAttrs, item);
+    const { mainSpecs, subSpecs } = getSpecsText(item);
     const warrantyLines = (item.warranty_description || "No Warranty")
       .split(",")
       .map((value) => value.trim())
@@ -104,10 +91,10 @@ export const printInventoryBarcodes = ({ items, variants, productMasters, brands
 
     return `
       <div class="barcode-item">
-        <div class="barcode-header"><strong>${brand?.name?.toUpperCase() || ""} ${productMaster?.model?.toUpperCase() || ""}</strong></div>
+        <div class="barcode-header"><strong>${item.brandName?.toUpperCase() || ""} ${item.masterModel?.toUpperCase() || ""}</strong></div>
         ${mainSpecs ? `<div class="barcode-specs">${mainSpecs}</div>` : ""}
         ${subSpecs ? `<div class="barcode-specs">${subSpecs}</div>` : ""}
-        <div class="barcode-specs">${variant?.condition || "Brand New"}</div>
+        <div class="barcode-specs">${item.variantCondition || "Brand New"}</div>
         ${warrantyLines.map((line) => `<div class="barcode-specs">${line}</div>`).join("")}
         <div class="barcode-prices">
           <div class="cash-price">CASH P${formatCurrency(item.cash_price)}</div>

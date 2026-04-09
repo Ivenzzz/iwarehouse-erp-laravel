@@ -7,8 +7,6 @@ use App\Features\Inventory\Support\InventoryListQuery;
 use App\Models\InventoryItem;
 use App\Models\ProductBrand;
 use App\Models\ProductCategory;
-use App\Models\ProductMaster;
-use App\Models\ProductVariant;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -90,18 +88,6 @@ class ListInventoryPageData
             'filters' => $filters,
             'perPageOptions' => InventoryListQuery::PER_PAGE_OPTIONS,
             'exactLookup' => $exactLookup,
-            'productMasters' => ProductMaster::query()
-                ->with(InventoryDataTransformer::PRODUCT_MASTER_RELATIONS)
-                ->orderBy('master_sku')
-                ->get()
-                ->map(fn (ProductMaster $productMaster) => InventoryDataTransformer::transformProductMaster($productMaster))
-                ->values(),
-            'variants' => ProductVariant::query()
-                ->with(InventoryDataTransformer::VARIANT_RELATIONS)
-                ->orderBy('variant_name')
-                ->get()
-                ->map(fn (ProductVariant $variant) => InventoryDataTransformer::transformVariant($variant))
-                ->values(),
             'warehouses' => Warehouse::query()
                 ->orderBy('sort_order')
                 ->orderBy('name')
@@ -119,17 +105,11 @@ class ListInventoryPageData
                 ->get()
                 ->map(fn (ProductCategory $category) => InventoryDataTransformer::transformCategory($category))
                 ->values(),
-            'subcategories' => ProductCategory::query()
-                ->whereNotNull('parent_category_id')
-                ->orderBy('name')
-                ->get()
-                ->map(fn (ProductCategory $category) => InventoryDataTransformer::transformCategory($category))
-                ->values(),
         ];
     }
 
     private function transformInventoryPaginator(LengthAwarePaginator $inventory): LengthAwarePaginator
     {
-        return $inventory->through(fn (InventoryItem $item) => InventoryDataTransformer::transformInventoryItem($item));
+        return $inventory->through(fn (InventoryItem $item) => InventoryDataTransformer::transformInventoryListItem($item));
     }
 }

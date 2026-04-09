@@ -4,7 +4,7 @@
   "properties": {
     "transfer_number": {
       "type": "string",
-      "description": "Unique transfer number (auto-generated)"
+      "description": "Unique transfer number (auto-generated, incremental)"
     },
     "source_location_id": {
       "type": "string",
@@ -41,6 +41,14 @@
           "inventory_id": {
             "type": "string"
           },
+          "is_picked": {
+            "type": "boolean",
+            "default": false
+          },
+          "is_shipped": {
+            "type": "boolean",
+            "default": false
+          },
           "is_received": {
             "type": "boolean",
             "default": false
@@ -67,16 +75,16 @@
       "type": "object",
       "description": "All users involved in the transfer",
       "properties": {
-        "created_by": {
+        "created_by_id": {
           "type": "string"
         },
-        "picked_by": {
+        "picked_by_id": {
           "type": "string"
         },
-        "shipped_by": {
+        "shipped_by_id": {
           "type": "string"
         },
-        "received_by": {
+        "received_by_id": {
           "type": "string"
         }
       }
@@ -115,18 +123,6 @@
         }
       }
     },
-    "picklist_items_json": {
-      "type": "array",
-      "description": "Items that are in the picklist/manifest for the transfer",
-      "items": {
-        "type": "object",
-        "properties": {
-          "inventory_id": {
-            "type": "string"
-          }
-        }
-      }
-    },
     "overage_items_json": {
       "type": "array",
       "description": "Excess/unplanned items received that were not on the manifest",
@@ -134,15 +130,6 @@
         "type": "object",
         "properties": {
           "inventory_id": {
-            "type": "string"
-          },
-          "variant_id": {
-            "type": "string"
-          },
-          "imei": {
-            "type": "string"
-          },
-          "serial_number": {
             "type": "string"
           }
         }
@@ -193,7 +180,7 @@
           "type": "string",
           "format": "date-time"
         },
-        "consolidated_by": {
+        "consolidated_by_id": {
           "type": "string"
         }
       }

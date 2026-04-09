@@ -1,5 +1,5 @@
 import SidebarNav from '@/shared/layouts/app-shell/SidebarNav';
-import { Link, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { Warehouse } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
@@ -21,6 +21,7 @@ function getStoredScrollTop(storageKey) {
 
 export default function SidebarContent({ sections, storageKey = 'default' }) {
     const { url } = usePage();
+    const isDesktopSidebar = storageKey === 'desktop';
     const scrollContainerRef = useRef(null);
     const storageKeyRef = useRef(storageKey);
     const restoreFrameIdsRef = useRef([]);
@@ -119,6 +120,28 @@ export default function SidebarContent({ sections, storageKey = 'default' }) {
     }, [scheduleRestoreScrollTop, storageKey, url, restoreVersion]);
 
     useEffect(() => {
+        if (!isDesktopSidebar) {
+            return undefined;
+        }
+
+        const removeStartListener = router.on('start', () => {
+            persistScrollTop();
+        });
+        const removeNavigateListener = router.on('navigate', () => {
+            scheduleRestoreScrollTop();
+        });
+        const removeFinishListener = router.on('finish', () => {
+            scheduleRestoreScrollTop();
+        });
+
+        return () => {
+            removeStartListener();
+            removeNavigateListener();
+            removeFinishListener();
+        };
+    }, [isDesktopSidebar, persistScrollTop, scheduleRestoreScrollTop]);
+
+    useEffect(() => {
         const scrollContainer = scrollContainerRef.current;
 
         if (!scrollContainer || typeof window === 'undefined' || typeof ResizeObserver === 'undefined') {
@@ -160,7 +183,7 @@ export default function SidebarContent({ sections, storageKey = 'default' }) {
 
             <div
                 ref={scrollContainerRef}
-                scroll-region="true"
+                scroll-region={isDesktopSidebar ? undefined : 'true'}
                 onClickCapture={persistScrollTop}
                 onPointerDownCapture={persistScrollTop}
                 className="sidebar-scroll min-h-0 flex-1 overflow-y-auto py-6"

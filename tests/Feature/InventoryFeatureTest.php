@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\InventoryItem;
+use App\Models\InventoryItemLog;
 use App\Models\ProductBrand;
 use App\Models\ProductCategory;
 use App\Models\ProductMaster;
@@ -44,6 +45,12 @@ class InventoryFeatureTest extends TestCase
                 ->where('filters.direction', 'desc')
                 ->where('filters.perPage', 50)
                 ->where('exactLookup.active', false)
+                ->has('warehouses', 1)
+                ->has('brands', 1)
+                ->has('categories', 1)
+                ->missing('productMasters')
+                ->missing('variants')
+                ->missing('subcategories')
             );
         $this->actingAs($user)->getJson(route('inventory.kpis'))
             ->assertOk()
@@ -134,6 +141,13 @@ class InventoryFeatureTest extends TestCase
                 ->where('inventory.per_page', 10)
                 ->where('inventory.data.0.brandName', 'Samsung')
                 ->where('inventory.data.0.warehouseName', 'Branch Warehouse')
+                ->where('inventory.data.0.categoryName', 'Tablets')
+                ->where('inventory.data.0.subcategoryName', 'Android Tablets')
+                ->where('inventory.data.0.variantCondition', 'Brand New')
+                ->missing('inventory.data.0.logs')
+                ->missing('productMasters')
+                ->missing('variants')
+                ->missing('subcategories')
             );
 
         $this->actingAs($user)
@@ -448,6 +462,108 @@ class InventoryFeatureTest extends TestCase
             ]);
 
         $this->assertDatabaseMissing('inventory_items', ['id' => $item->id]);
+    }
+
+    public function test_inventory_logs_endpoint_returns_only_selected_item_logs(): void
+    {
+        $user = User::factory()->create();
+        [$variant, $warehouse] = $this->createInventoryGraph();
+
+        $item = InventoryItem::create([
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $warehouse->id,
+            'serial_number' => 'INV-LOG-001',
+            'status' => 'available',
+        ]);
+
+        $otherItem = InventoryItem::create([
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $warehouse->id,
+            'serial_number' => 'INV-LOG-002',
+            'status' => 'available',
+        ]);
+
+        InventoryItemLog::create([
+            'inventory_item_id' => $item->id,
+            'actor_id' => $user->id,
+            'logged_at' => now(),
+            'action' => 'TEST_LOG',
+            'notes' => 'Selected item log',
+            'meta' => ['scope' => 'selected'],
+        ]);
+
+        InventoryItemLog::create([
+            'inventory_item_id' => $otherItem->id,
+            'actor_id' => $user->id,
+            'logged_at' => now(),
+            'action' => 'OTHER_LOG',
+            'notes' => 'Other item log',
+            'meta' => ['scope' => 'other'],
+        ]);
+
+        $this->actingAs($user)
+            ->getJson(route('inventory.logs', $item))
+            ->assertOk()
+            ->assertJsonCount(1, 'logs')
+            ->assertJsonPath('logs.0.action', 'TEST_LOG')
+            ->assertJsonPath('logs.0.actor_name', $user->name)
+            ->assertJsonPath('logs.0.notes', 'Selected item log');
+    }
+
+    public function test_inventory_variant_options_endpoint_supports_search_and_pagination(): void
+    {
+        $user = User::factory()->create();
+        [$appleVariant] = $this->createInventoryGraph();
+
+        $samsungBrand = ProductBrand::create(['name' => 'Samsung']);
+        $samsungCategory = ProductCategory::create([
+            'name' => 'Tablets',
+            'parent_category_id' => null,
+        ]);
+        $samsungSubcategory = ProductCategory::create([
+            'name' => 'Android Tablets',
+            'parent_category_id' => $samsungCategory->id,
+        ]);
+        $samsungModel = ProductModel::create([
+            'brand_id' => $samsungBrand->id,
+            'model_name' => 'Galaxy Tab Ultra',
+        ]);
+        $samsungMaster = ProductMaster::create([
+            'master_sku' => 'SAMSUNG-TAB-ULTRA',
+            'model_id' => $samsungModel->id,
+            'subcategory_id' => $samsungSubcategory->id,
+        ]);
+
+        foreach (range(1, 16) as $index) {
+            ProductVariant::create([
+                'product_master_id' => $samsungMaster->id,
+                'variant_name' => sprintf('Samsung Variant %02d', $index),
+                'sku' => sprintf('SAMSUNG-VARIANT-%02d', $index),
+                'condition' => 'Brand New',
+                'is_active' => true,
+            ]);
+        }
+
+        $this->actingAs($user)
+            ->getJson(route('inventory.variant-options', ['search' => 'Samsung']))
+            ->assertOk()
+            ->assertJsonPath('filters.search', 'Samsung')
+            ->assertJsonPath('variants.total', 16)
+            ->assertJsonPath('variants.per_page', 15)
+            ->assertJsonPath('variants.current_page', 1)
+            ->assertJsonPath('variants.data.0.description', 'Samsung | Galaxy Tab Ultra | Brand New');
+
+        $this->actingAs($user)
+            ->getJson(route('inventory.variant-options', ['search' => 'Samsung', 'page' => 2]))
+            ->assertOk()
+            ->assertJsonPath('variants.current_page', 2)
+            ->assertJsonCount(1, 'variants.data');
+
+        $this->actingAs($user)
+            ->getJson(route('inventory.variant-options', ['search' => $appleVariant->sku]))
+            ->assertOk()
+            ->assertJsonPath('variants.total', 1)
+            ->assertJsonPath('variants.data.0.id', $appleVariant->id);
     }
 
     /**

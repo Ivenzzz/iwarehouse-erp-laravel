@@ -22,12 +22,9 @@ const RELOAD_PROPS = [
   "filters",
   "perPageOptions",
   "exactLookup",
-  "productMasters",
-  "variants",
   "warehouses",
   "brands",
   "categories",
-  "subcategories",
 ];
 
 export default function InventoryPage({
@@ -35,12 +32,9 @@ export default function InventoryPage({
   filters,
   perPageOptions,
   exactLookup,
-  productMasters,
-  variants,
   warehouses,
   brands,
   categories,
-  subcategories,
 }) {
   const { errors } = usePage().props;
   const [selectedItems, setSelectedItems] = useState([]);
@@ -191,12 +185,6 @@ export default function InventoryPage({
         open={detailsOpen}
         onOpenChange={setDetailsOpen}
         item={selectedItem}
-        productMasters={productMasters}
-        variants={variants}
-        brands={brands}
-        categories={categories}
-        subcategories={subcategories}
-        warehouses={warehouses}
       />
       <BatchWarehouseDialog
         open={batchWarehouseOpen}
@@ -213,7 +201,6 @@ export default function InventoryPage({
         onOpenChange={setBatchUpdateOpen}
         selectedCount={selectedItems.length}
         selectedItemIds={selectedItems}
-        variants={variants}
         warehouses={warehouses}
         onConfirm={handleBatchUpdate}
         isUpdating={batchUpdateState.isLoading}
@@ -240,11 +227,11 @@ export default function InventoryPage({
             <div className="flex flex-wrap items-center gap-2">
               {selectedItems.length > 0 ? (
                 <>
-                  <Button variant="outline" onClick={() => printInventoryBarcodes({ items: getSelectedInventoryItems(), variants, productMasters, brands, categories })}>
+                  <Button variant="outline" onClick={() => printInventoryBarcodes({ items: getSelectedInventoryItems() })}>
                     <Barcode className="size-4" />
                     Print Barcodes ({selectedItems.length})
                   </Button>
-                  <Button variant="outline" onClick={() => printInventoryQRStickers({ items: getSelectedInventoryItems(), variants, productMasters, brands, categories })}>
+                  <Button variant="outline" onClick={() => printInventoryQRStickers({ items: getSelectedInventoryItems() })}>
                     <QrCode className="size-4" />
                     Print QR Codes ({selectedItems.length})
                   </Button>

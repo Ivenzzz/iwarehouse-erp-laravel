@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import axios from "axios";
 
 import { Button } from "@/shared/components/ui/button";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/shared/components/ui/alert-dialog";
@@ -10,7 +11,6 @@ export default function BatchUpdateDialog({
   onOpenChange,
   selectedCount,
   selectedItemIds,
-  variants,
   warehouses,
   onConfirm,
   isUpdating,
@@ -20,11 +20,12 @@ export default function BatchUpdateDialog({
   const [fields, setFields] = useState({});
   const [confirmStep, setConfirmStep] = useState(false);
   const [confirmText, setConfirmText] = useState("");
+  const [variantOptions, setVariantOptions] = useState([]);
+  const [variantSearchValue, setVariantSearchValue] = useState("");
+  const [variantPage, setVariantPage] = useState(1);
+  const [variantLastPage, setVariantLastPage] = useState(1);
+  const [variantLoading, setVariantLoading] = useState(false);
 
-  const variantOptions = useMemo(
-    () => variants.map((variant) => ({ value: variant.id, label: variant.variant_name || variant.variant_sku || variant.id })),
-    [variants],
-  );
   const warehouseOptions = useMemo(
     () => warehouses.map((warehouse) => ({ value: warehouse.id, label: warehouse.name })),
     [warehouses],
@@ -39,12 +40,110 @@ export default function BatchUpdateDialog({
     setFields({});
     setConfirmStep(false);
     setConfirmText("");
+    setVariantOptions([]);
+    setVariantPage(1);
+    setVariantLastPage(1);
+    setVariantSearchValue("");
     onReset?.();
     onOpenChange(false);
   };
 
+  useEffect(() => {
+    if (!open || result) {
+      return undefined;
+    }
+
+    let isActive = true;
+
+    const fetchVariantOptions = async () => {
+      setVariantLoading(true);
+
+      try {
+        const response = await axios.get(route("inventory.variant-options"), {
+          params: {
+            search: variantSearchValue,
+            page: 1,
+          },
+        });
+
+        if (!isActive) {
+          return;
+        }
+
+        const variants = response.data.variants ?? {};
+        setVariantOptions((variants.data || []).map((variant) => ({
+          value: variant.id,
+          label: variant.label,
+          description: variant.description,
+        })));
+        setVariantPage(variants.current_page || 1);
+        setVariantLastPage(variants.last_page || 1);
+      } catch (error) {
+        if (isActive) {
+          setVariantOptions([]);
+          setVariantPage(1);
+          setVariantLastPage(1);
+        }
+      } finally {
+        if (isActive) {
+          setVariantLoading(false);
+        }
+      }
+    };
+
+    fetchVariantOptions();
+
+    return () => {
+      isActive = false;
+    };
+  }, [open, result, variantSearchValue]);
+
+  const loadMoreVariants = async () => {
+    if (variantLoading || variantPage >= variantLastPage) {
+      return;
+    }
+
+    setVariantLoading(true);
+
+    try {
+      const response = await axios.get(route("inventory.variant-options"), {
+        params: {
+          search: variantSearchValue,
+          page: variantPage + 1,
+        },
+      });
+
+      const variants = response.data.variants ?? {};
+      const nextOptions = (variants.data || []).map((variant) => ({
+        value: variant.id,
+        label: variant.label,
+        description: variant.description,
+      }));
+
+      setVariantOptions((current) => {
+        const seen = new Set(current.map((option) => String(option.value)));
+        const appended = nextOptions.filter((option) => !seen.has(String(option.value)));
+
+        return [...current, ...appended];
+      });
+      setVariantPage(variants.current_page || variantPage);
+      setVariantLastPage(variants.last_page || variantLastPage);
+    } catch (error) {
+      // Keep the current option list intact if pagination fails.
+    } finally {
+      setVariantLoading(false);
+    }
+  };
+
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog open={open} onOpenChange={(nextOpen) => {
+      if (nextOpen) {
+        onOpenChange(true);
+        return;
+      }
+
+      handleClose();
+    }}>
       <AlertDialogContent className="max-w-2xl">
         <AlertDialogHeader>
           <AlertDialogTitle>{result ? "Batch Update Results" : confirmStep ? "Confirm Batch Update" : "Batch Update Inventory"}</AlertDialogTitle>
@@ -67,7 +166,17 @@ export default function BatchUpdateDialog({
             <input value={confirmText} onChange={(event) => setConfirmText(event.target.value)} placeholder={`UPDATE ${selectedCount}`} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-800 dark:bg-slate-950" />
           </div>
         ) : (
-          <BatchUpdateFieldForm fields={fields} onChange={setFields} variantOptions={variantOptions} warehouseOptions={warehouseOptions} />
+          <BatchUpdateFieldForm
+            fields={fields}
+            onChange={setFields}
+            variantOptions={variantOptions}
+            warehouseOptions={warehouseOptions}
+            variantSearchValue={variantSearchValue}
+            onVariantSearchChange={setVariantSearchValue}
+            onVariantLoadMore={loadMoreVariants}
+            canLoadMoreVariants={variantPage < variantLastPage}
+            isVariantLoading={variantLoading}
+          />
         )}
 
         <AlertDialogFooter>

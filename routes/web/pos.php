@@ -12,6 +12,7 @@ Route::middleware('auth')->group(function () {
     Route::patch('/pos/session/{posSession}/close', [PosController::class, 'closeSession'])->name('pos.session.close');
     Route::post('/pos/customers', [PosController::class, 'storeCustomer'])->name('pos.customers.store');
     Route::post('/pos/sales-reps', [PosController::class, 'storeSalesRep'])->name('pos.sales-reps.store');
+    Route::post('/pos/discounts/verify-oic', [PosController::class, 'verifyDiscountOic'])->name('pos.discounts.verify-oic');
     Route::post('/pos/transactions', [PosController::class, 'storeTransaction'])->name('pos.transactions.store');
     Route::post('/pos/uploads', [PosController::class, 'upload'])->name('pos.uploads.store');
 });

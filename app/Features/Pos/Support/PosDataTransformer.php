@@ -16,6 +16,7 @@ use App\Models\SalesTransactionItem;
 use App\Models\SalesTransactionPayment;
 use App\Models\User;
 use App\Models\Warehouse;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 
 class PosDataTransformer
@@ -68,15 +69,9 @@ class PosDataTransformer
     {
         $customer->loadMissing(['contacts', 'addresses', 'salesTransactions.items.inventoryItem.productVariant.productMaster.model.brand']);
 
-        /** @var CustomerContact|null $contact */
-        $contact = $customer->contacts
-            ->sortByDesc(fn (CustomerContact $entry) => (int) $entry->is_primary)
-            ->first();
-
-        /** @var CustomerAddress|null $address */
-        $address = $customer->addresses
-            ->sortByDesc(fn (CustomerAddress $entry) => (int) $entry->is_primary)
-            ->first();
+        $contact = $this->primaryCustomerContact($customer);
+        $address = $this->primaryCustomerAddress($customer);
+        $fullName = $this->customerFullName($customer);
 
         $transactions = $customer->salesTransactions;
         $frequentPurchases = $transactions
@@ -104,7 +99,8 @@ class PosDataTransformer
             'customer_kind' => $customer->customer_kind,
             'first_name' => $customer->firstname,
             'last_name' => $customer->lastname,
-            'full_name' => $this->customerFullName($customer),
+            'full_name' => $fullName,
+            'display_label' => $this->buildCustomerDisplayLabel($fullName, $contact?->phone),
             'phone' => $contact?->phone,
             'email' => $contact?->email,
             'address_json' => [
@@ -115,6 +111,7 @@ class PosDataTransformer
                 'region' => $address?->region,
                 'postal_code' => $address?->postal_code,
                 'country' => $address?->country === 'PH' ? 'Philippines' : $address?->country,
+                'country_code' => $address?->country,
             ],
             'insights' => [
                 'transaction_count' => $transactions->count(),
@@ -128,15 +125,20 @@ class PosDataTransformer
     {
         $employee->loadMissing('jobTitle.department');
 
+        $fullName = $this->employeeFullName($employee);
+        $jobTitle = $employee->jobTitle?->name;
+        $displayLabel = trim($fullName.' - '.($jobTitle ?? ''));
+
         return [
             'id' => $employee->id,
             'employee_id' => $employee->employee_id,
-            'full_name' => $this->employeeFullName($employee),
+            'full_name' => $fullName,
             'first_name' => $employee->first_name,
             'last_name' => $employee->last_name,
-            'job_title' => $employee->jobTitle?->name,
+            'job_title' => $jobTitle,
             'department' => $employee->jobTitle?->department?->name,
-            'label' => trim($this->employeeFullName($employee).' - '.($employee->jobTitle?->name ?? '')),
+            'label' => $displayLabel,
+            'display_label' => $displayLabel,
             'status' => $employee->status,
         ];
     }
@@ -233,18 +235,34 @@ class PosDataTransformer
             $inventoryItem = $item->inventoryItem;
             $variant = $inventoryItem?->productVariant;
             $productMaster = $variant?->productMaster;
+            $productName = $productMaster?->product_name;
+            $variantName = $variant?->variant_name;
+            $identifier = $this->firstNonEmpty(
+                $inventoryItem?->imei,
+                $inventoryItem?->imei2,
+                $inventoryItem?->serial_number,
+            );
+            $displayName = $this->buildTransactionItemDisplayName($productName, $variantName);
+            $receiptDescription = $this->buildTransactionItemReceiptDescription(
+                $displayName,
+                $variant?->condition,
+            );
 
             return [
                 'inventory_id' => $inventoryItem?->id,
                 'inventory_item_id' => $inventoryItem?->id,
                 'product_master_id' => $productMaster?->id,
                 'variant_id' => $variant?->id,
-                'product_name' => $productMaster?->product_name,
-                'variant_name' => $variant?->variant_name,
+                'product_name' => $productName,
+                'variant_name' => $variantName,
+                'condition' => $variant?->condition,
                 'brand_name' => $productMaster?->model?->brand?->name,
                 'imei1' => $inventoryItem?->imei,
                 'imei2' => $inventoryItem?->imei2,
                 'serial_number' => $inventoryItem?->serial_number,
+                'identifier' => $identifier,
+                'display_name' => $displayName,
+                'receipt_description' => $receiptDescription,
                 'price_basis' => $item->price_basis,
                 'unit_price' => (float) ($item->price_basis === SalesTransactionItem::PRICE_BASIS_SRP
                     ? ($item->snapshot_srp ?? 0)
@@ -253,7 +271,10 @@ class PosDataTransformer
                 'snapshot_srp' => (float) ($item->snapshot_srp ?? 0),
                 'snapshot_cost_price' => (float) ($item->snapshot_cost_price ?? 0),
                 'discount_amount' => (float) ($item->discount_amount ?? 0),
+                'discount_proof_image_url' => $item->discount_proof_image_url,
+                'discount_validated_at' => optional($item->discount_validated_at)?->toDateTimeString(),
                 'line_total' => (float) $item->line_total,
+                'quantity' => 1,
                 'warranty_description' => $inventoryItem?->warranty,
                 'is_bundle' => (bool) $item->is_bundle,
                 'bundle_serial' => $item->bundle_serial,
@@ -298,6 +319,31 @@ class PosDataTransformer
         $amountPaid = (float) $payments->sum('amount');
         $subtotal = (float) $items->sum(fn (array $item) => $item['unit_price']);
         $discountAmount = (float) $items->sum('discount_amount');
+        $customer = $transaction->customer;
+        $contact = $customer ? $this->primaryCustomerContact($customer) : null;
+        $address = $customer ? $this->primaryCustomerAddress($customer) : null;
+        $documents = $transaction->documents->map(fn ($document) => [
+            'document_type' => $document->document_type,
+            'document_name' => $document->document_name,
+            'document_url' => $document->document_url,
+        ])->values();
+        $officialReceipt = $documents->firstWhere('document_type', 'official_receipt');
+        $customerIdDocument = $documents->firstWhere('document_type', 'customer_id');
+        $customerAgreement = $documents->firstWhere('document_type', 'customer_agreement');
+        $supportingDocuments = [
+            'official_receipt_url' => $officialReceipt['document_url'] ?? null,
+            'customer_id_url' => $customerIdDocument['document_url'] ?? null,
+            'customer_agreement_url' => $customerAgreement['document_url'] ?? null,
+            'other_supporting_documents' => $documents
+                ->where('document_type', 'other_supporting')
+                ->map(fn (array $document) => [
+                    'name' => $document['document_name'],
+                    'url' => $document['document_url'],
+                    'type' => $document['document_type'],
+                ])
+                ->values()
+                ->all(),
+        ];
 
         return [
             'id' => $transaction->id,
@@ -305,10 +351,23 @@ class PosDataTransformer
             'or_number' => $transaction->or_number,
             'transaction_date' => optional($transaction->created_at)?->toDateTimeString(),
             'customer_id' => $transaction->customer_id,
-            'customer_name' => $transaction->customer ? $this->customerFullName($transaction->customer) : null,
+            'customer_name' => $customer ? $this->customerFullName($customer) : null,
+            'customer_phone' => $contact?->phone,
+            'customer_email' => $contact?->email,
+            'customer_address' => $address
+                ? trim(implode(', ', array_filter([
+                    $address->street,
+                    $address->barangay,
+                    $address->city_municipality,
+                    $address->province,
+                    $address->region,
+                ])))
+                : null,
             'sales_representative_id' => $transaction->sales_representative_id,
             'sales_representative_name' => $transaction->salesRepresentative ? $this->employeeFullName($transaction->salesRepresentative) : null,
             'pos_session_id' => $transaction->pos_session_id,
+            'cashier_id' => $transaction->posSession?->employee_id,
+            'warehouse_id' => $transaction->posSession?->warehouse_id,
             'warehouse_name' => $transaction->posSession?->warehouse?->name,
             'mode_of_release' => $transaction->mode_of_release,
             'remarks' => $transaction->remarks,
@@ -323,11 +382,8 @@ class PosDataTransformer
             'payments_json' => [
                 'payments' => $payments->all(),
             ],
-            'documents' => $transaction->documents->map(fn ($document) => [
-                'document_type' => $document->document_type,
-                'document_name' => $document->document_name,
-                'document_url' => $document->document_url,
-            ])->values()->all(),
+            'documents' => $documents->all(),
+            'supporting_documents' => $supportingDocuments,
         ];
     }
 
@@ -347,6 +403,45 @@ class PosDataTransformer
     private function employeeFullName(Employee $employee): string
     {
         return trim($employee->first_name.' '.$employee->last_name);
+    }
+
+    private function primaryCustomerContact(Customer $customer): ?CustomerContact
+    {
+        /** @var CustomerContact|null */
+        return $customer->contacts
+            ->sortByDesc(fn (CustomerContact $entry) => (int) $entry->is_primary)
+            ->first();
+    }
+
+    private function primaryCustomerAddress(Customer $customer): ?CustomerAddress
+    {
+        /** @var CustomerAddress|null */
+        return $customer->addresses
+            ->sortByDesc(fn (CustomerAddress $entry) => (int) $entry->is_primary)
+            ->first();
+    }
+
+    private function buildCustomerDisplayLabel(string $fullName, ?string $phone): string
+    {
+        $parts = array_values(array_filter([$fullName, $phone]));
+
+        return implode(' - ', $parts);
+    }
+
+    private function buildTransactionItemDisplayName(?string $productName, ?string $variantName): string
+    {
+        return trim(implode(' ', array_filter([$productName, $variantName])));
+    }
+
+    private function buildTransactionItemReceiptDescription(?string $displayName, ?string $condition): string
+    {
+        return trim(implode(' ', array_filter([$displayName, $condition])));
+    }
+
+    private function firstNonEmpty(?string ...$values): ?string
+    {
+        return Collection::make($values)
+            ->first(fn (?string $value) => is_string($value) && trim($value) !== '');
     }
 
     private function customerFullName(Customer $customer): string

@@ -58,4 +58,31 @@ class StorePosTransactionRequest extends FormRequest
             'documents.*.document_url' => ['required', 'string', 'max:255'],
         ];
     }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator): void {
+            foreach ($this->input('items', []) as $index => $item) {
+                $discountAmount = (float) ($item['discount_amount'] ?? 0);
+
+                if ($discountAmount <= 0) {
+                    continue;
+                }
+
+                if (! filled($item['discount_proof_image_url'] ?? null)) {
+                    $validator->errors()->add(
+                        "items.$index.discount_proof_image_url",
+                        'A discount proof image is required for discounted items.',
+                    );
+                }
+
+                if (! filled($item['discount_validated_at'] ?? null)) {
+                    $validator->errors()->add(
+                        "items.$index.discount_validated_at",
+                        'A discount validation timestamp is required for discounted items.',
+                    );
+                }
+            }
+        });
+    }
 }

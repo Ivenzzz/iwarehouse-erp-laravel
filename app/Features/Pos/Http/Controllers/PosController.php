@@ -8,7 +8,9 @@ use App\Features\Pos\Actions\CreatePosSalesRep;
 use App\Features\Pos\Actions\CreatePosSession;
 use App\Features\Pos\Actions\CreatePosTransaction;
 use App\Features\Pos\Actions\StorePosUpload;
+use App\Features\Pos\Actions\VerifyPosDiscountOic;
 use App\Features\Pos\Http\Requests\ClosePosSessionRequest;
+use App\Features\Pos\Http\Requests\StorePosDiscountAuthorizationRequest;
 use App\Features\Pos\Http\Requests\StorePosCustomerRequest;
 use App\Features\Pos\Http\Requests\StorePosSalesRepRequest;
 use App\Features\Pos\Http\Requests\StorePosSessionRequest;
@@ -140,6 +142,31 @@ class PosController extends Controller
 
         return response()->json([
             'salesRep' => $transformer->transformSalesRep($employee),
+        ]);
+    }
+
+    public function verifyDiscountOic(
+        StorePosDiscountAuthorizationRequest $request,
+        VerifyPosDiscountOic $verifyPosDiscountOic,
+    ): JsonResponse {
+        $employee = $verifyPosDiscountOic->handle($request->validated('pin'));
+
+        if ($employee === null) {
+            return response()->json([
+                'message' => 'Invalid OIC PIN.',
+            ], 422);
+        }
+
+        return response()->json([
+            'authorized' => true,
+            'employee' => [
+                'id' => $employee->id,
+                'full_name' => trim(implode(' ', array_filter([
+                    $employee->first_name,
+                    $employee->middle_name,
+                    $employee->last_name,
+                ]))),
+            ],
         ]);
     }
 

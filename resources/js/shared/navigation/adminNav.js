@@ -28,10 +28,10 @@ export function getAdminNavSections() {
             defaultOpen: false,
             links: [
                 { label: 'POS', href: route('pos.index'), active: route().current('pos.*') },
-                { label: 'Daily Sales Reports', href: route('dashboard') },
-                { label: 'Sales', href: route('dashboard') },
+                { label: 'Daily Sales Reports', href: route('sales-report.index'), active: route().current('sales-report.*') },
+                { label: 'Sales', href: route('sales.index'), active: route().current('sales.*') },
                 { label: 'Product Reports', href: route('dashboard') },
-                { label: 'Placement Reports', href: route('dashboard') },
+                { label: 'Placement Reports', href: route('placement-reports.index'), active: route().current('placement-reports.*') },
                 { label: 'Customers', href: route('dashboard') },
             ],
         },

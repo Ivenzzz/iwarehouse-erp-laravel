@@ -14,7 +14,6 @@ export default function ReceiptDialog({
   open,
   onOpenChange,
   completedTransaction,
-  selectedCustomer,
   onPrintReceipt,
 }) {
   return (
@@ -57,7 +56,7 @@ export default function ReceiptDialog({
               </p>
             )}
             <p>
-              <strong>Customer:</strong> {selectedCustomer?.full_name || "N/A"}
+              <strong>Customer:</strong> {completedTransaction.customer_name || "N/A"}
             </p>
 
             {/* Display Program/Installment info from payments */}

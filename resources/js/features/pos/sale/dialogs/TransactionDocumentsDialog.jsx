@@ -18,13 +18,14 @@ export default function TransactionDocumentsDialog({ open, onOpenChange, transac
     const docs = [];
     const payments = transaction?.payments_json?.payments || [];
     payments.forEach((payment, idx) => {
-      const supportingUrls = payment.payment_details?.supporting_doc_urls || [];
-      supportingUrls.forEach((url, docIdx) => {
-        if (url) {
+      const supportingDocs = payment.payment_details?.supporting_doc_urls || [];
+      supportingDocs.forEach((document, docIdx) => {
+        const documentUrl = typeof document === "string" ? document : document?.url;
+        if (documentUrl) {
           docs.push({
             key: `payment_${idx}_doc_${docIdx}`,
             label: `${payment.payment_method} - Supporting Doc ${docIdx + 1}`,
-            url,
+            url: documentUrl,
             type: "image",
           });
         }

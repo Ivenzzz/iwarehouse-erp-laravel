@@ -60,7 +60,7 @@ export default function AddSalesRepDialog({ open, onOpenChange, onSuccess }) {
             Add New Sales Representative
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 p-4">
           <div className="space-y-2">
             <Label htmlFor="firstName" className="text-gray-700 dark:text-slate-300">
               First Name <span className="text-red-500 dark:text-red-400">*</span>

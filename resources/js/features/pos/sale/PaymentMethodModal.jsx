@@ -172,7 +172,7 @@ export default function PaymentMethodModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 p-4">
           {/* Reference Number - All non-cash */}
           {methodType !== "cash" && (
             <div className="space-y-2">

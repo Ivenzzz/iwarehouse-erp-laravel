@@ -6,8 +6,7 @@ export default function POSHeader({
   displayTransactionNumber,
   currentUser,
   isLoadingSession,
-  warehouses,
-  selectedWarehouse,
+  branchLabel,
   suspendedCount,
   isFullscreen,
   activePricingTotal,
@@ -16,11 +15,9 @@ export default function POSHeader({
   onToggleFullscreen,
   onEndShift,
 }) {
-  const branchName = isLoadingSession || warehouses.length === 0
+  const branchName = isLoadingSession
     ? "Loading..."
-    : selectedWarehouse
-      ? warehouses.find((w) => w.id === selectedWarehouse)?.name || "Unknown Branch"
-      : "No Branch";
+    : branchLabel || "No Branch";
 
   const amountDue = (activePricingTotal !== null ? activePricingTotal : grandTotal)
     .toLocaleString("en-PH", { minimumFractionDigits: 2 });

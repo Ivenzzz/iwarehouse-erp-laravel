@@ -177,6 +177,58 @@ class PosFeatureTest extends TestCase
             ->assertJsonPath('rows.0.cash_price', 12000);
     }
 
+    public function test_pos_page_returns_display_labels_for_customers_and_sales_reps(): void
+    {
+        [$user] = $this->createCashierUserAndEmployee();
+        $this->createCustomerDefaults();
+        $salesJobTitle = $this->createSalesJobTitle();
+
+        Warehouse::create([
+            'name' => 'Main Branch',
+            'warehouse_type' => 'store',
+        ]);
+
+        PaymentMethod::create([
+            'name' => 'Cash',
+            'type' => 'cash',
+        ]);
+
+        $customer = Customer::create([
+            'firstname' => 'Juan',
+            'lastname' => 'Dela Cruz',
+            'customer_kind' => Customer::KIND_PERSON,
+        ]);
+
+        CustomerContact::create([
+            'customer_id' => $customer->id,
+            'contact_type' => 'mobile',
+            'phone' => '09171234567',
+            'email' => 'juan@example.com',
+            'is_primary' => true,
+        ]);
+
+        Employee::create([
+            'employee_id' => 'EMP-SALES-001',
+            'job_title_id' => $salesJobTitle->id,
+            'first_name' => 'Ana',
+            'last_name' => 'Seller',
+            'status' => Employee::STATUS_ACTIVE,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('pos.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('POS')
+                ->has('warehouses', 1)
+                ->has('customers', 1)
+                ->has('salesReps', 1)
+                ->has('paymentMethods', 1)
+                ->where('customers.0.display_label', 'Juan Dela Cruz - 09171234567')
+                ->where('salesReps.0.display_label', 'Ana Seller - Sales Representative')
+            );
+    }
+
     public function test_pos_customer_and_sales_rep_creation_use_backend_schema(): void
     {
         $user = User::factory()->create();
@@ -194,12 +246,17 @@ class PosFeatureTest extends TestCase
                     'barangay' => 'Barangay 1',
                     'city_municipality' => 'Manila',
                     'province' => 'Metro Manila',
+                    'region' => 'National Capital Region',
                     'postal_code' => '1000',
                     'country' => 'Philippines',
+                    'country_code' => 'PH',
                 ],
             ])
             ->assertOk()
-            ->assertJsonPath('customer.full_name', 'Juan Dela Cruz');
+            ->assertJsonPath('customer.full_name', 'Juan Dela Cruz')
+            ->assertJsonPath('customer.address_json.region', 'National Capital Region')
+            ->assertJsonPath('customer.address_json.country', 'Philippines')
+            ->assertJsonPath('customer.address_json.country_code', 'PH');
 
         $customerId = $customerResponse->json('customer.id');
 
@@ -220,7 +277,9 @@ class PosFeatureTest extends TestCase
         $this->assertDatabaseHas('customer_addresses', [
             'customer_id' => $customerId,
             'street' => '123 Mabini',
+            'region' => 'National Capital Region',
             'city_municipality' => 'Manila',
+            'country' => 'PH',
             'is_primary' => true,
         ]);
 
@@ -239,6 +298,118 @@ class PosFeatureTest extends TestCase
             'last_name' => 'Seller',
             'status' => Employee::STATUS_ACTIVE,
         ]);
+    }
+
+    public function test_pos_discount_oic_verification_succeeds_for_active_sales_oic(): void
+    {
+        [$user, $cashier] = $this->createCashierUserAndEmployee();
+        $warehouse = Warehouse::create([
+            'name' => 'Main Branch',
+            'warehouse_type' => 'store',
+        ]);
+
+        $session = PosSession::create([
+            'employee_id' => $cashier->id,
+            'warehouse_id' => $warehouse->id,
+            'opening_balance' => 1000,
+            'shift_start_time' => now(),
+            'status' => PosSession::STATUS_OPENED,
+        ]);
+
+        Employee::create([
+            'employee_id' => 'EMP-OIC-001',
+            'job_title_id' => $this->createSalesOicJobTitle()->id,
+            'first_name' => 'Olive',
+            'last_name' => 'Charge',
+            'oic_password_hash' => '2468',
+            'status' => Employee::STATUS_ACTIVE,
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('pos.discounts.verify-oic'), [
+                'pos_session_id' => $session->id,
+                'pin' => '2468',
+            ])
+            ->assertOk()
+            ->assertJsonPath('authorized', true)
+            ->assertJsonPath('employee.full_name', 'Olive Charge');
+    }
+
+    public function test_pos_discount_oic_verification_fails_for_wrong_pin(): void
+    {
+        [$user, $cashier] = $this->createCashierUserAndEmployee();
+        $warehouse = Warehouse::create([
+            'name' => 'Main Branch',
+            'warehouse_type' => 'store',
+        ]);
+
+        $session = PosSession::create([
+            'employee_id' => $cashier->id,
+            'warehouse_id' => $warehouse->id,
+            'opening_balance' => 1000,
+            'shift_start_time' => now(),
+            'status' => PosSession::STATUS_OPENED,
+        ]);
+
+        Employee::create([
+            'employee_id' => 'EMP-OIC-002',
+            'job_title_id' => $this->createSalesOicJobTitle()->id,
+            'first_name' => 'Valid',
+            'last_name' => 'Approver',
+            'oic_password_hash' => '1357',
+            'status' => Employee::STATUS_ACTIVE,
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('pos.discounts.verify-oic'), [
+                'pos_session_id' => $session->id,
+                'pin' => '9999',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Invalid OIC PIN.');
+    }
+
+    public function test_pos_discount_oic_verification_fails_for_non_oic_and_inactive_employees(): void
+    {
+        [$user, $cashier] = $this->createCashierUserAndEmployee();
+        $warehouse = Warehouse::create([
+            'name' => 'Main Branch',
+            'warehouse_type' => 'store',
+        ]);
+
+        $session = PosSession::create([
+            'employee_id' => $cashier->id,
+            'warehouse_id' => $warehouse->id,
+            'opening_balance' => 1000,
+            'shift_start_time' => now(),
+            'status' => PosSession::STATUS_OPENED,
+        ]);
+
+        Employee::create([
+            'employee_id' => 'EMP-SALES-003',
+            'job_title_id' => $this->createSalesJobTitle()->id,
+            'first_name' => 'Regular',
+            'last_name' => 'Seller',
+            'oic_password_hash' => '5555',
+            'status' => Employee::STATUS_ACTIVE,
+        ]);
+
+        Employee::create([
+            'employee_id' => 'EMP-OIC-003',
+            'job_title_id' => $this->createSalesOicJobTitle()->id,
+            'first_name' => 'Inactive',
+            'last_name' => 'Approver',
+            'oic_password_hash' => '5555',
+            'status' => Employee::STATUS_INACTIVE,
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('pos.discounts.verify-oic'), [
+                'pos_session_id' => $session->id,
+                'pin' => '5555',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Invalid OIC PIN.');
     }
 
     public function test_pos_transaction_checkout_persists_records_and_updates_inventory(): void
@@ -260,6 +431,7 @@ class PosFeatureTest extends TestCase
             'customer_id' => $customer->id,
             'contact_type' => 'mobile',
             'phone' => '09170000000',
+            'email' => 'walkin@example.com',
             'is_primary' => true,
         ]);
 
@@ -306,6 +478,8 @@ class PosFeatureTest extends TestCase
                         'snapshot_srp' => 12500,
                         'snapshot_cost_price' => 10000,
                         'discount_amount' => 200,
+                        'discount_proof_image_url' => 'https://example.com/discount-proof.jpg',
+                        'discount_validated_at' => '2026-04-10T09:30:00+08:00',
                         'line_total' => 11800,
                     ],
                 ],
@@ -335,7 +509,14 @@ class PosFeatureTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('transaction.or_number', 'OR-10001')
-            ->assertJsonPath('transaction.total_amount', 11800);
+            ->assertJsonPath('transaction.total_amount', 11800)
+            ->assertJsonPath('transaction.customer_name', 'Walk In')
+            ->assertJsonPath('transaction.customer_phone', '09170000000')
+            ->assertJsonPath('transaction.customer_email', 'walkin@example.com')
+            ->assertJsonPath('transaction.items.0.identifier', '555555555555555')
+            ->assertJsonPath('transaction.items.0.display_name', 'Apple iPhone 15 256GB Black')
+            ->assertJsonPath('transaction.items.0.receipt_description', 'Apple iPhone 15 256GB Black Brand New')
+            ->assertJsonPath('transaction.items.0.discount_proof_image_url', 'https://example.com/discount-proof.jpg');
 
         $transaction = SalesTransaction::firstOrFail();
 
@@ -352,6 +533,7 @@ class PosFeatureTest extends TestCase
             'inventory_item_id' => $inventoryItem->id,
             'price_basis' => 'cash',
             'discount_amount' => 200,
+            'discount_proof_image_url' => 'https://example.com/discount-proof.jpg',
             'line_total' => 11800,
         ]);
 
@@ -384,6 +566,206 @@ class PosFeatureTest extends TestCase
         ]);
     }
 
+    public function test_pos_transaction_stores_manual_discount_proof_on_first_discounted_item(): void
+    {
+        [$user, $employee] = $this->createCashierUserAndEmployee();
+        $this->createCustomerDefaults();
+        [$variant, $warehouse] = $this->createInventoryGraph();
+        $paymentMethod = PaymentMethod::create([
+            'name' => 'Cash',
+            'type' => 'cash',
+        ]);
+
+        $customer = Customer::create([
+            'firstname' => 'Proof',
+            'lastname' => 'Buyer',
+        ]);
+
+        $session = PosSession::create([
+            'employee_id' => $employee->id,
+            'warehouse_id' => $warehouse->id,
+            'opening_balance' => 1000,
+            'shift_start_time' => now(),
+            'status' => PosSession::STATUS_OPENED,
+        ]);
+
+        $firstItem = InventoryItem::create([
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $warehouse->id,
+            'imei' => '111111111111111',
+            'serial_number' => 'TXN-SN-003',
+            'status' => 'available',
+            'cost_price' => 10000,
+            'cash_price' => 12000,
+            'srp_price' => 12500,
+        ]);
+
+        $secondItem = InventoryItem::create([
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $warehouse->id,
+            'imei' => '222222222222222',
+            'serial_number' => 'TXN-SN-004',
+            'status' => 'available',
+            'cost_price' => 10000,
+            'cash_price' => 12000,
+            'srp_price' => 12500,
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('pos.transactions.store'), [
+                'pos_session_id' => $session->id,
+                'customer_id' => $customer->id,
+                'sales_representative_id' => null,
+                'or_number' => 'OR-10003',
+                'mode_of_release' => SalesTransaction::MODE_PICKUP,
+                'remarks' => 'Transaction discount on first item only',
+                'total_amount' => 23500,
+                'items' => [
+                    [
+                        'inventory_item_id' => $firstItem->id,
+                        'price_basis' => 'cash',
+                        'snapshot_cash_price' => 12000,
+                        'snapshot_srp' => 12500,
+                        'snapshot_cost_price' => 10000,
+                        'discount_amount' => 500,
+                        'discount_proof_image_url' => 'https://example.com/manual-proof.jpg',
+                        'discount_validated_at' => '2026-04-10T10:00:00+08:00',
+                        'line_total' => 11500,
+                    ],
+                    [
+                        'inventory_item_id' => $secondItem->id,
+                        'price_basis' => 'cash',
+                        'snapshot_cash_price' => 12000,
+                        'snapshot_srp' => 12500,
+                        'snapshot_cost_price' => 10000,
+                        'discount_amount' => 0,
+                        'line_total' => 12000,
+                    ],
+                ],
+                'payments' => [
+                    [
+                        'payment_method_id' => $paymentMethod->id,
+                        'amount' => 23500,
+                    ],
+                ],
+            ])
+            ->assertOk();
+
+        $transaction = SalesTransaction::firstOrFail();
+
+        $this->assertDatabaseHas('sales_transaction_items', [
+            'sales_transaction_id' => $transaction->id,
+            'inventory_item_id' => $firstItem->id,
+            'discount_amount' => 500,
+            'discount_proof_image_url' => 'https://example.com/manual-proof.jpg',
+        ]);
+
+        $this->assertDatabaseHas('sales_transaction_items', [
+            'sales_transaction_id' => $transaction->id,
+            'inventory_item_id' => $secondItem->id,
+            'discount_amount' => 0,
+            'discount_proof_image_url' => null,
+        ]);
+    }
+
+    public function test_pos_transactions_endpoint_returns_receipt_ready_rows(): void
+    {
+        [$user, $cashier] = $this->createCashierUserAndEmployee();
+        $this->createCustomerDefaults();
+        [$variant, $warehouse] = $this->createInventoryGraph();
+        $salesJobTitle = $this->createSalesJobTitle();
+        $paymentMethod = PaymentMethod::create([
+            'name' => 'Cash',
+            'type' => 'cash',
+        ]);
+
+        $salesRep = Employee::create([
+            'employee_id' => 'EMP-SALES-002',
+            'job_title_id' => $salesJobTitle->id,
+            'first_name' => 'Bea',
+            'last_name' => 'Seller',
+            'status' => Employee::STATUS_ACTIVE,
+        ]);
+
+        $customer = Customer::create([
+            'firstname' => 'Maria',
+            'lastname' => 'Buyer',
+            'customer_kind' => Customer::KIND_PERSON,
+        ]);
+
+        CustomerContact::create([
+            'customer_id' => $customer->id,
+            'contact_type' => 'mobile',
+            'phone' => '09179990000',
+            'email' => 'maria@example.com',
+            'is_primary' => true,
+        ]);
+
+        $session = PosSession::create([
+            'employee_id' => $cashier->id,
+            'warehouse_id' => $warehouse->id,
+            'opening_balance' => 1000,
+            'shift_start_time' => now(),
+            'status' => PosSession::STATUS_OPENED,
+        ]);
+
+        $inventoryItem = InventoryItem::create([
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $warehouse->id,
+            'imei' => '999999999999999',
+            'serial_number' => 'TXN-SN-002',
+            'status' => 'sold',
+            'cost_price' => 10000,
+            'cash_price' => 12000,
+            'srp_price' => 12500,
+            'warranty' => '30 days service warranty',
+        ]);
+
+        $transaction = SalesTransaction::create([
+            'customer_id' => $customer->id,
+            'pos_session_id' => $session->id,
+            'sales_representative_id' => $salesRep->id,
+            'or_number' => 'OR-10002',
+            'mode_of_release' => SalesTransaction::MODE_PICKUP,
+            'remarks' => 'History transaction',
+            'total_amount' => 12000,
+        ]);
+
+        SalesTransactionItem::create([
+            'sales_transaction_id' => $transaction->id,
+            'inventory_item_id' => $inventoryItem->id,
+            'price_basis' => SalesTransactionItem::PRICE_BASIS_CASH,
+            'snapshot_cash_price' => 12000,
+            'snapshot_srp' => 12500,
+            'snapshot_cost_price' => 10000,
+            'discount_amount' => 0,
+            'line_total' => 12000,
+        ]);
+
+        $payment = SalesTransactionPayment::create([
+            'sales_transaction_id' => $transaction->id,
+            'payment_method_id' => $paymentMethod->id,
+            'amount' => 12000,
+        ]);
+
+        SalesTransactionPaymentDetail::create([
+            'sales_transaction_payment_id' => $payment->id,
+            'reference_number' => 'POS-REF-002',
+        ]);
+
+        $this->actingAs($user)
+            ->getJson(route('pos.transactions', ['session_id' => $session->id]))
+            ->assertOk()
+            ->assertJsonPath('rows.0.customer_name', 'Maria Buyer')
+            ->assertJsonPath('rows.0.customer_phone', '09179990000')
+            ->assertJsonPath('rows.0.customer_email', 'maria@example.com')
+            ->assertJsonPath('rows.0.sales_representative_name', 'Bea Seller')
+            ->assertJsonPath('rows.0.warehouse_name', 'Main Branch')
+            ->assertJsonPath('rows.0.items.0.identifier', '999999999999999')
+            ->assertJsonPath('rows.0.items.0.display_name', 'Apple iPhone 15 256GB Black')
+            ->assertJsonPath('rows.0.items.0.receipt_description', 'Apple iPhone 15 256GB Black Brand New');
+    }
+
     private function createCashierUserAndEmployee(): array
     {
         $user = User::factory()->create([
@@ -411,16 +793,34 @@ class PosFeatureTest extends TestCase
 
     private function createSalesJobTitle(): JobTitle
     {
-        $department = Department::create([
-            'name' => 'Sales',
-            'status' => Department::STATUS_ACTIVE,
-        ]);
+        $department = Department::firstOrCreate(
+            ['name' => 'Sales'],
+            ['status' => Department::STATUS_ACTIVE],
+        );
 
-        return JobTitle::create([
-            'department_id' => $department->id,
-            'name' => 'Sales Representative',
-            'status' => JobTitle::STATUS_ACTIVE,
-        ]);
+        return JobTitle::firstOrCreate(
+            [
+                'department_id' => $department->id,
+                'name' => 'Sales Representative',
+            ],
+            ['status' => JobTitle::STATUS_ACTIVE],
+        );
+    }
+
+    private function createSalesOicJobTitle(): JobTitle
+    {
+        $department = Department::firstOrCreate(
+            ['name' => 'Sales'],
+            ['status' => Department::STATUS_ACTIVE],
+        );
+
+        return JobTitle::firstOrCreate(
+            [
+                'department_id' => $department->id,
+                'name' => 'OIC',
+            ],
+            ['status' => JobTitle::STATUS_ACTIVE],
+        );
     }
 
     private function createGenericJobTitle(): JobTitle

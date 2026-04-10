@@ -38,8 +38,10 @@ function createEmptyCustomerForm() {
       barangay: "",
       city_municipality: "",
       province: "",
+      region: "",
       postal_code: "",
       country: "Philippines",
+      country_code: "PH",
     },
   };
 }
@@ -84,7 +86,7 @@ export default function POS(props) {
   const [cart, setCart] = useState([]);
   const [payments, setPayments] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [defaultSalesRep, setDefaultSalesRep] = useState("");
+  const [selectedSalesRep, setSelectedSalesRep] = useState(null);
   const [manualDiscount, setManualDiscount] = useState(null);
   const [activePricingTotal, setActivePricingTotal] = useState(null);
 
@@ -111,14 +113,20 @@ export default function POS(props) {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const selectedWarehouse = currentSession?.warehouse_id ? String(currentSession.warehouse_id) : shiftWarehouse;
-  const selectedCustomerRecord = selectedCustomer?.id
-    ? customers.find((customer) => customer.id === selectedCustomer.id) || selectedCustomer
-    : null;
+  const branchLabel = currentSession?.warehouse_name || "";
+  const customerOptionsById = useMemo(
+    () => new Map(customers.map((customer) => [String(customer.id), customer])),
+    [customers],
+  );
+  const salesRepOptionsById = useMemo(
+    () => new Map(salesReps.map((salesRep) => [String(salesRep.id), salesRep])),
+    [salesReps],
+  );
 
   const customerComboOptions = useMemo(
     () => customers.map((customer) => ({
       value: String(customer.id),
-      label: `${customer.full_name}${customer.phone ? ` - ${customer.phone}` : ""}`,
+      label: customer.display_label || customer.full_name,
     })),
     [customers],
   );
@@ -126,7 +134,7 @@ export default function POS(props) {
   const salesRepOptions = useMemo(
     () => salesReps.map((salesRep) => ({
       value: String(salesRep.id),
-      label: salesRep.label || salesRep.full_name,
+      label: salesRep.display_label || salesRep.label || salesRep.full_name,
     })),
     [salesReps],
   );
@@ -148,12 +156,8 @@ export default function POS(props) {
   const effectiveBalanceDue = Math.max(0, effectiveTotal - totalPaid);
   const taxRate = companyInfo?.[0]?.tax_rate || 12;
   const taxAmount = grandTotal - (grandTotal / (1 + (taxRate / 100)));
-  const selectedCustomerLabel = selectedCustomerRecord?.full_name
-    ? `${selectedCustomerRecord.full_name}${selectedCustomerRecord.phone ? ` - ${selectedCustomerRecord.phone}` : ""}`
-    : "No customer selected";
-  const selectedSalesRepLabel = salesReps.find((salesRep) => String(salesRep.id) === String(defaultSalesRep))?.label
-    || salesReps.find((salesRep) => String(salesRep.id) === String(defaultSalesRep))?.full_name
-    || "No sales representative selected";
+  const selectedCustomerLabel = selectedCustomer?.display_label || selectedCustomer?.full_name || "No customer selected";
+  const selectedSalesRepLabel = selectedSalesRep?.display_label || selectedSalesRep?.label || selectedSalesRep?.full_name || "No sales representative selected";
 
   const loadTransactions = async (sessionId = currentSession?.id) => {
     if (!sessionId) {
@@ -252,10 +256,10 @@ export default function POS(props) {
   }, [currentView]);
 
   useEffect(() => {
-    if (selectedCustomer?.id && defaultSalesRep) {
+    if (selectedCustomer?.id && selectedSalesRep?.id) {
       setIsCollapsed(true);
     }
-  }, [selectedCustomer?.id, defaultSalesRep]);
+  }, [selectedCustomer?.id, selectedSalesRep?.id]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -269,6 +273,8 @@ export default function POS(props) {
   const resetTransactionState = () => {
     setCart([]);
     setPayments([]);
+    setSelectedCustomer(null);
+    setSelectedSalesRep(null);
     setManualDiscount(null);
     setActivePricingTotal(null);
     setSearchTerm("");
@@ -287,15 +293,7 @@ export default function POS(props) {
 
     const html = generateWarrantyReceiptHTML({
       transaction,
-      customers,
-      warehouses,
-      employees: salesReps,
-      users: [],
       companyInfo,
-      inventoryItems: [],
-      variants: [],
-      productMasters: [],
-      brands: [],
     });
 
     const printWindow = window.open("", "_blank", "noopener,noreferrer");
@@ -325,7 +323,9 @@ export default function POS(props) {
       price_basis: priceType,
       unit_price: priceType === "srp" ? inventoryItem.srp : inventoryItem.cash_price,
       discount_amount: 0,
-      sales_representative_id: defaultSalesRep || null,
+      discount_proof_image_url: null,
+      discount_validated_at: null,
+      sales_representative_id: selectedSalesRep?.id || null,
       line_total: priceType === "srp" ? inventoryItem.srp : inventoryItem.cash_price,
     };
 
@@ -358,7 +358,11 @@ export default function POS(props) {
     }));
   };
 
-  const updateItemDiscount = ({ amount }) => {
+  const updateItemDiscount = ({
+    amount,
+    discount_proof_image_url = null,
+    discount_validated_at = null,
+  }) => {
     if (discountDialogItemIndex === null) {
       return;
     }
@@ -375,6 +379,8 @@ export default function POS(props) {
       return {
         ...item,
         discount_amount: appliedDiscount,
+        discount_proof_image_url: appliedDiscount > 0 ? discount_proof_image_url : null,
+        discount_validated_at: appliedDiscount > 0 ? discount_validated_at : null,
         line_total: Math.max(0, (item.unit_price || 0) - appliedDiscount),
       };
     }));
@@ -468,7 +474,7 @@ export default function POS(props) {
       return;
     }
 
-    if (!selectedCustomerRecord?.id) {
+    if (!selectedCustomer?.id) {
       toast({ variant: "destructive", description: "Select a customer before checkout." });
       return;
     }
@@ -487,7 +493,7 @@ export default function POS(props) {
       return;
     }
 
-    if (!selectedCustomerRecord?.id) {
+    if (!selectedCustomer?.id) {
       toast({ variant: "destructive", description: "Select a customer first." });
       return;
     }
@@ -522,6 +528,8 @@ export default function POS(props) {
         snapshot_srp: item.srp || 0,
         snapshot_cost_price: item.cost_price || 0,
         discount_amount: item.discount_amount || 0,
+        discount_proof_image_url: item.discount_amount > 0 ? item.discount_proof_image_url || null : null,
+        discount_validated_at: item.discount_amount > 0 ? item.discount_validated_at || null : null,
         line_total: Math.max(0, (item.unit_price || 0) - (item.discount_amount || 0)),
         is_bundle: Boolean(item.is_bundle),
         bundle_serial: item.bundle_serial || null,
@@ -532,13 +540,15 @@ export default function POS(props) {
 
       if ((manualDiscount?.amount || 0) > 0 && payloadItems[0]) {
         payloadItems[0].discount_amount += manualDiscount.amount;
+        payloadItems[0].discount_proof_image_url = manualDiscount.discount_proof_image_url || null;
+        payloadItems[0].discount_validated_at = manualDiscount.discount_validated_at || null;
         payloadItems[0].line_total = Math.max(0, payloadItems[0].line_total - manualDiscount.amount);
       }
 
       const payload = {
         pos_session_id: currentSession.id,
-        customer_id: selectedCustomerRecord.id,
-        sales_representative_id: defaultSalesRep ? parseInt(defaultSalesRep, 10) : null,
+        customer_id: selectedCustomer.id,
+        sales_representative_id: selectedSalesRep?.id || null,
         or_number: manualOrNumber.trim(),
         mode_of_release: modeOfRelease,
         remarks: remarks || null,
@@ -756,8 +766,7 @@ export default function POS(props) {
           displayTransactionNumber={displayTransactionNumber}
           currentUser={cashier}
           isLoadingSession={false}
-          warehouses={warehouses}
-          selectedWarehouse={currentSession.warehouse_id}
+          branchLabel={branchLabel}
           suspendedCount={0}
           isFullscreen={isFullscreen}
           activePricingTotal={activePricingTotal}
@@ -788,7 +797,6 @@ export default function POS(props) {
                   variant="outline"
                   onClick={() => {
                     setDiscountDialogItemIndex(null);
-                    setManualDiscount({ amount: manualDiscount?.amount || 0 });
                     setShowItemDiscountDialog(true);
                   }}
                   disabled={cart.length === 0}
@@ -928,10 +936,9 @@ export default function POS(props) {
                       </div>
 
                       <Combobox
-                        value={selectedCustomerRecord?.id ? String(selectedCustomerRecord.id) : ""}
+                        value={selectedCustomer?.id ? String(selectedCustomer.id) : ""}
                         onValueChange={(value) => {
-                          const customer = customers.find((entry) => String(entry.id) === value) || null;
-                          setSelectedCustomer(customer);
+                          setSelectedCustomer(customerOptionsById.get(value) || null);
                         }}
                         options={customerComboOptions}
                         placeholder="Select customer"
@@ -950,15 +957,17 @@ export default function POS(props) {
                       </div>
 
                       <Combobox
-                        value={defaultSalesRep}
-                        onValueChange={setDefaultSalesRep}
+                        value={selectedSalesRep?.id ? String(selectedSalesRep.id) : ""}
+                        onValueChange={(value) => {
+                          setSelectedSalesRep(salesRepOptionsById.get(value) || null);
+                        }}
                         options={salesRepOptions}
                         placeholder="Select sales representative"
                         searchPlaceholder="Search sales reps..."
                         emptyText="No sales representative found"
                       />
 
-                      <CustomerInsights customer={selectedCustomerRecord} />
+                      <CustomerInsights customer={selectedCustomer} />
                     </CardContent>
                   </CollapsibleContent>
                 </Card>
@@ -977,7 +986,7 @@ export default function POS(props) {
                 grandTotal={grandTotal}
                 onPriceTypeLock={() => {}}
                 onCheckout={handleCheckout}
-                selectedCustomer={selectedCustomerRecord}
+                selectedCustomer={selectedCustomer}
                 balanceDue={effectiveBalanceDue}
                 onPricingChange={setActivePricingTotal}
                 onSuspend={() => {}}
@@ -1042,7 +1051,6 @@ export default function POS(props) {
         open={showReceiptDialog}
         onOpenChange={setShowReceiptDialog}
         completedTransaction={completedTransaction}
-        selectedCustomer={customers.find((customer) => customer.id === completedTransaction?.customer_id) || selectedCustomerRecord}
         onPrintReceipt={() => printReceipt(completedTransaction)}
       />
 
@@ -1062,8 +1070,13 @@ export default function POS(props) {
         open={showAddSalesRepDialog}
         onOpenChange={setShowAddSalesRepDialog}
         onSuccess={(salesRep) => {
-          setSalesReps((previous) => [...previous, salesRep].sort((left, right) => left.full_name.localeCompare(right.full_name)));
-          setDefaultSalesRep(String(salesRep.id));
+          setSalesReps((previous) => [...previous, salesRep].sort((left, right) => {
+            const leftLabel = left.display_label || left.full_name;
+            const rightLabel = right.display_label || right.full_name;
+
+            return leftLabel.localeCompare(rightLabel);
+          }));
+          setSelectedSalesRep(salesRep);
         }}
       />
 
@@ -1077,13 +1090,18 @@ export default function POS(props) {
         }}
         onApplyDiscount={(discount) => {
           if (discountDialogItemIndex === null) {
-            setManualDiscount(discount.amount > 0 ? discount : null);
+            setManualDiscount(discount.amount > 0 ? {
+              amount: discount.amount,
+              discount_proof_image_url: discount.discount_proof_image_url || null,
+              discount_validated_at: discount.discount_validated_at || null,
+            } : null);
             return;
           }
 
           updateItemDiscount(discount);
         }}
         currentDiscount={discountDialogItemIndex !== null ? cart[discountDialogItemIndex]?.discount_amount || 0 : manualDiscount?.amount || 0}
+        posSessionId={currentSession?.id || null}
       />
     </>
   );

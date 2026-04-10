@@ -27,27 +27,20 @@ export default function LoginPage({ status }) {
     };
 
     return (
-        <GuestShell>
+        <GuestShell className="bg-gradient-to-br from-slate-200 via-slate-100 to-white dark:bg-muted/40">
             <Head title="Login" />
 
             <div className="flex flex-col gap-6">
                 <div className="flex flex-col items-center gap-2 text-center">
                     <h1 className="text-2xl font-semibold tracking-tight">
-                        Login to your account
+                        iWarehouse ERP 3.0
                     </h1>
                     <p className="text-sm text-muted-foreground">
-                        Enter your username below to login to your account
+                        Please sign in to your account to continue.
                     </p>
                 </div>
 
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Login</CardTitle>
-                        <CardDescription>
-                            Use your username and password to continue.
-                        </CardDescription>
-                    </CardHeader>
-
                     <CardContent>
                         {status && (
                             <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
@@ -87,7 +80,7 @@ export default function LoginPage({ status }) {
                                 <InputError message={errors.password} className="mt-1" />
                             </div>
 
-                            <Button type="submit" className="w-full" disabled={processing}>
+                            <Button type="submit" className="w-full bg-primary" disabled={processing}>
                                 Log in
                             </Button>
                         </form>

@@ -3,32 +3,8 @@ import { getTransactionDiscountTotal } from "@/utils/transactionDiscounts";
 
 const PHP_SYMBOL = "&#8369;";
 
-function getEmployeeFullName(employee) {
-  if (!employee) return "";
-
-  return `${employee.first_name || ""} ${employee.last_name || ""}`.trim() || employee.full_name || "";
-}
-
-function getSalesAssociateName(salesRepresentativeId, employees = [], users = []) {
-  if (!salesRepresentativeId) return "N/A";
-
-  const employee = employees.find((entry) => entry.id === salesRepresentativeId);
-  const employeeName = getEmployeeFullName(employee);
-  if (employeeName) {
-    return employeeName;
-  }
-
-  const user = users.find((entry) => entry.id === salesRepresentativeId);
-  return user?.name || user?.full_name || "N/A";
-}
-
 function getFirstNonEmpty(...values) {
   return values.find((value) => typeof value === "string" && value.trim()) || "";
-}
-
-function getVariantAttribute(variant, ...keys) {
-  const attributes = variant?.attributes || {};
-  return getFirstNonEmpty(...keys.map((key) => attributes[key]));
 }
 
 function getCompanyHeaderAddress(company) {
@@ -37,79 +13,22 @@ function getCompanyHeaderAddress(company) {
     .join(", ");
 }
 
-function getIdentifier(item, inventoryItem) {
-  return getFirstNonEmpty(
-    inventoryItem?.imei1,
-    inventoryItem?.imei2,
-    inventoryItem?.serial_number,
-    item.imei1,
-    item.imei2,
-    item.serial_number
-  );
-}
-
-function buildProductString({ inventoryItem, variant, productMaster, brand, item }) {
-  const segments = [
-    brand?.name,
-    productMaster?.model || productMaster?.name,
-    getVariantAttribute(variant, "RAM", "ram", "memory"),
-    getVariantAttribute(variant, "ROM", "rom", "Storage", "storage"),
-    getFirstNonEmpty(
-      inventoryItem?.cpu,
-      productMaster?.fixed_specifications?.platform_cpu
-    ),
-    getFirstNonEmpty(
-      inventoryItem?.gpu,
-      productMaster?.fixed_specifications?.platform_gpu
-    ),
-    getFirstNonEmpty(
-      getVariantAttribute(variant, "Color", "color"),
-      inventoryItem?.purchase_file_data?.color
-    ),
-    getFirstNonEmpty(
-      variant?.condition,
-      inventoryItem?.purchase_file_data?.condition
-    ),
-  ].filter(Boolean);
-
-  if (segments.length > 0) {
-    return segments.join(" ");
-  }
-
-  return getFirstNonEmpty(item?.variant_name, item?.product_name, item?.displayName);
-}
-
-function normalizeReceiptItem(
-  item,
-  inventoryItems = [],
-  variants = [],
-  productMasters = [],
-  brands = []
-) {
-  const inventoryItem = inventoryItems.find((entry) => entry.id === item.inventory_id);
-  const variant = variants.find((entry) => entry.id === inventoryItem?.variant_id);
-  const productMaster = productMasters.find(
-    (entry) =>
-      entry.id === variant?.product_master_id
-      || entry.id === inventoryItem?.product_master_id
-  );
-  const brand = brands.find((entry) => entry.id === productMaster?.brand_id);
+function normalizeReceiptItem(item) {
   const quantity = item.quantity || 1;
-  const identifier = getIdentifier(item, inventoryItem);
-  const productString = buildProductString({
-    inventoryItem,
-    variant,
-    productMaster,
-    brand,
-    item,
-  });
-  const displayLabel = [identifier, productString].filter(Boolean).join(" - ");
+  const displayLabel = getFirstNonEmpty(
+    [item.identifier, item.receipt_description].filter(Boolean).join(" - "),
+    item.receipt_description,
+    item.display_name,
+    item.product_name,
+    item.variant_name,
+    item.identifier,
+  );
 
   return {
     quantity,
     value: (item.unit_price || 0) * quantity,
     displayLabel: displayLabel || "N/A",
-    warrantyDescription: inventoryItem?.warranty_description || "",
+    warrantyDescription: item.warranty_description || "",
   };
 }
 
@@ -119,26 +38,10 @@ function normalizeReceiptItem(
  */
 export function generateWarrantyReceiptHTML({
   transaction,
-  customers = [],
-  warehouses = [],
-  employees = [],
-  users = [],
   companyInfo,
-  inventoryItems = [],
-  variants = [],
-  productMasters = [],
-  brands = [],
 }) {
-  const customer = customers.find((entry) => entry.id === transaction.customer_id);
-  const salesRepFullName = getSalesAssociateName(
-    transaction.sales_representative_id,
-    employees,
-    users
-  );
   const company = companyInfo?.[0] || null;
-  const normalizedItems = (transaction.items || []).map((item) =>
-    normalizeReceiptItem(item, inventoryItems, variants, productMasters, brands)
-  );
+  const normalizedItems = (transaction.items || []).map((item) => normalizeReceiptItem(item));
 
   const logoUrl = company?.logo_url || null;
   const transactionDiscount = getTransactionDiscountTotal(transaction);
@@ -190,13 +93,13 @@ export function generateWarrantyReceiptHTML({
         OR Number: ${transaction.or_number || "N/A"}<br>
         Sale ID: ${transaction.transaction_number}<br>
         Date: ${transaction.transaction_date ? format(new Date(transaction.transaction_date), "MM/dd/yyyy, h:mm:ss a") : "N/A"}<br>
-        Sales Associate: ${salesRepFullName}
+        Sales Associate: ${transaction.sales_representative_name || "N/A"}
       </div>
       <div class="section">
         <div class="section-title">Customer</div>
-        Name: ${customer?.full_name || "Walk-in Customer"}<br>
-        ${customer?.email ? `Email: ${customer.email}<br>` : ""}
-        Phone Number: ${customer?.phone || "N/A"}
+        Name: ${transaction.customer_name || "Walk-in Customer"}<br>
+        ${transaction.customer_email ? `Email: ${transaction.customer_email}<br>` : ""}
+        Phone Number: ${transaction.customer_phone || "N/A"}
       </div>
       <div class="section">
         <div class="section-title">Products</div>

@@ -4,7 +4,8 @@ namespace App\Features\Inventory\Actions;
 
 use App\Models\InventoryItem;
 use App\Models\ProductVariant;
-use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use InvalidArgumentException;
 
 class BatchUpdateInventory
 {
@@ -26,14 +27,15 @@ class BatchUpdateInventory
         $succeeded = [];
         $failed = [];
         $skippedConflicts = [];
-        $excludeIdSet = collect($itemIds)->map(fn ($id) => (int) $id)->values()->all();
-
-        $basePayload = $this->buildPayload($updateFields);
 
         $items = InventoryItem::query()
+            ->with('productVariant')
             ->whereIn('id', $itemIds)
             ->get()
             ->keyBy('id');
+
+        $productMasterId = $this->resolveSharedProductMasterId($itemIds, $items);
+        $basePayload = $this->buildPayload($updateFields, $productMasterId);
 
         foreach ($itemIds as $itemId) {
             $item = $items->get($itemId);
@@ -46,23 +48,6 @@ class BatchUpdateInventory
 
             try {
                 $itemPayload = $basePayload;
-
-                foreach (['imei', 'imei2', 'serial_number'] as $field) {
-                    $value = $itemPayload[$field] ?? null;
-
-                    if (! is_string($value) || trim($value) === '') {
-                        continue;
-                    }
-
-                    if ($this->hasConflict($field, $value, $excludeIdSet)) {
-                        $skippedConflicts[] = [
-                            'id' => $itemId,
-                            'field' => $field === 'imei' ? 'imei1' : $field,
-                            'value' => $value,
-                        ];
-                        unset($itemPayload[$field]);
-                    }
-                }
 
                 if ($itemPayload !== []) {
                     $item->update($itemPayload);
@@ -88,7 +73,7 @@ class BatchUpdateInventory
      * @param  array<string, mixed>  $updateFields
      * @return array<string, mixed>
      */
-    private function buildPayload(array $updateFields): array
+    private function buildPayload(array $updateFields, int $productMasterId): array
     {
         $payload = [];
 
@@ -98,31 +83,10 @@ class BatchUpdateInventory
             }
 
             match ($key) {
-                'variant_id' => $payload['product_variant_id'] = ProductVariant::query()->findOrFail((int) $value)->id,
+                'variant_id' => $payload['product_variant_id'] = $this->resolveVariantId((int) $value, $productMasterId),
                 'warehouse_id' => $payload['warehouse_id'] = (int) $value,
-                'imei1' => $payload['imei'] = trim((string) $value),
-                'imei2' => $payload['imei2'] = trim((string) $value),
-                'serial_number' => $payload['serial_number'] = trim((string) $value),
                 'status' => $payload['status'] = trim((string) $value),
-                'encoded_date' => $payload['encoded_at'] = Carbon::parse((string) $value),
                 'warranty_description' => $payload['warranty'] = trim((string) $value),
-                'cost_price' => $payload['cost_price'] = $value,
-                'cash_price' => $payload['cash_price'] = $value,
-                'srp' => $payload['srp_price'] = $value,
-                'package' => $payload['package'] = trim((string) $value),
-                'cpu' => $payload['cpu'] = trim((string) $value),
-                'gpu' => $payload['gpu'] = trim((string) $value),
-                'submodel' => $payload['submodel'] = trim((string) $value),
-                'ram_type' => $payload['ram_type'] = trim((string) $value),
-                'rom_type' => $payload['rom_type'] = trim((string) $value),
-                'ram_slots' => $payload['ram_slots'] = trim((string) $value),
-                'product_type' => $payload['product_type'] = trim((string) $value),
-                'country_model' => $payload['country_model'] = trim((string) $value),
-                'with_charger' => $payload['with_charger'] = (bool) $value,
-                'resolution' => $payload['resolution'] = trim((string) $value),
-                'grn_number' => $payload['grn_number'] = trim((string) $value),
-                'purchase' => $payload['purchase_reference'] = trim((string) $value),
-                'purchase_file_data' => $payload['purchase_file_data'] = $this->cleanPurchaseFileData($value),
                 default => null,
             };
         }
@@ -138,30 +102,48 @@ class BatchUpdateInventory
     }
 
     /**
-     * @param  mixed  $value
-     * @return array<string, mixed>|null
+     * @param  array<int, int>  $itemIds
+     * @param  Collection<int, InventoryItem>  $items
      */
-    private function cleanPurchaseFileData(mixed $value): ?array
+    private function resolveSharedProductMasterId(array $itemIds, Collection $items): int
     {
-        if (! is_array($value)) {
-            return null;
+        if ($items->count() !== count(array_unique($itemIds))) {
+            throw new InvalidArgumentException('One or more selected inventory items could not be found.');
         }
 
-        $cleaned = collect($value)
-            ->reject(fn ($subValue) => $subValue === null || $subValue === '')
-            ->all();
+        $productMasterIds = [];
 
-        return $cleaned !== [] ? $cleaned : null;
+        foreach ($itemIds as $itemId) {
+            $item = $items->get($itemId);
+            $productMasterId = $item?->productVariant?->product_master_id;
+
+            if ($productMasterId === null) {
+                throw new InvalidArgumentException('Batch update is only available for items linked to a product master.');
+            }
+
+            $productMasterIds[] = (int) $productMasterId;
+        }
+
+        $productMasterIds = array_values(array_unique($productMasterIds));
+
+        if (count($productMasterIds) !== 1) {
+            throw new InvalidArgumentException('Batch update requires all selected items to belong to the same product master.');
+        }
+
+        return $productMasterIds[0];
     }
 
-    /**
-     * @param  array<int, int>  $excludeIds
-     */
-    private function hasConflict(string $field, string $value, array $excludeIds): bool
+    private function resolveVariantId(int $variantId, int $productMasterId): int
     {
-        return InventoryItem::query()
-            ->where($field, $value)
-            ->whereNotIn('id', $excludeIds)
-            ->exists();
+        $variant = ProductVariant::query()
+            ->whereKey($variantId)
+            ->where('product_master_id', $productMasterId)
+            ->first();
+
+        if ($variant === null) {
+            throw new InvalidArgumentException('Selected variant must belong to the same product master as the selected inventory items.');
+        }
+
+        return $variant->id;
     }
 }

@@ -31,6 +31,16 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
+        activity('auth')
+            ->causedBy($request->user())
+            ->performedOn($request->user())
+            ->withProperties([
+                'session_id' => $request->session()->getId(),
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ])
+            ->log('user.logged_in');
+
         return redirect()->intended(route('dashboard', absolute: false));
     }
 

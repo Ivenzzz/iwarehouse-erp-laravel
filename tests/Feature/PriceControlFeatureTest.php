@@ -6,8 +6,12 @@ use App\Models\InventoryItem;
 use App\Models\ProductBrand;
 use App\Models\ProductCategory;
 use App\Models\ProductMaster;
+use App\Models\ProductMasterSpecValue;
 use App\Models\ProductModel;
+use App\Models\ProductSpecDefinition;
 use App\Models\ProductVariant;
+use App\Models\ProductVariantAttribute;
+use App\Models\ProductVariantValue;
 use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -21,7 +25,8 @@ class PriceControlFeatureTest extends TestCase
     public function test_price_control_index_returns_server_joined_rows_for_authenticated_users(): void
     {
         $user = User::factory()->create();
-        [$variant, $warehouse] = $this->createInventoryGraph();
+        [$variant, $warehouse, $productMaster] = $this->createInventoryGraph();
+        $this->attachPrintSpecs($variant, $productMaster);
 
         InventoryItem::create([
             'product_variant_id' => $variant->id,
@@ -31,6 +36,9 @@ class PriceControlFeatureTest extends TestCase
             'status' => 'active',
             'cash_price' => 12000,
             'srp_price' => 13000,
+            'warranty' => '7 Days Replacement, 1 Year Service Warranty',
+            'cpu' => 'A19',
+            'gpu' => 'Apple GPU',
         ]);
 
         InventoryItem::create([
@@ -61,6 +69,19 @@ class PriceControlFeatureTest extends TestCase
                 ->where('inventory.data.0.status', 'available')
                 ->where('inventory.data.0.cash_price_formatted', '₱12,000.00')
                 ->where('inventory.data.0.srp_formatted', '₱13,000.00')
+                ->where('inventory.data.0.brandName', 'Apple')
+                ->where('inventory.data.0.masterModel', 'iPhone 17')
+                ->where('inventory.data.0.categoryName', 'Phones')
+                ->where('inventory.data.0.subcategoryName', 'Smartphones')
+                ->where('inventory.data.0.variantCondition', 'Brand New')
+                ->where('inventory.data.0.warranty_description', '7 Days Replacement, 1 Year Service Warranty')
+                ->where('inventory.data.0.attrRAM', '8GB')
+                ->where('inventory.data.0.attrROM', '256GB')
+                ->where('inventory.data.0.attrColor', 'Black')
+                ->where('inventory.data.0.cpu', 'A19')
+                ->where('inventory.data.0.gpu', 'Apple GPU')
+                ->where('inventory.data.0.platform_cpu', 'A19 Platform')
+                ->where('inventory.data.0.platform_gpu', 'Apple Platform GPU')
                 ->has('warehouses', 1)
                 ->missing('productMasters')
                 ->missing('variants')
@@ -71,15 +92,95 @@ class PriceControlFeatureTest extends TestCase
     public function test_variant_search_uses_server_side_joins(): void
     {
         $user = User::factory()->create();
-        [$variant] = $this->createInventoryGraph();
+        [$variant, , $productMaster] = $this->createInventoryGraph();
+        $this->attachVariantValues($variant, [
+            'ram' => ['label' => 'RAM', 'value' => '8GB', 'sort_order' => 10],
+            'storage' => ['label' => 'Storage', 'value' => '256GB', 'sort_order' => 20],
+            'color' => ['label' => 'Color', 'value' => 'Black', 'sort_order' => 30],
+        ]);
 
         $this->actingAs($user)->getJson(route('price-control.variants', [
-            'search' => 'Apple Black',
+            'search' => 'Apple 8GB',
         ]))
             ->assertOk()
             ->assertJsonPath('variants.0.id', $variant->id)
-            ->assertJsonPath('variants.0.variant_name', 'Apple iPhone 17 8GB 256GB Black')
-            ->assertJsonPath('variants.0.description', 'Apple | iPhone 17 | Brand New');
+            ->assertJsonPath('variants.0.product_master_id', $productMaster->id)
+            ->assertJsonPath('variants.0.variant_name', 'Apple iPhone 17 8GB 256GB')
+            ->assertJsonPath('variants.0.variant_ram', '8GB')
+            ->assertJsonPath('variants.0.variant_rom', '256GB')
+            ->assertJsonPath('variants.0.description', 'Apple | iPhone 17 | 8GB | 256GB | Brand New');
+    }
+
+    public function test_grouped_variant_search_returns_all_color_variants(): void
+    {
+        $user = User::factory()->create();
+        [$blackVariant, $warehouse, $productMaster] = $this->createInventoryGraph();
+        $blueVariant = ProductVariant::create([
+            'product_master_id' => $productMaster->id,
+            'variant_name' => 'Apple iPhone 17 8GB 256GB Blue',
+            'sku' => 'APPLE-IPHONE17-8GB-256GB-BLUE',
+            'condition' => 'Brand New',
+            'is_active' => true,
+        ]);
+
+        $this->attachVariantValues($blackVariant, [
+            'ram' => ['label' => 'RAM', 'value' => '8GB', 'sort_order' => 10],
+            'storage' => ['label' => 'Storage', 'value' => '256GB', 'sort_order' => 20],
+            'color' => ['label' => 'Color', 'value' => 'Black', 'sort_order' => 30],
+        ]);
+        $this->attachVariantValues($blueVariant, [
+            'ram' => ['label' => 'RAM', 'value' => '8GB', 'sort_order' => 10],
+            'storage' => ['label' => 'Storage', 'value' => '256GB', 'sort_order' => 20],
+            'color' => ['label' => 'Color', 'value' => 'Blue', 'sort_order' => 30],
+        ]);
+
+        InventoryItem::create([
+            'product_variant_id' => $blackVariant->id,
+            'warehouse_id' => $warehouse->id,
+            'imei' => '101010101010101',
+            'serial_number' => 'GROUP-BLACK',
+            'status' => 'available',
+        ]);
+        InventoryItem::create([
+            'product_variant_id' => $blueVariant->id,
+            'warehouse_id' => $warehouse->id,
+            'imei' => '202020202020202',
+            'serial_number' => 'GROUP-BLUE',
+            'status' => 'reserved',
+        ]);
+        InventoryItem::create([
+            'product_variant_id' => $blueVariant->id,
+            'warehouse_id' => $warehouse->id,
+            'imei' => '303030303030303',
+            'serial_number' => 'GROUP-SOLD',
+            'status' => 'sold',
+        ]);
+
+        $this->actingAs($user)->getJson(route('price-control.variants', [
+            'search' => 'Apple iPhone 17 8GB 256GB',
+        ]))
+            ->assertOk()
+            ->assertJsonCount(1, 'variants')
+            ->assertJsonPath('variants.0.variant_name', 'Apple iPhone 17 8GB 256GB')
+            ->assertJsonPath('variants.0.variants_count', 2);
+
+        $this->actingAs($user)->get(route('price-control.index', [
+            'mode' => 'variant',
+            'product_master_id' => $productMaster->id,
+            'variant_ram' => '8GB',
+            'variant_rom' => '256GB',
+            'condition' => 'Brand New',
+        ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('filters.product_master_id', $productMaster->id)
+                ->where('filters.variant_ram', '8GB')
+                ->where('filters.variant_rom', '256GB')
+                ->where('filters.condition', 'Brand New')
+                ->where('selectedVariant.variant_name', 'Apple iPhone 17 8GB 256GB')
+                ->where('inventory.total', 2)
+                ->has('inventory.data', 2)
+            );
     }
 
     public function test_identifier_search_filtering_sorting_and_pagination_are_server_side(): void
@@ -134,6 +235,34 @@ class PriceControlFeatureTest extends TestCase
                 ->where('inventory.data.0.identifier', '444444444444444')
                 ->where('inventory.data.0.warehouse_name', 'Branch Warehouse')
             );
+    }
+
+    public function test_price_control_accepts_large_pagination_options(): void
+    {
+        $user = User::factory()->create();
+        [$variant, $warehouse] = $this->createInventoryGraph();
+
+        InventoryItem::create([
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $warehouse->id,
+            'imei' => '999999999999999',
+            'serial_number' => 'PAGE-001',
+            'status' => 'available',
+        ]);
+
+        foreach ([500, 1000] as $perPage) {
+            $this->actingAs($user)->get(route('price-control.index', [
+                'mode' => 'variant',
+                'variant_id' => $variant->id,
+                'perPage' => $perPage,
+            ]))
+                ->assertOk()
+                ->assertInertia(fn (Assert $page) => $page
+                    ->where('filters.perPage', $perPage)
+                    ->where('inventory.per_page', $perPage)
+                    ->where('perPageOptions', [10, 25, 50, 100, 500, 1000])
+                );
+        }
     }
 
     public function test_price_update_preview_and_confirm_are_server_calculated_and_logged(): void
@@ -284,5 +413,54 @@ class PriceControlFeatureTest extends TestCase
         ]);
 
         return [$variant, $warehouse, $productMaster];
+    }
+
+    private function attachPrintSpecs(ProductVariant $variant, ProductMaster $productMaster): void
+    {
+        $this->attachVariantValues($variant, [
+            'ram' => ['label' => 'RAM', 'value' => '8GB', 'sort_order' => 10],
+            'storage' => ['label' => 'Storage', 'value' => '256GB', 'sort_order' => 20],
+            'color' => ['label' => 'Color', 'value' => 'Black', 'sort_order' => 30],
+        ]);
+
+        foreach ([
+            ['key' => 'platform_cpu', 'label' => 'Platform CPU', 'value' => 'A19 Platform', 'sort_order' => 10],
+            ['key' => 'platform_gpu', 'label' => 'Platform GPU', 'value' => 'Apple Platform GPU', 'sort_order' => 20],
+        ] as $specData) {
+            $definition = ProductSpecDefinition::create([
+                'key' => $specData['key'],
+                'label' => $specData['label'],
+                'group' => 'Platform',
+                'sort_order' => $specData['sort_order'],
+            ]);
+
+            ProductMasterSpecValue::create([
+                'product_master_id' => $productMaster->id,
+                'product_spec_definition_id' => $definition->id,
+                'value' => $specData['value'],
+            ]);
+        }
+    }
+
+    private function attachVariantValues(ProductVariant $variant, array $values): void
+    {
+        foreach ($values as $key => $attributeData) {
+            $attribute = ProductVariantAttribute::firstOrCreate(
+                ['key' => $key],
+                [
+                    'label' => $attributeData['label'],
+                    'group' => 'Core',
+                    'data_type' => 'text',
+                    'sort_order' => $attributeData['sort_order'],
+                    'is_dimension' => true,
+                ],
+            );
+
+            ProductVariantValue::create([
+                'product_variant_id' => $variant->id,
+                'product_variant_attribute_id' => $attribute->id,
+                'value' => $attributeData['value'],
+            ]);
+        }
     }
 }

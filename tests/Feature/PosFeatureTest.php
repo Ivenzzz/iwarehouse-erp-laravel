@@ -9,6 +9,7 @@ use App\Models\CustomerGroup;
 use App\Models\CustomerType;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\EmployeeAccount;
 use App\Models\InventoryItem;
 use App\Models\JobTitle;
 use App\Models\PaymentMethod;
@@ -41,7 +42,7 @@ class PosFeatureTest extends TestCase
         $this->withoutVite();
     }
 
-    public function test_pos_page_loads_with_cashier_resolved_by_email(): void
+    public function test_pos_page_loads_with_cashier_resolved_by_employee_account_link(): void
     {
         $user = User::factory()->create([
             'name' => 'Email Matched',
@@ -55,6 +56,11 @@ class PosFeatureTest extends TestCase
             'last_name' => 'Matched',
             'email' => 'cashier@example.com',
             'status' => Employee::STATUS_ACTIVE,
+        ]);
+
+        EmployeeAccount::create([
+            'user_id' => $user->id,
+            'employee_id' => $employee->id,
         ]);
 
         Warehouse::create([
@@ -79,14 +85,14 @@ class PosFeatureTest extends TestCase
             );
     }
 
-    public function test_pos_page_falls_back_to_full_name_for_cashier_resolution(): void
+    public function test_pos_page_requires_employee_account_link_for_cashier_resolution(): void
     {
         $user = User::factory()->create([
             'name' => 'Jane Cashier',
             'email' => 'different@example.com',
         ]);
 
-        $employee = Employee::create([
+        Employee::create([
             'employee_id' => 'EMP-002',
             'job_title_id' => $this->createGenericJobTitle()->id,
             'first_name' => 'Jane',
@@ -100,8 +106,8 @@ class PosFeatureTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('POS')
-                ->where('cashier.employee_id', $employee->id)
-                ->where('cashier.setup_error', null)
+                ->where('cashier.employee_id', null)
+                ->where('cashier.setup_error', 'No employee account link matched the authenticated user. Link this account to an employee before using POS.')
             );
     }
 
@@ -780,6 +786,11 @@ class PosFeatureTest extends TestCase
             'last_name' => 'Cashier',
             'email' => 'pos.cashier@example.com',
             'status' => Employee::STATUS_ACTIVE,
+        ]);
+
+        EmployeeAccount::create([
+            'user_id' => $user->id,
+            'employee_id' => $employee->id,
         ]);
 
         return [$user, $employee];

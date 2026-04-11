@@ -4,12 +4,13 @@ namespace App\Features\PriceControl\Support;
 
 use App\Models\InventoryItem;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class PriceControlQuery
 {
-    public const PER_PAGE_OPTIONS = [10, 25, 50, 100];
+    public const PER_PAGE_OPTIONS = [10, 25, 50, 100, 500, 1000];
 
     public const ELIGIBLE_STATUSES = [
         'available',
@@ -62,6 +63,12 @@ class PriceControlQuery
             'variant_id' => $request->query('variant_id') !== null && $request->query('variant_id') !== ''
                 ? (int) $request->query('variant_id')
                 : null,
+            'product_master_id' => $request->query('product_master_id') !== null && $request->query('product_master_id') !== ''
+                ? (int) $request->query('product_master_id')
+                : null,
+            'variant_ram' => trim((string) $request->query('variant_ram', '')),
+            'variant_rom' => trim((string) $request->query('variant_rom', '')),
+            'condition' => trim((string) $request->query('condition', '')),
             'identifier' => trim((string) $request->query('identifier', '')),
             'warehouse' => trim((string) $request->query('warehouse', 'all')) ?: 'all',
             'status' => $status,
@@ -77,7 +84,7 @@ class PriceControlQuery
             return ($filters['identifier'] ?? '') !== '';
         }
 
-        return ! empty($filters['variant_id']);
+        return ! empty($filters['variant_id']) || ! empty($filters['product_master_id']);
     }
 
     public function query(array $filters): Builder
@@ -88,6 +95,8 @@ class PriceControlQuery
             ->leftJoin('product_masters', 'product_masters.id', '=', 'product_variants.product_master_id')
             ->leftJoin('product_models', 'product_models.id', '=', 'product_masters.model_id')
             ->leftJoin('product_brands', 'product_brands.id', '=', 'product_models.brand_id')
+            ->leftJoin('product_categories as subcategories', 'subcategories.id', '=', 'product_masters.subcategory_id')
+            ->leftJoin('product_categories as categories', 'categories.id', '=', 'subcategories.parent_category_id')
             ->leftJoin('warehouses', 'warehouses.id', '=', 'inventory_items.warehouse_id')
             ->whereIn('inventory_items.status', self::ELIGIBLE_STATUSES);
 
@@ -164,6 +173,19 @@ class PriceControlQuery
             'cash_price_formatted' => $this->formatCurrency($item->cash_price),
             'srp' => $item->srp_price !== null ? (float) $item->srp_price : null,
             'srp_formatted' => $this->formatCurrency($item->srp_price),
+            'brandName' => $brand ?? '',
+            'masterModel' => $model ?? '',
+            'categoryName' => $this->nullableString($item->getAttribute('category_name')) ?? '',
+            'subcategoryName' => $this->nullableString($item->getAttribute('subcategory_name')) ?? '',
+            'variantCondition' => $this->nullableString($item->getAttribute('variant_condition')) ?? 'Brand New',
+            'warranty_description' => $item->warranty,
+            'attrRAM' => $this->nullableString($item->getAttribute('attr_ram')) ?? '',
+            'attrROM' => $this->nullableString($item->getAttribute('attr_rom')) ?? '',
+            'attrColor' => $this->nullableString($item->getAttribute('attr_color')) ?? '',
+            'cpu' => $item->cpu,
+            'gpu' => $item->gpu,
+            'platform_cpu' => $this->nullableString($item->getAttribute('platform_cpu')) ?? '',
+            'platform_gpu' => $this->nullableString($item->getAttribute('platform_gpu')) ?? '',
         ];
     }
 
@@ -171,19 +193,26 @@ class PriceControlQuery
     {
         $brandName = $this->nullableString($variant->brand_name);
         $modelName = $this->nullableString($variant->model_name);
-        $description = collect([$brandName, $modelName, $variant->condition])->filter()->implode(' | ');
+        $variantRam = $this->nullableString($variant->variant_ram ?? null);
+        $variantRom = $this->nullableString($variant->variant_rom ?? null);
+        $variantName = trim(collect([$brandName, $modelName, $variantRam, $variantRom])->filter()->implode(' '));
+        $variantName = $variantName !== '' ? $variantName : $variant->variant_name;
+        $description = collect([$brandName, $modelName, $variantRam, $variantRom, $variant->condition])->filter()->implode(' | ');
         $label = trim(collect([$brandName, $modelName])->filter()->implode(' '));
 
         return [
             'id' => (int) $variant->id,
             'product_master_id' => (int) $variant->product_master_id,
-            'variant_name' => $variant->variant_name,
+            'variant_name' => $variantName,
             'variant_sku' => $variant->sku,
             'master_sku' => $variant->master_sku,
             'condition' => $variant->condition,
+            'variant_ram' => $variantRam,
+            'variant_rom' => $variantRom,
+            'variants_count' => (int) ($variant->variants_count ?? 1),
             'brand_name' => $brandName,
             'product_name' => $label,
-            'label' => trim($label.' - '.$variant->variant_name, ' -'),
+            'label' => $variantName,
             'description' => $description,
         ];
     }
@@ -221,6 +250,24 @@ class PriceControlQuery
             return;
         }
 
+        if (! empty($filters['product_master_id'])) {
+            $query->where('product_variants.product_master_id', (int) $filters['product_master_id']);
+
+            if (($filters['variant_ram'] ?? '') !== '') {
+                $this->whereVariantAttributeValue($query, ['ram'], $filters['variant_ram']);
+            }
+
+            if (($filters['variant_rom'] ?? '') !== '') {
+                $this->whereVariantAttributeValue($query, ['storage', 'rom'], $filters['variant_rom']);
+            }
+
+            if (($filters['condition'] ?? '') !== '') {
+                $query->where('product_variants.condition', $filters['condition']);
+            }
+
+            return;
+        }
+
         $query->where('inventory_items.product_variant_id', (int) $filters['variant_id']);
     }
 
@@ -245,7 +292,62 @@ class PriceControlQuery
             DB::raw("COALESCE(product_models.model_name, '') as model_name"),
             DB::raw("COALESCE(product_variants.variant_name, '') as variant_name"),
             DB::raw("COALESCE(warehouses.name, '') as warehouse_name"),
+            DB::raw("COALESCE(categories.name, '') as category_name"),
+            DB::raw("COALESCE(subcategories.name, '') as subcategory_name"),
+            DB::raw('product_variants.condition as variant_condition'),
+        ])->addSelect([
+            'attr_ram' => $this->variantAttributeValueSubquery(['ram']),
+            'attr_rom' => $this->variantAttributeValueSubquery(['storage', 'rom']),
+            'attr_color' => $this->variantAttributeValueSubquery(['color']),
+            'platform_cpu' => $this->productMasterSpecValueSubquery(['platform_cpu', 'cpu']),
+            'platform_gpu' => $this->productMasterSpecValueSubquery(['platform_gpu', 'gpu']),
         ]);
+    }
+
+    private function variantAttributeValueSubquery(array $keys): QueryBuilder
+    {
+        return DB::table('product_variant_values')
+            ->select('product_variant_values.value')
+            ->join('product_variant_attributes', 'product_variant_attributes.id', '=', 'product_variant_values.product_variant_attribute_id')
+            ->whereColumn('product_variant_values.product_variant_id', 'inventory_items.product_variant_id')
+            ->whereIn('product_variant_attributes.key', $keys)
+            ->orderByRaw($this->keyPriorityOrderExpression('product_variant_attributes.key', $keys))
+            ->orderBy('product_variant_attributes.sort_order')
+            ->limit(1);
+    }
+
+    private function whereVariantAttributeValue(Builder $query, array $keys, string $value): void
+    {
+        $query->whereExists(function (QueryBuilder $subquery) use ($keys, $value): void {
+            $subquery
+                ->selectRaw('1')
+                ->from('product_variant_values')
+                ->join('product_variant_attributes', 'product_variant_attributes.id', '=', 'product_variant_values.product_variant_attribute_id')
+                ->whereColumn('product_variant_values.product_variant_id', 'inventory_items.product_variant_id')
+                ->whereIn('product_variant_attributes.key', $keys)
+                ->where('product_variant_values.value', $value);
+        });
+    }
+
+    private function productMasterSpecValueSubquery(array $keys): QueryBuilder
+    {
+        return DB::table('product_master_spec_values')
+            ->select('product_master_spec_values.value')
+            ->join('product_spec_definitions', 'product_spec_definitions.id', '=', 'product_master_spec_values.product_spec_definition_id')
+            ->whereColumn('product_master_spec_values.product_master_id', 'product_masters.id')
+            ->whereIn('product_spec_definitions.key', $keys)
+            ->orderByRaw($this->keyPriorityOrderExpression('product_spec_definitions.key', $keys))
+            ->orderBy('product_spec_definitions.sort_order')
+            ->limit(1);
+    }
+
+    private function keyPriorityOrderExpression(string $column, array $keys): string
+    {
+        $cases = collect(array_values($keys))
+            ->map(fn (string $key, int $index) => "WHEN '{$key}' THEN {$index}")
+            ->implode(' ');
+
+        return "CASE {$column} {$cases} ELSE ".count($keys).' END';
     }
 
     private function nullableInt(mixed $value): ?int

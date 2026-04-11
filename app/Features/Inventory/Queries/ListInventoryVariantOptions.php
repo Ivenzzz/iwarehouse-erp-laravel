@@ -13,9 +13,13 @@ class ListInventoryVariantOptions
     public function __invoke(Request $request): array
     {
         $search = trim((string) $request->query('search', ''));
+        $productMasterId = $request->query('productMasterId');
 
         $variants = ProductVariant::query()
             ->with('productMaster.model.brand')
+            ->when($productMasterId !== null && $productMasterId !== '', function ($query) use ($productMasterId) {
+                $query->where('product_master_id', (int) $productMasterId);
+            })
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($query) use ($search) {
                     $query
@@ -49,6 +53,7 @@ class ListInventoryVariantOptions
             'variants' => $variants,
             'filters' => [
                 'search' => $search,
+                'productMasterId' => $productMasterId !== null && $productMasterId !== '' ? (int) $productMasterId : null,
             ],
         ];
     }

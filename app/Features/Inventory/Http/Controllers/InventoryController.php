@@ -3,7 +3,6 @@
 namespace App\Features\Inventory\Http\Controllers;
 
 use App\Features\Inventory\Actions\BatchDeleteInventory;
-use App\Features\Inventory\Actions\BatchMoveInventory;
 use App\Features\Inventory\Actions\BatchUpdateInventory;
 use App\Features\Inventory\Actions\ExportInventoryCsv;
 use App\Features\Inventory\Actions\GetInventoryKpis;
@@ -84,38 +83,31 @@ class InventoryController extends Controller
         }
     }
 
-    public function batchWarehouse(Request $request, BatchMoveInventory $batchMoveInventory): JsonResponse
-    {
-        $validated = $request->validate([
-            'itemIds' => ['required', 'array', 'min:1'],
-            'itemIds.*' => ['integer', 'min:1'],
-            'targetWarehouseId' => ['required', 'integer', 'exists:warehouses,id'],
-        ]);
-
-        return response()->json(
-            $batchMoveInventory->handle(
-                array_map('intval', $validated['itemIds']),
-                (int) $validated['targetWarehouseId'],
-                $request->user()?->id,
-            ),
-        );
-    }
-
     public function batchUpdate(Request $request, BatchUpdateInventory $batchUpdateInventory): JsonResponse
     {
         $validated = $request->validate([
             'itemIds' => ['required', 'array', 'min:1'],
             'itemIds.*' => ['integer', 'min:1'],
-            'updateFields' => ['required', 'array'],
+            'updateFields' => ['required', 'array:variant_id,warehouse_id,status,warranty_description'],
+            'updateFields.variant_id' => ['nullable', 'integer', 'exists:product_variants,id'],
+            'updateFields.warehouse_id' => ['nullable', 'integer', 'exists:warehouses,id'],
+            'updateFields.status' => ['nullable', 'string', 'max:30'],
+            'updateFields.warranty_description' => ['nullable', 'string', 'max:150'],
         ]);
 
-        return response()->json(
-            $batchUpdateInventory->handle(
-                array_map('intval', $validated['itemIds']),
-                $validated['updateFields'],
-                $request->user()?->id,
-            ),
-        );
+        try {
+            return response()->json(
+                $batchUpdateInventory->handle(
+                    array_map('intval', $validated['itemIds']),
+                    $validated['updateFields'],
+                    $request->user()?->id,
+                ),
+            );
+        } catch (InvalidArgumentException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 422);
+        }
     }
 
     public function batchDelete(Request $request, BatchDeleteInventory $batchDeleteInventory): JsonResponse

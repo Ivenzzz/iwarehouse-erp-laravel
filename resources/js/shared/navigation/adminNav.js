@@ -10,10 +10,14 @@ import {
     Tags,
     CreditCard,
     Truck,
+    User,
+    UserCog,
     Warehouse,
 } from 'lucide-react';
 
-export function getAdminNavSections() {
+export function getAdminNavSections({ permissions = [] } = {}) {
+    const can = (permission) => permissions.includes(permission);
+
     return [
         {
             label: 'Overview',
@@ -101,6 +105,12 @@ export function getAdminNavSections() {
                     icon: Warehouse,
                 },
                 {
+                    label: 'Customers',
+                    href: route('customers.index'),
+                    active: route().current('customers.*'),
+                    icon: User,
+                },
+                {
                     label: 'Payment Methods',
                     href: route('payment-methods.index'),
                     active: route().current('payment-methods.*'),
@@ -115,6 +125,14 @@ export function getAdminNavSections() {
             links: [
                 { label: 'General', href: route('dashboard') },
                 { label: 'Companies', href: route('dashboard') },
+                ...(can('users.view')
+                    ? [{
+                        label: 'Users',
+                        href: route('settings.users.index'),
+                        active: route().current('settings.users.*'),
+                        icon: UserCog,
+                    }]
+                    : []),
                 {
                     label: 'Configurations',
                     href: route('dashboard'),

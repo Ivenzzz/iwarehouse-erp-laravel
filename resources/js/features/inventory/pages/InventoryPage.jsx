@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { Barcode, Download, Pencil, QrCode, Trash2, Upload, Warehouse as WarehouseIcon } from "lucide-react";
+import { Download, Pencil, QrCode, Trash2, Upload } from "lucide-react";
 import { Head, router, usePage } from "@inertiajs/react";
 
 import InventoryKPIs from "@/features/inventory/components/InventoryKPIs";
@@ -8,9 +8,8 @@ import InventoryItemDetailsDialog from "@/features/inventory/components/Inventor
 import InventoryTable from "@/features/inventory/components/InventoryTable";
 import BatchDeleteDialog from "@/features/inventory/dialogs/BatchDeleteDialog";
 import BatchUpdateDialog from "@/features/inventory/dialogs/BatchUpdateDialog";
-import BatchWarehouseDialog from "@/features/inventory/dialogs/BatchWarehouseDialog";
 import ImportInventoryItemsDialog from "@/features/inventory/dialogs/ImportInventoryItemsDialog";
-import { printInventoryBarcodes, printInventoryQRStickers } from "@/features/inventory/services/inventoryPrintService";
+import { printInventoryQRStickers } from "@/features/inventory/services/inventoryPrintService";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { usePageToasts } from "@/shared/hooks/use-page-toasts";
@@ -41,10 +40,9 @@ export default function InventoryPage({
   const [selectedItem, setSelectedItem] = useState(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [batchWarehouseOpen, setBatchWarehouseOpen] = useState(false);
   const [batchUpdateOpen, setBatchUpdateOpen] = useState(false);
+  const [batchUpdateProductMasterId, setBatchUpdateProductMasterId] = useState(null);
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
-  const [batchWarehouseState, setBatchWarehouseState] = useState({ isLoading: false, result: null });
   const [batchUpdateState, setBatchUpdateState] = useState({ isLoading: false, result: null });
   const [batchDeleteState, setBatchDeleteState] = useState({ isLoading: false, result: null });
   const [refreshToken, setRefreshToken] = useState(0);
@@ -97,7 +95,29 @@ export default function InventoryPage({
   };
 
   const getSelectedInventoryItems = () => visibleItems.filter((item) => selectedItems.includes(item.id));
-  const getAvailableSelectedItems = () => visibleItems.filter((item) => selectedItems.includes(item.id) && item.status === "available");
+
+  const getSelectedBatchUpdateProductMasterId = () => {
+    const selectedInventoryItems = getSelectedInventoryItems();
+
+    if (selectedInventoryItems.length !== selectedItems.length) {
+      toast({ variant: "destructive", description: "Some selected inventory items are no longer visible. Refresh the list and try again." });
+      return null;
+    }
+
+    if (selectedInventoryItems.some((item) => !item.product_master_id)) {
+      toast({ variant: "destructive", description: "Batch update is only available for items linked to a product master." });
+      return null;
+    }
+
+    const productMasterIds = [...new Set(selectedInventoryItems.map((item) => String(item.product_master_id)))];
+
+    if (productMasterIds.length !== 1) {
+      toast({ variant: "destructive", description: "Batch update requires all selected items to belong to the same product master." });
+      return null;
+    }
+
+    return selectedInventoryItems[0].product_master_id;
+  };
 
   const exportInventory = () => {
     window.location.href = route("inventory.export", {
@@ -111,24 +131,6 @@ export default function InventoryPage({
       direction: filters.direction,
       perPage: filters.perPage,
     });
-  };
-
-  const handleBatchWarehouse = async (itemIds, targetWarehouseId) => {
-    setBatchWarehouseState({ isLoading: true, result: null });
-
-    try {
-      const response = await axios.post(route("inventory.batch.warehouse"), {
-        itemIds,
-        targetWarehouseId,
-      });
-      setBatchWarehouseState({ isLoading: false, result: response.data });
-      setSelectedItems([]);
-      refreshInventoryData();
-      toast({ description: `${response.data.succeeded?.length || 0} item(s) moved successfully.` });
-    } catch (error) {
-      setBatchWarehouseState({ isLoading: false, result: { succeeded: [], failed: [{ id: 0, error: error.response?.data?.message || error.message || "Warehouse move failed." }] } });
-      toast({ variant: "destructive", description: error.response?.data?.message || error.message || "Warehouse move failed." });
-    }
   };
 
   const handleBatchUpdate = async (itemIds, updateFields) => {
@@ -186,26 +188,20 @@ export default function InventoryPage({
         onOpenChange={setDetailsOpen}
         item={selectedItem}
       />
-      <BatchWarehouseDialog
-        open={batchWarehouseOpen}
-        onOpenChange={setBatchWarehouseOpen}
-        selectedInventoryItems={getAvailableSelectedItems()}
-        warehouses={warehouses}
-        onConfirm={handleBatchWarehouse}
-        isUpdating={batchWarehouseState.isLoading}
-        result={batchWarehouseState.result}
-        onReset={() => setBatchWarehouseState({ isLoading: false, result: null })}
-      />
       <BatchUpdateDialog
         open={batchUpdateOpen}
         onOpenChange={setBatchUpdateOpen}
         selectedCount={selectedItems.length}
         selectedItemIds={selectedItems}
+        productMasterId={batchUpdateProductMasterId}
         warehouses={warehouses}
         onConfirm={handleBatchUpdate}
         isUpdating={batchUpdateState.isLoading}
         result={batchUpdateState.result}
-        onReset={() => setBatchUpdateState({ isLoading: false, result: null })}
+        onReset={() => {
+          setBatchUpdateState({ isLoading: false, result: null });
+          setBatchUpdateProductMasterId(null);
+        }}
       />
       <BatchDeleteDialog
         open={batchDeleteOpen}
@@ -227,23 +223,19 @@ export default function InventoryPage({
             <div className="flex flex-wrap items-center gap-2">
               {selectedItems.length > 0 ? (
                 <>
-                  <Button variant="outline" onClick={() => printInventoryBarcodes({ items: getSelectedInventoryItems() })}>
-                    <Barcode className="size-4" />
-                    Print Barcodes ({selectedItems.length})
-                  </Button>
                   <Button variant="outline" onClick={() => printInventoryQRStickers({ items: getSelectedInventoryItems() })}>
                     <QrCode className="size-4" />
                     Print QR Codes ({selectedItems.length})
                   </Button>
                   <Button variant="outline" onClick={() => {
-                    setBatchWarehouseOpen(true);
-                    setBatchWarehouseState({ isLoading: false, result: null });
-                  }}>
-                    <WarehouseIcon className="size-4" />
-                    Move Warehouse ({getAvailableSelectedItems().length})
-                  </Button>
-                  <Button variant="outline" onClick={() => {
+                    const productMasterId = getSelectedBatchUpdateProductMasterId();
+
+                    if (!productMasterId) {
+                      return;
+                    }
+
                     setBatchUpdateOpen(true);
+                    setBatchUpdateProductMasterId(productMasterId);
                     setBatchUpdateState({ isLoading: false, result: null });
                   }}>
                     <Pencil className="size-4" />

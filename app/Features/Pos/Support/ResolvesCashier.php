@@ -15,7 +15,7 @@ class ResolvesCashier
             return [
                 'user' => $user,
                 'employee' => null,
-                'error' => 'No employee record matched the authenticated user. Match by email or full name before using POS.',
+                'error' => 'No employee account link matched the authenticated user. Link this account to an employee before using POS.',
             ];
         }
 
@@ -28,37 +28,9 @@ class ResolvesCashier
 
     private function resolveEmployee(User $user): ?Employee
     {
-        if (filled($user->email)) {
-            $employee = Employee::query()
-                ->where('email', $user->email)
-                ->first();
-
-            if ($employee !== null) {
-                return $employee;
-            }
-        }
-
-        [$firstName, $lastName] = $this->splitName($user->name);
-
-        if ($firstName === null || $lastName === null) {
-            return null;
-        }
-
-        return Employee::query()
-            ->where('first_name', $firstName)
-            ->where('last_name', $lastName)
-            ->first();
-    }
-
-    private function splitName(?string $name): array
-    {
-        $segments = preg_split('/\s+/', trim((string) $name)) ?: [];
-        $segments = array_values(array_filter($segments));
-
-        if (count($segments) < 2) {
-            return [null, null];
-        }
-
-        return [$segments[0], $segments[count($segments) - 1]];
+        return $user->employeeAccount()
+            ->with('employee.jobTitle.department')
+            ->first()
+            ?->employee;
     }
 }

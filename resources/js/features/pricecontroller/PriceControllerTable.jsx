@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, Download } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Download, QrCode } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,7 @@ export default function PriceControllerTable({
   pagination,
   perPageOptions,
   onVisit,
+  onPrintQr,
   onExport,
 }) {
   const allSelected = items.length > 0 && items.every((item) => selectedIds.includes(item.id));
@@ -90,10 +91,23 @@ export default function PriceControllerTable({
           </select>
         </div>
 
-        <Button type="button" variant="outline" size="sm" onClick={onExport} className="gap-2">
-          <Download className="w-4 h-4" />
-          Export CSV
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onPrintQr}
+            disabled={selectedIds.length === 0}
+            className="gap-2"
+          >
+            <QrCode className="w-4 h-4" />
+            {selectedIds.length > 0 ? `Print QR Codes (${selectedIds.length})` : "Print QR Codes"}
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={onExport} className="gap-2">
+            <Download className="w-4 h-4" />
+            Export CSV
+          </Button>
+        </div>
       </div>
 
       <div className="border rounded-lg overflow-hidden bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">

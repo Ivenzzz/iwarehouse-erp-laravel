@@ -14,15 +14,15 @@ export default function PriceControllerSearchBar({
   isLoadingVariants,
 }) {
   const [searchMode, setSearchMode] = useState("variant");
-  const [variantQuery, setVariantQuery] = useState(selectedVariant?.label ?? "");
+  const [variantQuery, setVariantQuery] = useState(selectedVariant?.variant_name ?? "");
   const [identifierQuery, setIdentifierQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
 
   useEffect(() => {
-    if (selectedVariant?.label) {
-      setVariantQuery(selectedVariant.label);
+    if (selectedVariant?.variant_name) {
+      setVariantQuery(selectedVariant.variant_name);
     }
-  }, [selectedVariant?.id, selectedVariant?.label]);
+  }, [selectedVariant?.id, selectedVariant?.variant_name]);
 
   useEffect(() => {
     if (searchMode !== "variant") return undefined;
@@ -35,9 +35,9 @@ export default function PriceControllerSearchBar({
   }, [onVariantQueryChange, searchMode, variantQuery]);
 
   const handleSelectVariant = (variant) => {
-    setVariantQuery(variant.label);
+    setVariantQuery(variant.variant_name);
     setShowDropdown(false);
-    onSearchByVariant(variant.id);
+    onSearchByVariant(variant);
   };
 
   const handleIdentifierSearch = () => {
@@ -101,7 +101,7 @@ export default function PriceControllerSearchBar({
             <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl max-h-64 overflow-y-auto">
               {variantOptions.map((variant) => (
                 <button
-                  key={variant.id}
+                  key={`${variant.id}-${variant.product_master_id}-${variant.variant_ram || ""}-${variant.variant_rom || ""}-${variant.condition || ""}`}
                   type="button"
                   onClick={() => handleSelectVariant(variant)}
                   className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 last:border-0 transition-colors"

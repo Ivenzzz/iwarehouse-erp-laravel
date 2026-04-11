@@ -11,6 +11,7 @@ export default function BatchUpdateDialog({
   onOpenChange,
   selectedCount,
   selectedItemIds,
+  productMasterId,
   warehouses,
   onConfirm,
   isUpdating,
@@ -19,7 +20,6 @@ export default function BatchUpdateDialog({
 }) {
   const [fields, setFields] = useState({});
   const [confirmStep, setConfirmStep] = useState(false);
-  const [confirmText, setConfirmText] = useState("");
   const [variantOptions, setVariantOptions] = useState([]);
   const [variantSearchValue, setVariantSearchValue] = useState("");
   const [variantPage, setVariantPage] = useState(1);
@@ -39,7 +39,6 @@ export default function BatchUpdateDialog({
   const handleClose = () => {
     setFields({});
     setConfirmStep(false);
-    setConfirmText("");
     setVariantOptions([]);
     setVariantPage(1);
     setVariantLastPage(1);
@@ -63,6 +62,7 @@ export default function BatchUpdateDialog({
           params: {
             search: variantSearchValue,
             page: 1,
+            productMasterId,
           },
         });
 
@@ -96,7 +96,7 @@ export default function BatchUpdateDialog({
     return () => {
       isActive = false;
     };
-  }, [open, result, variantSearchValue]);
+  }, [open, result, variantSearchValue, productMasterId]);
 
   const loadMoreVariants = async () => {
     if (variantLoading || variantPage >= variantLastPage) {
@@ -110,6 +110,7 @@ export default function BatchUpdateDialog({
         params: {
           search: variantSearchValue,
           page: variantPage + 1,
+          productMasterId,
         },
       });
 
@@ -151,7 +152,7 @@ export default function BatchUpdateDialog({
             {result
               ? "Review the update result below."
               : confirmStep
-                ? `Type UPDATE ${selectedCount} to confirm the batch update.`
+                ? "Review the batch update before applying changes."
                 : `Update ${selectedCount} selected item(s). Only fields you fill in will be applied.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -163,7 +164,6 @@ export default function BatchUpdateDialog({
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm dark:border-slate-800 dark:bg-slate-900">
               You are updating {selectedCount} item(s) across {filledFieldCount} field(s).
             </div>
-            <input value={confirmText} onChange={(event) => setConfirmText(event.target.value)} placeholder={`UPDATE ${selectedCount}`} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm dark:border-slate-800 dark:bg-slate-950" />
           </div>
         ) : (
           <BatchUpdateFieldForm
@@ -186,7 +186,7 @@ export default function BatchUpdateDialog({
           {result ? null : confirmStep ? (
             <>
               <Button variant="outline" onClick={() => setConfirmStep(false)}>Back</Button>
-              <Button disabled={confirmText !== `UPDATE ${selectedCount}` || isUpdating} onClick={() => onConfirm(selectedItemIds, fields)}>
+              <Button disabled={isUpdating} onClick={() => onConfirm(selectedItemIds, fields)}>
                 {isUpdating ? "Updating..." : "Confirm Update"}
               </Button>
             </>

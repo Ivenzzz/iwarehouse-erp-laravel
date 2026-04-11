@@ -9,21 +9,29 @@ export const QR_STICKER_CONFIG = {
   qrSize: 300,
   qrMargin: 1,
   qrMaxMM: "12mm",
+  pageMargin: "0",
+  itemPaddingY: "0mm",
+  itemPaddingX: "0.5mm",
+  borderColor: "#d1d5dc",
+  fontFamily: "'Montserrat', sans-serif",
+  specGroupMarginTop: "0mm",
+  specGap: "0.3mm",
+  qrBottomMargin: "1mm",
 };
 
-const getPrintStyles = () => `
-  @page { size: ${QR_STICKER_CONFIG.width} ${QR_STICKER_CONFIG.height}; margin: 0; }
-  body { margin: 0; padding: 0; font-family: 'Montserrat', sans-serif; }
-  .sticker-item { width: ${QR_STICKER_CONFIG.width}; height: ${QR_STICKER_CONFIG.height}; max-height: ${QR_STICKER_CONFIG.height}; padding: 0mm 0.5mm; page-break-after: always; page-break-inside: avoid; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; box-sizing: border-box; border: 1px solid #d1d5dc; overflow: hidden; }
+export const getQRStickerPrintStyles = () => ` 
+  @page { size: ${QR_STICKER_CONFIG.width} ${QR_STICKER_CONFIG.height}; margin: ${QR_STICKER_CONFIG.pageMargin}; }
+  body { margin: 0; padding: 0; font-family: ${QR_STICKER_CONFIG.fontFamily}; }
+  .sticker-item { width: ${QR_STICKER_CONFIG.width}; height: ${QR_STICKER_CONFIG.height}; max-height: ${QR_STICKER_CONFIG.height}; padding: ${QR_STICKER_CONFIG.itemPaddingY} ${QR_STICKER_CONFIG.itemPaddingX}; page-break-after: always; page-break-inside: avoid; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; box-sizing: border-box; border: 1px solid ${QR_STICKER_CONFIG.borderColor}; overflow: hidden; }
   .sticker-header { width: 100%; font-size: 10px; font-weight: 700; line-height: 1.05; letter-spacing: 0.02em; text-transform: uppercase; color: #111827; flex-shrink: 0; }
-  .sticker-specs-group { width: 100%; margin-top: 0.6mm; display: flex; flex-direction: column; gap: 0.3mm; flex-shrink: 0; }
+  .sticker-specs-group { width: 100%; margin-top: ${QR_STICKER_CONFIG.specGroupMarginTop}; display: flex; flex-direction: column; gap: ${QR_STICKER_CONFIG.specGap}; flex-shrink: 0; }
   .sticker-spec { width: 100%; font-size: 7px; font-weight: 400; line-height: 1.25; color: #374151; flex-shrink: 0; }
-  .sticker-meta-group { width: 100%; margin-top: 0.6mm; display: flex; flex-direction: column; gap: 0.25mm; flex-shrink: 0; }
+  .sticker-meta-group { width: 100%; margin-top: ${QR_STICKER_CONFIG.specGroupMarginTop}; display: flex; flex-direction: column; gap: 0.25mm; flex-shrink: 0; }
   .sticker-meta { width: 100%; font-size: 6px; font-weight: 500; line-height: 1.2; color: #4b5563; flex-shrink: 0; }
-  .sticker-prices { width: 100%; margin-top: 0.8mm; display: flex; flex-direction: column; gap: 0.15mm; flex-shrink: 0; }
-  .cash-price { font-size: 11px; font-weight: 800; line-height: 1; color: #111827; }
+  .sticker-prices { width: 100%; margin-top: 0mm; display: flex; flex-direction: column; gap: 0.15mm; flex-shrink: 0; }
+  .cash-price { font-size: 9px; font-weight: 800; line-height: 1; color: #111827; }
   .srp-price { font-size: 8px; font-weight: 400; line-height: 1.1; color: #6b7280; }
-  .qr-container { width: 100%; margin-top: auto; margin-bottom: 1mm; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding: 1px 0 0; gap: 0.4mm; overflow: hidden; flex: 0 0 auto; }
+  .qr-container { width: 100%; margin-top: auto; margin-bottom: ${QR_STICKER_CONFIG.qrBottomMargin}; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding: 1px 0 0; gap: 0.4mm; overflow: hidden; flex: 0 0 auto; }
   .qr-code { width: ${QR_STICKER_CONFIG.qrMaxMM}; height: ${QR_STICKER_CONFIG.qrMaxMM}; max-width: ${QR_STICKER_CONFIG.qrMaxMM}; max-height: ${QR_STICKER_CONFIG.qrMaxMM}; object-fit: contain; display: block; margin: 0; flex: 0 0 auto; }
   .sticker-text { width: 100%; margin: 0; font-size: 9px; font-family: monospace; font-weight: lighter; line-height: 1; letter-spacing: 0.1mm; text-align: center; color: #374151; }
 `;
@@ -221,7 +229,7 @@ export const printQRStickers = async ({ items, title = "QR Stickers" }) => {
     <head>
       <title>${title}</title>
       <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700;800&display=swap" rel="stylesheet">
-      <style>${getPrintStyles()}</style>
+      <style>${getQRStickerPrintStyles()}</style>
     </head>
     <body>
       ${itemsHTML}

@@ -15,16 +15,20 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->call(RolesAndPermissionsSeeder::class);
         $this->call(ProductSpecDefinitionSeeder::class);
         $this->call(ProductVariantAttributeSeeder::class);
 
-        User::updateOrCreate([
+        $admin = User::updateOrCreate([
             'username' => 'admin',
         ], [
             'name' => 'ERP Administrator',
             'email' => null,
             'password' => 'Password123!',
+            'status' => User::STATUS_ACTIVE,
         ]);
+
+        $admin->assignRole('SuperAdmin');
 
         $this->call(PosSeeder::class);
     }

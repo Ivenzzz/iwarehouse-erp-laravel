@@ -7,6 +7,7 @@ import PriceConfirmDialog from "@/features/pricecontroller/PriceConfirmDialog";
 import PriceControllerSearchBar from "@/features/pricecontroller/PriceControllerSearchBar";
 import PriceControllerTable from "@/features/pricecontroller/PriceControllerTable";
 import PriceUpdatePanel from "@/features/pricecontroller/PriceUpdatePanel";
+import { printInventoryQRStickers } from "@/features/inventory/services/inventoryPrintService";
 import { toast } from "@/shared/hooks/use-toast";
 import AppShell from "@/shared/layouts/AppShell";
 
@@ -42,6 +43,10 @@ export default function PriceControl({
     inventory?.current_page,
     filters.mode,
     filters.variant_id,
+    filters.product_master_id,
+    filters.variant_ram,
+    filters.variant_rom,
+    filters.condition,
     filters.identifier,
     filters.warehouse,
     filters.status,
@@ -76,6 +81,10 @@ export default function PriceControl({
     router.get(route("price-control.index"), {
       mode: valueFor("mode"),
       variant_id: valueFor("variant_id"),
+      product_master_id: valueFor("product_master_id"),
+      variant_ram: valueFor("variant_ram"),
+      variant_rom: valueFor("variant_rom"),
+      condition: valueFor("condition"),
       identifier: valueFor("identifier"),
       warehouse: valueFor("warehouse"),
       status: valueFor("status"),
@@ -117,10 +126,14 @@ export default function PriceControl({
     }
   }, [selectedVariant]);
 
-  const handleSearchByVariant = useCallback((variantId) => {
+  const handleSearchByVariant = useCallback((variant) => {
     visitPriceControl({
       mode: "variant",
-      variant_id: variantId,
+      variant_id: null,
+      product_master_id: variant.product_master_id,
+      variant_ram: variant.variant_ram || "",
+      variant_rom: variant.variant_rom || "",
+      condition: variant.condition || "",
       identifier: "",
       page: undefined,
     });
@@ -130,6 +143,10 @@ export default function PriceControl({
     visitPriceControl({
       mode: "identifier",
       variant_id: null,
+      product_master_id: null,
+      variant_ram: "",
+      variant_rom: "",
+      condition: "",
       identifier,
       page: undefined,
     });
@@ -228,6 +245,10 @@ export default function PriceControl({
     window.location.href = route("price-control.export", {
       mode: filters.mode,
       variant_id: filters.variant_id,
+      product_master_id: filters.product_master_id,
+      variant_ram: filters.variant_ram,
+      variant_rom: filters.variant_rom,
+      condition: filters.condition,
       identifier: filters.identifier,
       warehouse: filters.warehouse,
       status: filters.status,
@@ -235,6 +256,11 @@ export default function PriceControl({
       direction: filters.direction,
     });
   }, [filters]);
+
+  const handlePrintQr = useCallback(async () => {
+    const selectedItems = inventoryItems.filter((item) => selectedIds.includes(item.id));
+    await printInventoryQRStickers({ items: selectedItems });
+  }, [inventoryItems, selectedIds]);
 
   return (
     <AppShell title="Price Control">
@@ -289,6 +315,7 @@ export default function PriceControl({
               pagination={pagination}
               perPageOptions={perPageOptions}
               onVisit={visitPriceControl}
+              onPrintQr={handlePrintQr}
               onExport={handleExport}
             />
 

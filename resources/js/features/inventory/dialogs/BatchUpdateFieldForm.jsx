@@ -84,19 +84,7 @@ export default function BatchUpdateFieldForm({
         </select>
       </label>
 
-      <TextField label="Encoded Date" value={fields.encoded_date} onChange={(value) => handleChange("encoded_date", value)} placeholder="2026-04-08 10:00:00" />
-      <TextField label="IMEI 1" value={fields.imei1} onChange={(value) => handleChange("imei1", value)} />
-      <TextField label="IMEI 2" value={fields.imei2} onChange={(value) => handleChange("imei2", value)} />
-      <TextField label="Serial Number" value={fields.serial_number} onChange={(value) => handleChange("serial_number", value)} />
       <TextField label="Warranty" value={fields.warranty_description} onChange={(value) => handleChange("warranty_description", value)} />
-      <TextField label="Cost Price" value={fields.cost_price} onChange={(value) => handleChange("cost_price", value)} />
-      <TextField label="Cash Price" value={fields.cash_price} onChange={(value) => handleChange("cash_price", value)} />
-      <TextField label="SRP" value={fields.srp} onChange={(value) => handleChange("srp", value)} />
-      <TextField label="Package" value={fields.package} onChange={(value) => handleChange("package", value)} />
-      <TextField label="CPU" value={fields.cpu} onChange={(value) => handleChange("cpu", value)} />
-      <TextField label="GPU" value={fields.gpu} onChange={(value) => handleChange("gpu", value)} />
-      <TextField label="GRN Number" value={fields.grn_number} onChange={(value) => handleChange("grn_number", value)} />
-      <TextField label="Purchase Reference" value={fields.purchase} onChange={(value) => handleChange("purchase", value)} />
     </div>
   );
 }

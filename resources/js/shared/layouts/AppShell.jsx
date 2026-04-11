@@ -11,7 +11,10 @@ export default function AppShell({ title, children }) {
     const { props, url } = usePage();
     const user = props.auth.user;
     const initials = getInitials(user.name, user.username);
-    const sections = useMemo(() => getAdminNavSections(), [url]);
+    const sections = useMemo(
+        () => getAdminNavSections({ permissions: props.auth.permissions ?? [] }),
+        [url, props.auth.permissions],
+    );
 
     usePageToasts([props.flash?.success], 'default');
     usePageToasts([props.flash?.error], 'destructive');

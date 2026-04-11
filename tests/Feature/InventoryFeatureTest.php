@@ -361,44 +361,21 @@ class InventoryFeatureTest extends TestCase
             ->assertJsonPath('message', 'Import token is invalid or expired. Validate the file again.');
     }
 
-    public function test_inventory_batch_warehouse_update_moves_items_and_logs_activity(): void
+    public function test_inventory_batch_update_allows_only_supported_fields_for_same_product_master(): void
     {
         $user = User::factory()->create();
-        [$variant, $warehouse] = $this->createInventoryGraph();
-        $secondaryWarehouse = Warehouse::create([
-            'name' => 'Secondary Warehouse',
+        [$variant, $warehouse, $productMaster] = $this->createInventoryGraph();
+        $targetVariant = ProductVariant::create([
+            'product_master_id' => $productMaster->id,
+            'variant_name' => 'Apple iPhone 17 8GB 512GB Black',
+            'sku' => 'APPLE-IPHONE17-8GB-512GB-BLACK',
+            'condition' => 'Brand New',
+            'is_active' => true,
+        ]);
+        $targetWarehouse = Warehouse::create([
+            'name' => 'Branch Warehouse',
             'warehouse_type' => 'warehouse',
         ]);
-
-        $item = InventoryItem::create([
-            'product_variant_id' => $variant->id,
-            'warehouse_id' => $warehouse->id,
-            'serial_number' => 'INV-SN-001',
-            'status' => 'available',
-        ]);
-
-        $this->actingAs($user)
-            ->postJson(route('inventory.batch.warehouse'), [
-                'itemIds' => [$item->id],
-                'targetWarehouseId' => $secondaryWarehouse->id,
-            ])
-            ->assertOk()
-            ->assertJsonPath('succeeded.0', $item->id);
-
-        $this->assertDatabaseHas('inventory_items', [
-            'id' => $item->id,
-            'warehouse_id' => $secondaryWarehouse->id,
-        ]);
-        $this->assertDatabaseHas('inventory_item_logs', [
-            'inventory_item_id' => $item->id,
-            'action' => 'WAREHOUSE_MOVE',
-        ]);
-    }
-
-    public function test_inventory_batch_update_skips_identifier_conflict(): void
-    {
-        $user = User::factory()->create();
-        [$variant, $warehouse] = $this->createInventoryGraph();
 
         $firstItem = InventoryItem::create([
             'product_variant_id' => $variant->id,
@@ -418,25 +395,129 @@ class InventoryFeatureTest extends TestCase
 
         $this->actingAs($user)
             ->postJson(route('inventory.batch.update'), [
-                'itemIds' => [$firstItem->id],
+                'itemIds' => [$firstItem->id, $secondItem->id],
                 'updateFields' => [
-                    'imei1' => '222222222222222',
+                    'variant_id' => $targetVariant->id,
+                    'warehouse_id' => $targetWarehouse->id,
+                    'status' => 'on_hold',
                     'warranty_description' => 'Updated warranty',
                 ],
             ])
             ->assertOk()
-            ->assertJsonPath('skippedConflicts.0.field', 'imei1')
-            ->assertJsonPath('succeeded.0', $firstItem->id);
+            ->assertJsonPath('succeeded.0', $firstItem->id)
+            ->assertJsonPath('succeeded.1', $secondItem->id)
+            ->assertJsonPath('skippedConflicts', []);
 
         $this->assertDatabaseHas('inventory_items', [
             'id' => $firstItem->id,
-            'imei' => '111111111111111',
+            'product_variant_id' => $targetVariant->id,
+            'warehouse_id' => $targetWarehouse->id,
+            'status' => 'on_hold',
             'warranty' => 'Updated warranty',
         ]);
         $this->assertDatabaseHas('inventory_items', [
             'id' => $secondItem->id,
-            'imei' => '222222222222222',
+            'product_variant_id' => $targetVariant->id,
+            'warehouse_id' => $targetWarehouse->id,
+            'status' => 'on_hold',
+            'warranty' => 'Updated warranty',
         ]);
+    }
+
+    public function test_inventory_batch_update_rejects_unsupported_fields(): void
+    {
+        $user = User::factory()->create();
+        [$variant, $warehouse] = $this->createInventoryGraph();
+
+        $item = InventoryItem::create([
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $warehouse->id,
+            'serial_number' => 'INV-SN-001',
+            'status' => 'available',
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('inventory.batch.update'), [
+                'itemIds' => [$item->id],
+                'updateFields' => [
+                    'imei1' => '222222222222222',
+                    'cost_price' => 123,
+                    'encoded_date' => '2026-04-08 10:00:00',
+                ],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['updateFields']);
+    }
+
+    public function test_inventory_batch_update_rejects_mixed_product_masters(): void
+    {
+        $user = User::factory()->create();
+        [$appleVariant, $warehouse] = $this->createInventoryGraph();
+        $samsungVariant = $this->createSamsungVariant();
+
+        $firstItem = InventoryItem::create([
+            'product_variant_id' => $appleVariant->id,
+            'warehouse_id' => $warehouse->id,
+            'serial_number' => 'INV-SN-001',
+            'status' => 'available',
+        ]);
+        $secondItem = InventoryItem::create([
+            'product_variant_id' => $samsungVariant->id,
+            'warehouse_id' => $warehouse->id,
+            'serial_number' => 'INV-SN-002',
+            'status' => 'available',
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('inventory.batch.update'), [
+                'itemIds' => [$firstItem->id, $secondItem->id],
+                'updateFields' => ['status' => 'on_hold'],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Batch update requires all selected items to belong to the same product master.');
+    }
+
+    public function test_inventory_batch_update_rejects_missing_selected_items(): void
+    {
+        $user = User::factory()->create();
+        [$variant, $warehouse] = $this->createInventoryGraph();
+
+        $item = InventoryItem::create([
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $warehouse->id,
+            'serial_number' => 'INV-SN-001',
+            'status' => 'available',
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('inventory.batch.update'), [
+                'itemIds' => [$item->id, 999999],
+                'updateFields' => ['status' => 'on_hold'],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'One or more selected inventory items could not be found.');
+    }
+
+    public function test_inventory_batch_update_rejects_variant_from_another_product_master(): void
+    {
+        $user = User::factory()->create();
+        [$appleVariant, $warehouse] = $this->createInventoryGraph();
+        $samsungVariant = $this->createSamsungVariant();
+
+        $item = InventoryItem::create([
+            'product_variant_id' => $appleVariant->id,
+            'warehouse_id' => $warehouse->id,
+            'serial_number' => 'INV-SN-001',
+            'status' => 'available',
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('inventory.batch.update'), [
+                'itemIds' => [$item->id],
+                'updateFields' => ['variant_id' => $samsungVariant->id],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Selected variant must belong to the same product master as the selected inventory items.');
     }
 
     public function test_inventory_batch_delete_removes_items(): void
@@ -564,6 +645,45 @@ class InventoryFeatureTest extends TestCase
             ->assertOk()
             ->assertJsonPath('variants.total', 1)
             ->assertJsonPath('variants.data.0.id', $appleVariant->id);
+
+        $this->actingAs($user)
+            ->getJson(route('inventory.variant-options', [
+                'search' => 'Samsung',
+                'productMasterId' => $appleVariant->product_master_id,
+            ]))
+            ->assertOk()
+            ->assertJsonPath('filters.productMasterId', $appleVariant->product_master_id)
+            ->assertJsonPath('variants.total', 0);
+    }
+
+    private function createSamsungVariant(): ProductVariant
+    {
+        $brand = ProductBrand::create(['name' => 'Samsung']);
+        $category = ProductCategory::create([
+            'name' => 'Tablets',
+            'parent_category_id' => null,
+        ]);
+        $subcategory = ProductCategory::create([
+            'name' => 'Android Tablets',
+            'parent_category_id' => $category->id,
+        ]);
+        $model = ProductModel::create([
+            'brand_id' => $brand->id,
+            'model_name' => 'Galaxy Tab Ultra',
+        ]);
+        $productMaster = ProductMaster::create([
+            'master_sku' => 'SAMSUNG-TAB-ULTRA',
+            'model_id' => $model->id,
+            'subcategory_id' => $subcategory->id,
+        ]);
+
+        return ProductVariant::create([
+            'product_master_id' => $productMaster->id,
+            'variant_name' => 'Samsung Galaxy Tab Ultra 12GB 512GB Silver',
+            'sku' => 'SAMSUNG-TAB-ULTRA-12GB-512GB-SILVER',
+            'condition' => 'Brand New',
+            'is_active' => true,
+        ]);
     }
 
     /**

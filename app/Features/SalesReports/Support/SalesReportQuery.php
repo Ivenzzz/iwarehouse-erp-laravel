@@ -173,6 +173,9 @@ class SalesReportQuery
         return [
             'group' => $this->transformConsolidatedRow($sessions),
             'summary' => $this->ledgerBuilder->summary($transactions),
+            'paymentMethodSummary' => $this->ledgerBuilder->paymentMethodSummary($transactions),
+            'nonCashBreakdown' => $this->ledgerBuilder->nonCashBreakdown($transactions),
+            'terminalFeeSummary' => $this->ledgerBuilder->terminalFeeSummary($transactions),
             'dynamicPaymentColumns' => $dynamicPaymentColumns,
             'ledgerRows' => $this->ledgerBuilder->ledgerRows($transactions, $dynamicPaymentColumns),
         ];

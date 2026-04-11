@@ -13,6 +13,7 @@ import { format, getISOWeek, getYear, startOfISOWeek, endOfISOWeek, subWeeks } f
 import { generateWarrantyReceiptHTML } from "@/features/pos/sale/services/warrantyReceiptService";
 
 const Skeleton = ({ className }) => <div className={`animate-pulse rounded bg-slate-200 dark:bg-slate-800 ${className || ""}`} />;
+const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 function generateWeekOptions() {
   const options = [];
@@ -47,6 +48,15 @@ export default function Sales({ filters, warehouses, rows }) {
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const weekOptions = useMemo(() => [{ value: "all", label: "All Weeks" }, ...generateWeekOptions()], []);
   const warehouseOptions = useMemo(() => [{ value: "all", label: "All Branches" }, ...warehouses.map((warehouse) => ({ value: String(warehouse.id), label: warehouse.name }))], [warehouses]);
+  const visibleRows = rows?.data ?? [];
+  const pagination = useMemo(() => ({
+    currentPage: rows?.current_page ?? 1,
+    from: rows?.from ?? 0,
+    lastPage: rows?.last_page ?? 1,
+    perPage: rows?.per_page ?? filters.perPage ?? 25,
+    to: rows?.to ?? 0,
+    total: rows?.total ?? 0,
+  }), [rows, filters.perPage]);
 
   useEffect(() => {
     setSearchTerm(filters.search ?? "");
@@ -70,7 +80,7 @@ export default function Sales({ filters, warehouses, rows }) {
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       if ((filters.search ?? "") !== searchTerm) {
-        visit({ search: searchTerm });
+        visit({ search: searchTerm, page: undefined });
       }
     }, 300);
 
@@ -81,6 +91,7 @@ export default function Sales({ filters, warehouses, rows }) {
     visit({
       sort: key,
       direction: filters.sort === key && filters.direction === "asc" ? "desc" : "asc",
+      page: undefined,
     });
   };
 
@@ -96,7 +107,7 @@ export default function Sales({ filters, warehouses, rows }) {
   return (
     <AppShell title="Sales">
       <Head title="Sales" />
-      <div className="min-h-screen space-y-6 bg-slate-50 p-6 dark:bg-slate-950">
+      <div className="min-h-screen space-y-6 bg-background p-2 dark:bg-slate-950">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Sales Transactions</h2>
@@ -104,21 +115,21 @@ export default function Sales({ filters, warehouses, rows }) {
           </div>
         </div>
 
-        <Card className="border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+        <Card className="border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 border rounded-sm shadow-md">
           <CardContent className="p-0">
             <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 p-4 dark:border-slate-800">
               <div className="relative min-w-[200px] flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <Input placeholder="Search OR #, DR #, IMEI, serial, payment method..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 rounded" />
+                <Input placeholder="Search OR #, DR #, IMEI, serial, payment method..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 rounded-sm" />
               </div>
 
               <div className="w-48">
-                <Combobox value={String(filters.warehouse)} onValueChange={(value) => visit({ warehouse: value || "all" })} options={warehouseOptions} placeholder="All Branches" searchPlaceholder="Search branch..." className="justify-start" />
+                <Combobox value={String(filters.warehouse)} onValueChange={(value) => visit({ warehouse: value || "all", page: undefined })} options={warehouseOptions} placeholder="All Branches" searchPlaceholder="Search branch..." className="justify-start rounded-sm" />
               </div>
 
               <div className="w-72">
-                <Combobox value={filters.week || "all"} onValueChange={(value) => visit({ week: value || "all", day: "" })} options={weekOptions} placeholder="Select Week" searchPlaceholder="Search week..." className="justify-start" />
-              </div>
+                <Combobox value={filters.week || "all"} onValueChange={(value) => visit({ week: value || "all", day: "", page: undefined })} options={weekOptions} placeholder="Select Week" searchPlaceholder="Search week..." className="justify-start rounded-sm" />
+              </div>  
 
               <Popover>
                 <PopoverTrigger asChild>
@@ -136,16 +147,16 @@ export default function Sales({ filters, warehouses, rows }) {
                         const value = e.target.value;
                         if (!value) {
                           setSelectedDay(null);
-                          visit({ day: "" });
+                          visit({ day: "", page: undefined });
                           return;
                         }
 
                         const date = new Date(`${value}T00:00:00`);
                         setSelectedDay(date);
-                        visit({ day: value, week: "all" });
+                        visit({ day: value, week: "all", page: undefined });
                       }}
                     />
-                    {selectedDay ? <div className="border-t pt-2"><Button variant="ghost" size="sm" onClick={() => { setSelectedDay(null); visit({ day: "" }); }} className="w-full justify-start"><X className="mr-2 h-4 w-4" />Clear Day Filter</Button></div> : null}
+                    {selectedDay ? <div className="border-t pt-2"><Button variant="ghost" size="sm" onClick={() => { setSelectedDay(null); visit({ day: "", page: undefined }); }} className="w-full justify-start"><X className="mr-2 h-4 w-4" />Clear Day Filter</Button></div> : null}
                   </div>
                 </PopoverContent>
               </Popover>
@@ -154,7 +165,7 @@ export default function Sales({ filters, warehouses, rows }) {
                 <RefreshCw className="mr-2 h-4 w-4" />Refresh
               </Button>
 
-              <Button variant="outline" onClick={() => { window.location.href = route("sales.export.xlsx", filters); }} disabled={!rows.length}>
+              <Button variant="outline" onClick={() => { window.location.href = route("sales.export.xlsx", filters); }} disabled={pagination.total === 0}>
                 <Download className="mr-2 h-4 w-4" />Export XLSX
               </Button>
             </div>
@@ -163,19 +174,19 @@ export default function Sales({ filters, warehouses, rows }) {
               <table className="w-full text-xs">
                 <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
                   <tr>
+                    <SortableHeader label="DR Number" sortKey="transaction_number" filters={filters} onSort={handleSort} />
                     <SortableHeader label="OR Number" sortKey="or_number" filters={filters} onSort={handleSort} />
-                    <SortableHeader label="DR" sortKey="transaction_number" filters={filters} onSort={handleSort} />
                     <SortableHeader label="Date/Time" sortKey="transaction_date" filters={filters} onSort={handleSort} />
                     <th className="px-3 py-3 text-left font-semibold text-slate-600 dark:text-slate-300">Branch</th>
                     <th className="px-3 py-3 text-left font-semibold text-slate-600 dark:text-slate-300">Customer</th>
-                    <th className="px-3 py-3 text-left font-semibold text-slate-600 dark:text-slate-300">Staff</th>
+                    <th className="px-3 py-3 text-left font-semibold text-slate-600 dark:text-slate-300">Sales Representative</th>
                     <th className="px-3 py-3 text-left font-semibold text-slate-600 dark:text-slate-300">Payment Methods</th>
                     <SortableHeader label="Amount" sortKey="total_amount" filters={filters} onSort={handleSort} />
                     <th className="px-3 py-3 text-right font-semibold text-slate-600 dark:text-slate-300">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {!rows ? [...Array(5)].map((_, i) => <tr key={i} className="border-b border-slate-100">{[...Array(9)].map((__, j) => <td key={j} className="px-3 py-4"><Skeleton className="h-4 w-full" /></td>)}</tr>) : rows.length > 0 ? rows.map((transaction) => (
+                  {!rows ? [...Array(5)].map((_, i) => <tr key={i} className="border-b border-slate-100">{[...Array(9)].map((__, j) => <td key={j} className="px-3 py-4"><Skeleton className="h-4 w-full" /></td>)}</tr>) : visibleRows.length > 0 ? visibleRows.map((transaction) => (
                     <SalesTableRow
                       key={transaction.id}
                       transaction={transaction}
@@ -190,6 +201,32 @@ export default function Sales({ filters, warehouses, rows }) {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            <div className="flex flex-col gap-3 border-t border-slate-200 px-4 py-3 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+                Showing {pagination.from ?? 0} to {pagination.to ?? 0} of {pagination.total ?? 0} transaction(s)
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={String(pagination.perPage)}
+                  onChange={(event) => visit({ perPage: Number(event.target.value), page: undefined })}
+                  className="h-9 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                >
+                  {PER_PAGE_OPTIONS.map((option) => (
+                    <option key={option} value={option}>{option} / page</option>
+                  ))}
+                </select>
+                <Button variant="outline" size="sm" disabled={pagination.currentPage <= 1} onClick={() => visit({ page: pagination.currentPage - 1 })}>
+                  Previous
+                </Button>
+                <div className="text-xs text-slate-500 dark:text-slate-400">
+                  Page {pagination.currentPage} of {pagination.lastPage}
+                </div>
+                <Button variant="outline" size="sm" disabled={pagination.currentPage >= pagination.lastPage} onClick={() => visit({ page: pagination.currentPage + 1 })}>
+                  Next
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

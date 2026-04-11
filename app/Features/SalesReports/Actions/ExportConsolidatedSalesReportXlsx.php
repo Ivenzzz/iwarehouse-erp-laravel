@@ -35,6 +35,8 @@ class ExportConsolidatedSalesReportXlsx
             'Product',
             'Condition',
             'Warranty',
+            'Category',
+            'Subcategory',
             'Qty',
             'Barcode',
             'Value',
@@ -42,9 +44,12 @@ class ExportConsolidatedSalesReportXlsx
             'Date',
             'Actual Cash Paid',
             'Discount',
+            'TF Paid in Cash',
             'NON CASH PAYMENT',
             'Reference Number',
             'Loan Term',
+            'MDR',
+            'Receivable',
         ], $detail['dynamicPaymentColumns']);
 
         $filename = 'sales_report_'.$validated['date'].'_'.$validated['warehouse_id'].'.xlsx';
@@ -64,6 +69,8 @@ class ExportConsolidatedSalesReportXlsx
                     $row['productName'],
                     $row['condition'],
                     $row['warranty'],
+                    $row['categoryName'] ?? null,
+                    $row['subcategoryName'] ?? null,
                     $row['quantity'],
                     $row['barcode'],
                     $row['value'],
@@ -71,9 +78,12 @@ class ExportConsolidatedSalesReportXlsx
                     $row['date'],
                     $row['actualCashPaid'],
                     $row['discountAmount'],
+                    $row['terminalFeePaidInCash'] ?? null,
                     $row['nonCashPaymentAmount'],
                     $row['nonCashReferenceNumber'],
                     $row['loanTermLabel'],
+                    $row['mdrAmount'] ?? null,
+                    $row['receivableAmount'] ?? null,
                 ];
 
                 foreach ($detail['dynamicPaymentColumns'] as $column) {

@@ -131,6 +131,13 @@ class SalesReportLedgerBuilder
                         $loanTermMonths = (int) ($payment['payment_details']['loan_term_months'] ?? 0);
                         $discountAmount = (float) ($item['discount_amount'] ?? 0);
                         $nonCashAmount = $paymentMethodLabel ? (float) ($payment['amount'] ?? 0) : null;
+                        $isRepeatedPaymentRow = $paymentIndex > 0;
+                        $hideFirstFourColumns = $paymentIndex > 0 || $itemIndex > 0;
+                        $paymentAmount = $payment !== null ? (float) ($payment['amount'] ?? 0) : 0.0;
+                        $mdrRate = $this->paymentMdrRate($payment);
+                        $mdrAmount = $isLoanBasedPayment && $payment !== null && $mdrRate !== null ? round($paymentAmount * $mdrRate, 2) : null;
+                        $receivableAmount = $mdrAmount !== null ? round($paymentAmount - $mdrAmount, 2) : null;
+                        $terminalFeePaidInCash = $this->terminalFeePaidInCash($transaction, $payment);
                         $actualCashPaid = $this->itemCashShare(
                             $payment,
                             $item,
@@ -150,6 +157,11 @@ class SalesReportLedgerBuilder
 
                         return [
                             'id' => sprintf('%s-%s-%s-%s', $transaction['id'], $itemIndex, $paymentIndex, $transactionIndex),
+                            'transactionId' => $transaction['id'],
+                            'transaction' => $transaction['id'],
+                            'hideFirstFourColumns' => $hideFirstFourColumns,
+                            'isRepeatedPaymentRow' => $isRepeatedPaymentRow,
+                            'rowTone' => $isRepeatedPaymentRow ? 'bg-slate-50/60 dark:bg-slate-900/30' : '',
                             'customerName' => $paymentIndex > 0 || $itemIndex > 0 ? '' : ($transaction['customer_name'] ?? 'Walk-in Customer'),
                             'contactNumber' => $paymentIndex > 0 || $itemIndex > 0 ? '' : ($transaction['customer_phone'] ?? 'N/A'),
                             'drNumber' => $paymentIndex > 0 || $itemIndex > 0 ? '' : ($transaction['transaction_number'] ?? '-'),
@@ -157,16 +169,24 @@ class SalesReportLedgerBuilder
                             'productName' => $paymentIndex > 0 ? '' : trim((string) ($item['display_name'] ?? $item['variant_name'] ?? $item['product_name'] ?? 'Item')),
                             'condition' => $paymentIndex > 0 ? '' : ($item['condition'] ?? '-'),
                             'warranty' => $paymentIndex > 0 ? '' : ($item['warranty_description'] ?? '-'),
+                            'categoryName' => $paymentIndex > 0 ? '' : ($item['category_name'] ?? '-'),
+                            'subcategoryName' => $paymentIndex > 0 ? '' : ($item['subcategory_name'] ?? '-'),
                             'quantity' => $paymentIndex > 0 ? '' : (int) ($item['quantity'] ?? 1),
                             'barcode' => $paymentIndex > 0 ? '' : ($item['imei1'] ?? $item['imei2'] ?? $item['serial_number'] ?? '-'),
                             'value' => $paymentIndex > 0 ? null : $value,
                             'salesPersonName' => $paymentIndex > 0 ? '' : ($transaction['sales_representative_name'] ?? 'N/A'),
                             'date' => $paymentIndex > 0 ? null : ($transaction['transaction_date'] ?? null),
                             'actualCashPaid' => $isZeroValueProduct ? null : $actualCashPaid,
+                            'isSplitActualCashPaid' => $payment !== null && $this->normalizedPaymentType($payment) === 'cash' && $paymentContexts->count() > 1 && $actualCashPaid !== null && round($actualCashPaid, 2) !== round($paymentAmount, 2),
+                            'actualCashPaidSourceAmount' => $payment !== null && $this->normalizedPaymentType($payment) === 'cash' ? round($paymentAmount, 2) : null,
                             'discountAmount' => $isZeroValueProduct || $paymentIndex > 0 || $discountAmount <= 0 ? null : $discountAmount,
+                            'terminalFeePaidInCash' => $isZeroValueProduct ? null : $terminalFeePaidInCash,
                             'nonCashPaymentAmount' => $isZeroValueProduct ? null : $nonCashAmount,
                             'nonCashReferenceNumber' => $paymentMethodLabel ? ($payment['payment_details']['reference_number'] ?? '-') : '-',
                             'loanTermLabel' => $paymentMethodLabel && $isLoanBasedPayment ? ($loanTermMonths > 0 ? $loanTermMonths.' months' : 'Straight Payment') : '-',
+                            'mdrAmount' => $isZeroValueProduct ? null : $mdrAmount,
+                            'receivableAmount' => $isZeroValueProduct ? null : $receivableAmount,
+                            'mdrPercentLabel' => $mdrRate !== null ? $this->mdrPercentLabel($mdrRate) : null,
                             'dynamicPaymentAmounts' => $dynamicAmounts,
                         ];
                     })->all();
@@ -178,23 +198,66 @@ class SalesReportLedgerBuilder
 
     public function paymentMdrAmount(?array $payment): float
     {
-        if ($payment === null) {
+        $rate = $this->paymentMdrRate($payment);
+        if ($payment === null || $rate === null) {
             return 0.0;
+        }
+
+        return round((float) ($payment['amount'] ?? 0) * $rate, 2);
+    }
+
+    public function paymentMdrRate(?array $payment): ?float
+    {
+        if ($payment === null) {
+            return null;
         }
 
         if (! in_array($this->normalizedPaymentType($payment), ['card', 'financing'], true)) {
-            return 0.0;
+            return null;
         }
 
-        $rate = $this->fixedMdrRate((int) ($payment['payment_details']['loan_term_months'] ?? 0));
+        return $this->fixedMdrRate((int) ($payment['payment_details']['loan_term_months'] ?? 0));
+    }
 
-        return $rate === null ? 0.0 : round((float) ($payment['amount'] ?? 0) * $rate, 2);
+    public function paymentMethodSummary(Collection $transactions): array
+    {
+        return $transactions
+            ->flatMap(fn (array $transaction) => $transaction['payments_json']['payments'] ?? [])
+            ->reject(fn (array $payment) => $this->isTerminalFeePayment($payment))
+            ->groupBy(fn (array $payment) => $this->paymentSummaryLabel($payment))
+            ->map(fn (Collection $payments) => round((float) $payments->sum(fn (array $payment) => (float) ($payment['amount'] ?? 0)), 2))
+            ->sortKeys()
+            ->all();
+    }
+
+    public function nonCashBreakdown(Collection $transactions): array
+    {
+        return $transactions
+            ->flatMap(fn (array $transaction) => $transaction['payments_json']['payments'] ?? [])
+            ->map(fn (array $payment) => [
+                'label' => $this->normalizedNonCashPaymentMethod($payment),
+                'amount' => (float) ($payment['amount'] ?? 0),
+            ])
+            ->filter(fn (array $payment) => $payment['label'] !== null)
+            ->groupBy('label')
+            ->map(fn (Collection $payments) => round((float) $payments->sum('amount'), 2))
+            ->sortKeys()
+            ->all();
+    }
+
+    public function terminalFeeSummary(Collection $transactions): array
+    {
+        return [
+            'total' => round((float) $transactions
+                ->flatMap(fn (array $transaction) => $transaction['payments_json']['payments'] ?? [])
+                ->sum(fn (array $payment) => $this->isTerminalFeePayment($payment) ? (float) ($payment['amount'] ?? 0) : 0.0), 2),
+        ];
     }
 
     public function cashAmount(array $transaction): float
     {
         return round((float) collect($transaction['payments_json']['payments'] ?? [])
-            ->sum(fn (array $payment) => $this->normalizedPaymentType($payment) === 'cash' ? (float) ($payment['amount'] ?? 0) : 0.0), 2);
+            ->sum(fn (array $payment) => $this->normalizedPaymentType($payment) === 'cash' && ! $this->isTerminalFeePayment($payment) ? (float) ($payment['amount'] ?? 0) : 0.0), 2);
     }
 
     public function mdrDeduction(array $transaction): float
@@ -256,6 +319,34 @@ class SalesReportLedgerBuilder
         return $methodName;
     }
 
+    private function paymentSummaryLabel(array $payment): string
+    {
+        $methodName = trim((string) ($payment['payment_method'] ?? ''));
+
+        return $methodName !== '' ? $methodName : 'Unknown';
+    }
+
+    private function isTerminalFeePayment(?array $payment): bool
+    {
+        return strtolower(trim((string) ($payment['payment_method'] ?? ''))) === 'terminal fee';
+    }
+
+    private function terminalFeePaidInCash(array $transaction, ?array $payment): ?float
+    {
+        if ($payment === null || ! $this->isTerminalFeePayment($payment)) {
+            return null;
+        }
+
+        return round((float) ($payment['amount'] ?? 0), 2);
+    }
+
+    private function mdrPercentLabel(float $rate): string
+    {
+        $percent = $rate * 100;
+
+        return rtrim(rtrim(number_format($percent, 2), '0'), '.').'%';
+    }
+
     private function normalizedPaymentType(?array $payment): string
     {
         if ($payment === null) {
@@ -306,7 +397,7 @@ class SalesReportLedgerBuilder
         bool $isZeroValueProduct,
         bool $hasMultiplePaymentMethods,
     ): ?float {
-        if ($payment === null || $this->normalizedPaymentType($payment) !== 'cash' || $isZeroValueProduct) {
+        if ($payment === null || $this->normalizedPaymentType($payment) !== 'cash' || $this->isTerminalFeePayment($payment) || $isZeroValueProduct) {
             return null;
         }
 

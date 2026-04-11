@@ -9,10 +9,14 @@ use App\Models\Warehouse;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
 class SalesQuery
 {
+    public const PER_PAGE_OPTIONS = [10, 25, 50, 100];
+    private const DEFAULT_PER_PAGE = 25;
+
     private const ALLOWED_SORTS = [
         'or_number' => 'or_number',
         'transaction_number' => 'transaction_number',
@@ -51,6 +55,13 @@ class SalesQuery
             $day = '';
         }
 
+        $perPage = (int) $request->query('perPage', self::DEFAULT_PER_PAGE);
+        if (! in_array($perPage, self::PER_PAGE_OPTIONS, true)) {
+            $perPage = self::DEFAULT_PER_PAGE;
+        }
+
+        $page = max(1, (int) $request->query('page', 1));
+
         return [
             'search' => trim((string) $request->query('search', '')),
             'warehouse' => $warehouse,
@@ -58,6 +69,8 @@ class SalesQuery
             'day' => $day,
             'sort' => $sort,
             'direction' => $direction,
+            'perPage' => $perPage,
+            'page' => $page,
         ];
     }
 
@@ -75,13 +88,12 @@ class SalesQuery
         return $this->warehousePayload;
     }
 
-    public function rows(array $filters): array
+    public function rows(array $filters): LengthAwarePaginator
     {
         return $this->transactionQuery($filters)
-            ->get()
-            ->map(fn (SalesTransaction $transaction) => $this->transformRow($transaction))
-            ->values()
-            ->all();
+            ->paginate($filters['perPage'], ['*'], 'page', $filters['page'])
+            ->withQueryString()
+            ->through(fn (SalesTransaction $transaction) => $this->transformRow($transaction));
     }
 
     public function exportRows(array $filters): Collection

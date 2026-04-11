@@ -71,12 +71,16 @@ class SalesFeatureTest extends TestCase
                 ->where('filters.warehouse', 'all')
                 ->where('filters.sort', 'transaction_date')
                 ->where('filters.direction', 'desc')
+                ->where('filters.perPage', 25)
+                ->where('filters.page', 1)
                 ->has('warehouses', 1)
-                ->has('rows', 1)
-                ->where('rows.0.warehouse_name', 'Main Branch')
-                ->where('rows.0.customer_name', 'Juan Dela Cruz')
-                ->where('rows.0.sales_representative_name', 'Sales Representative 002')
-                ->where('rows.0.total_amount', 32000)
+                ->where('rows.per_page', 25)
+                ->where('rows.total', 1)
+                ->has('rows.data', 1)
+                ->where('rows.data.0.warehouse_name', 'Main Branch')
+                ->where('rows.data.0.customer_name', 'Juan Dela Cruz')
+                ->where('rows.data.0.sales_representative_name', 'Sales Representative 002')
+                ->where('rows.data.0.total_amount', 32000)
             );
     }
 
@@ -130,10 +134,77 @@ class SalesFeatureTest extends TestCase
                 ->where('filters.search', '999999999999999')
                 ->where('filters.sort', 'total_amount')
                 ->where('filters.direction', 'asc')
-                ->has('rows', 1)
-                ->where('rows.0.or_number', 'OR-BRANCH-1')
-                ->where('rows.0.warehouse_name', 'Branch Store')
-                ->where('rows.0.total_amount', 45000)
+                ->where('rows.total', 1)
+                ->has('rows.data', 1)
+                ->where('rows.data.0.or_number', 'OR-BRANCH-1')
+                ->where('rows.data.0.warehouse_name', 'Branch Store')
+                ->where('rows.data.0.total_amount', 45000)
+            );
+    }
+
+    public function test_sales_rows_are_server_side_paginated(): void
+    {
+        $user = User::factory()->create();
+        $warehouse = $this->createWarehouse('Main Branch', 1);
+        $cash = PaymentMethod::create(['name' => 'Cash', 'type' => 'cash']);
+        $salesRep = $this->createEmployee('Sales Representative');
+        $session = $this->createSession($this->createEmployee('Cashier'), $warehouse);
+        $customer = $this->createCustomer('Page', 'Buyer');
+        [$variant] = $this->createProductGraph('Apple', 'iPhone 17', 'APPLE-IPHONE17', [
+            ['name' => '256GB Black', 'sku' => 'APPLE-IPHONE17-256'],
+        ]);
+
+        for ($i = 1; $i <= 12; $i++) {
+            $inventory = $this->createInventoryItem($variant, $warehouse, cash: 10000 + $i, cost: 7000);
+            $this->createTransaction(
+                $session,
+                $customer,
+                $inventory,
+                $cash,
+                $salesRep,
+                createdAt: Carbon::create(2026, 4, 1, 10, 0, 0)->addDays($i - 1),
+                orNumber: 'OR-PAGE-'.$i,
+            );
+        }
+
+        foreach ([10, 25, 50, 100] as $perPage) {
+            $this->actingAs($user)
+                ->get(route('sales.index', ['perPage' => $perPage]))
+                ->assertOk()
+                ->assertInertia(fn (Assert $page) => $page
+                    ->where('filters.perPage', $perPage)
+                    ->where('rows.per_page', $perPage)
+                    ->where('rows.total', 12)
+                );
+        }
+
+        $this->actingAs($user)
+            ->get(route('sales.index', [
+                'sort' => 'transaction_date',
+                'direction' => 'asc',
+                'perPage' => 10,
+                'page' => 2,
+            ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('filters.perPage', 10)
+                ->where('filters.page', 2)
+                ->where('rows.current_page', 2)
+                ->where('rows.per_page', 10)
+                ->where('rows.total', 12)
+                ->has('rows.data', 2)
+                ->where('rows.data.0.or_number', 'OR-PAGE-11')
+            );
+
+        $this->actingAs($user)
+            ->get(route('sales.index', [
+                'perPage' => 5,
+            ]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('filters.perPage', 25)
+                ->where('rows.per_page', 25)
+                ->where('rows.total', 12)
             );
     }
 
@@ -159,6 +230,16 @@ class SalesFeatureTest extends TestCase
             createdAt: Carbon::create(2026, 4, 3, 14, 30, 0),
             orNumber: 'OR-DETAIL-1',
         );
+        $secondInventory = $this->createInventoryItem($variant, $warehouse, serial: 'SERIAL-456', cash: 18000, cost: 11000);
+        $this->createTransaction(
+            $session,
+            $customer,
+            $secondInventory,
+            $cash,
+            $salesRep,
+            createdAt: Carbon::create(2026, 4, 4, 11, 0, 0),
+            orNumber: 'OR-DETAIL-2',
+        );
 
         $this->actingAs($user)
             ->getJson(route('sales.show', $transaction))
@@ -168,7 +249,12 @@ class SalesFeatureTest extends TestCase
             ->assertJsonPath('transaction.items.0.condition', 'Brand New')
             ->assertJsonPath('transaction.items.0.serial_number', 'SERIAL-123');
 
-        $response = $this->actingAs($user)->get(route('sales.export.xlsx'));
+        $response = $this->actingAs($user)->get(route('sales.export.xlsx', [
+            'perPage' => 1,
+            'page' => 2,
+            'sort' => 'transaction_date',
+            'direction' => 'asc',
+        ]));
         $response->assertOk();
         $response->assertDownload('sales_'.now()->format('Y-m-d').'.xlsx');
 
@@ -179,6 +265,7 @@ class SalesFeatureTest extends TestCase
 
         $this->assertSame('OR Number', $sheet->getCell('A1')->getValue());
         $this->assertSame('OR-DETAIL-1', $sheet->getCell('A2')->getValue());
+        $this->assertSame('OR-DETAIL-2', $sheet->getCell('A3')->getValue());
         $this->assertSame('Main Branch', $sheet->getCell('D2')->getValue());
 
         @unlink($tempFile);

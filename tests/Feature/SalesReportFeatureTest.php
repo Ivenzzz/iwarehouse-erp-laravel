@@ -160,6 +160,7 @@ class SalesReportFeatureTest extends TestCase
         $warehouse = $this->createWarehouse('Main Branch', 1);
         $cash = PaymentMethod::create(['name' => 'Cash', 'type' => 'cash']);
         $creditCard = PaymentMethod::create(['name' => 'Credit Card', 'type' => 'card']);
+        $terminalFee = PaymentMethod::create(['name' => 'Terminal Fee', 'type' => 'cash']);
         [$variant] = $this->createProductGraph('Apple', 'iPhone 17', 'APPLE-IPHONE17', [
             ['name' => '256GB Black', 'sku' => 'APPLE-IPHONE17-256'],
         ]);
@@ -173,6 +174,7 @@ class SalesReportFeatureTest extends TestCase
             [
                 ['method' => $cash, 'amount' => 10000],
                 ['method' => $creditCard, 'amount' => 30000, 'detail' => ['bank' => 'BPI', 'reference_number' => 'CC-123', 'loan_term_months' => 6]],
+                ['method' => $terminalFee, 'amount' => 500],
             ],
             $salesRep,
             Carbon::create(2026, 4, 5, 10, 30, 0),
@@ -197,7 +199,7 @@ class SalesReportFeatureTest extends TestCase
             ->assertJsonPath('transactions.1.or_number', 'OR-REPORT-1')
             ->assertJsonPath('transactions.1.actual_cash_paid', 10000)
             ->assertJsonPath('transactions.1.mdr_deduction', 1950)
-            ->assertJsonPath('transactions.1.net_profit', 13050);
+            ->assertJsonPath('transactions.1.net_profit', 13550);
 
         $this->actingAs($user)
             ->getJson(route('sales-report.consolidated.detail', [
@@ -206,15 +208,31 @@ class SalesReportFeatureTest extends TestCase
             ]))
             ->assertOk()
             ->assertJsonPath('summary.grossSales', 55000)
-            ->assertJsonPath('summary.netSales', 55000)
+            ->assertJsonPath('summary.netSales', 55500)
+            ->assertJsonPath('paymentMethodSummary.Cash', 25000)
+            ->assertJsonPath('paymentMethodSummary.Credit Card', 30000)
+            ->assertJsonMissingPath('paymentMethodSummary.Terminal Fee')
+            ->assertJsonPath('nonCashBreakdown.Credit Card (BPI)', 30000)
+            ->assertJsonMissingPath('nonCashBreakdown.Terminal Fee')
+            ->assertJsonPath('terminalFeeSummary.total', 500)
             ->assertJsonPath('dynamicPaymentColumns.0', 'Credit Card (BPI)')
-            ->assertJsonPath('ledgerRows.2.nonCashPaymentAmount', 30000);
+            ->assertJsonCount(1, 'dynamicPaymentColumns')
+            ->assertJsonPath('ledgerRows.0.categoryName', 'Phones')
+            ->assertJsonPath('ledgerRows.0.subcategoryName', 'iPhone 17 Subcategory')
+            ->assertJsonPath('ledgerRows.1.transactionId', $transaction->id)
+            ->assertJsonPath('ledgerRows.2.hideFirstFourColumns', true)
+            ->assertJsonPath('ledgerRows.2.isRepeatedPaymentRow', true)
+            ->assertJsonPath('ledgerRows.2.nonCashPaymentAmount', 30000)
+            ->assertJsonPath('ledgerRows.2.mdrAmount', 1950)
+            ->assertJsonPath('ledgerRows.2.receivableAmount', 28050)
+            ->assertJsonPath('ledgerRows.2.mdrPercentLabel', '6.5%')
+            ->assertJsonPath('ledgerRows.3.terminalFeePaidInCash', 500);
 
         $this->actingAs($user)
             ->getJson(route('sales-report.calendar', ['month' => 4, 'year' => 2026]))
             ->assertOk()
-            ->assertJsonPath('monthTotals.revenue', 55000)
-            ->assertJsonPath('dailyMap.2026-04-05.revenue', 40000)
+            ->assertJsonPath('monthTotals.revenue', 55500)
+            ->assertJsonPath('dailyMap.2026-04-05.revenue', 40500)
             ->assertJsonPath('dailyMap.2026-04-07.transactionCount', 1);
 
         $closeResponse = $this->actingAs($user)
@@ -243,7 +261,14 @@ class SalesReportFeatureTest extends TestCase
         $this->assertSame('Customer Name', $sheet->getCell('A1')->getValue());
         $this->assertSame('Pedro Santos', $sheet->getCell('A2')->getValue());
         $this->assertSame('Maria Santos', $sheet->getCell('A3')->getValue());
-        $this->assertSame('Credit Card (BPI)', $sheet->getCell('R1')->getValue());
+        $this->assertSame('Category', $sheet->getCell('H1')->getValue());
+        $this->assertSame('Phones', $sheet->getCell('H2')->getValue());
+        $this->assertSame('iPhone 17 Subcategory', $sheet->getCell('I2')->getValue());
+        $this->assertSame('TF Paid in Cash', $sheet->getCell('Q1')->getValue());
+        $this->assertSame('MDR', $sheet->getCell('U1')->getValue());
+        $this->assertSame(1950, (int) $sheet->getCell('U4')->getValue());
+        $this->assertSame(28050, (int) $sheet->getCell('V4')->getValue());
+        $this->assertSame('Credit Card (BPI)', $sheet->getCell('W1')->getValue());
 
         @unlink($tempFile);
     }

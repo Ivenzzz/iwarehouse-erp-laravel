@@ -24,6 +24,7 @@ import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { Separator } from "@/shared/components/ui/separator";
+import { QRStickerPreview } from "@/shared/services/qrStickerPrintService";
 import { getTransactionDiscountTotal } from "@/utils/transactionDiscounts";
 
 const formatPHP = (amount) =>
@@ -33,7 +34,7 @@ const formatPHP = (amount) =>
   }).format(amount || 0);
 
 const SECTION_CARD_CLASS =
-  "overflow-hidden border border-slate-200/80 bg-white/90 shadow-[0_20px_50px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-800/80 dark:bg-slate-950/75 dark:shadow-[0_20px_50px_rgba(2,6,23,0.45)]";
+  "overflow-hidden border border-slate-200/80 rounded-lg bg-white/90 shadow-[0_20px_50px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-800/80 dark:bg-slate-950/75 dark:shadow-[0_20px_50px_rgba(2,6,23,0.45)]";
 
 const SECTION_HEADING_CLASS =
   "mb-4 flex items-center gap-2 border-b border-slate-200/80 pb-3 text-sm font-semibold text-slate-900 dark:border-slate-800 dark:text-slate-100";
@@ -47,14 +48,24 @@ const TILE_LABEL_CLASS =
 const INVENTORY_BADGE_BASE =
   "rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]";
 
+const PRODUCT_BADGE_CLASSES = {
+  condition: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300",
+  ram: "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-300",
+  rom: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300",
+  color: "border-pink-200 bg-pink-50 text-pink-700 dark:border-pink-500/20 dark:bg-pink-500/10 dark:text-pink-300",
+  cpu: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300",
+  gpu: "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300",
+  warranty: "border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-300",
+};
+
 const isImageUrl = (url = "") =>
   /\.(jpg|jpeg|png|webp|gif|bmp|svg)(\?|$)/i.test(url);
 
-const toDisplayLabel = (value) =>
-  (value || "")
-    .replace(/_url$/i, "")
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+const cleanText = (value) => {
+  const text = value === null || value === undefined ? "" : String(value).trim();
+
+  return text || null;
+};
 
 const downloadFile = async (event, url, label) => {
   event?.stopPropagation?.();
@@ -118,6 +129,44 @@ const getPaymentDetails = (payment) => {
   return candidates.filter(([, value]) => Boolean(value));
 };
 
+const getItemIdentifier = (item) =>
+  cleanText(item.imei1) || cleanText(item.imei2) || cleanText(item.serial_number) || cleanText(item.identifier);
+
+const getItemWarrantyLines = (item) =>
+  cleanText(item.warranty_description)
+    ?.split(",")
+    .map((value) => value.trim())
+    .filter(Boolean) || [];
+
+const getItemSpecLines = (item) => {
+  const attributes = item.attributes || {};
+  const ramValue = cleanText(attributes.ram);
+  const romValue = cleanText(attributes.storage);
+  const colorValue = cleanText(attributes.color);
+  const cpuValue = cleanText(attributes.cpu);
+  const gpuValue = cleanText(attributes.gpu);
+
+  return [
+    [[ramValue, romValue].filter(Boolean).join("/"), colorValue].filter(Boolean).join(" "),
+    [cpuValue, gpuValue].filter(Boolean).join(" | "),
+  ].filter(Boolean);
+};
+
+const getQRStickerPreviewItems = (items) =>
+  items
+    .map((item, index) => ({
+      key: `${item.inventory_item_id || item.inventory_id || index}_${getItemIdentifier(item) || "no_identifier"}`,
+      brand: item.brand_name,
+      model: item.model,
+      specLines: getItemSpecLines(item),
+      condition: item.condition,
+      warrantyLines: getItemWarrantyLines(item),
+      cashPrice: item.snapshot_cash_price,
+      srp: item.snapshot_srp,
+      identifier: getItemIdentifier(item),
+    }))
+    .filter((item) => Boolean(item.identifier));
+
 function SummaryTile({ icon: Icon, label, value, tone = "slate" }) {
   const toneClasses = {
     emerald: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300",
@@ -142,6 +191,52 @@ function SummaryTile({ icon: Icon, label, value, tone = "slate" }) {
           </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ProductInfo({ item }) {
+  const attributes = item.attributes || {};
+  const title =
+    [item.brand_name, item.model].map(cleanText).filter(Boolean).join(" ") ||
+    [item.product_name, item.variant_name].map(cleanText).filter(Boolean).join(" ") ||
+    cleanText(item.display_name) ||
+    "N/A";
+  const specBadges = [
+    ["condition", item.condition],
+    ["ram", attributes.ram],
+    ["rom", attributes.storage],
+    ["color", attributes.color],
+    ["cpu", attributes.cpu],
+    ["gpu", attributes.gpu],
+  ]
+    .map(([key, value]) => [key, cleanText(value)])
+    .filter(([, value]) => Boolean(value));
+  const warranty = cleanText(item.warranty_description);
+
+  return (
+    <div className="flex max-w-[340px] flex-col gap-2">
+      <p className="text-sm font-semibold leading-tight text-slate-900 dark:text-slate-100">
+        {title}
+      </p>
+
+      {specBadges.length ? (
+        <div className="flex flex-wrap gap-1.5">
+          {specBadges.map(([key, value]) => (
+            <span key={`${key}_${value}`} className={`${INVENTORY_BADGE_BASE} ${PRODUCT_BADGE_CLASSES[key]}`}>
+              {value}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      {warranty ? (
+        <div className="flex flex-wrap gap-1.5">
+          <span className={`${INVENTORY_BADGE_BASE} ${PRODUCT_BADGE_CLASSES.warranty}`}>
+            {warranty}
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -190,6 +285,7 @@ function DocumentsSection({ transaction, onSelectDocument }) {
       ...paymentDocuments,
     ];
   }, [transaction]);
+  const availableDocuments = documents.filter((document) => Boolean(document.url));
 
   return (
     <div className="space-y-4">
@@ -200,94 +296,72 @@ function DocumentsSection({ transaction, onSelectDocument }) {
         Supporting Documents
       </h4>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {documents.map((document) => {
-          const available = Boolean(document.url);
+      {availableDocuments.length ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {availableDocuments.map((document) => {
           const previewableImage = isImageUrl(document.url);
 
           return (
             <div
               key={document.key}
-              className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-950"
+              className="overflow-hidden rounded-lg border border-slate-200/80 bg-white shadow-sm transition-colors hover:border-blue-200 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-blue-900/60"
             >
-              {available && previewableImage ? (
+              {previewableImage ? (
                 <button
                   type="button"
                   onClick={() => onSelectDocument(document)}
-                  className="group block w-full text-left"
+                  className="group relative block h-24 w-full overflow-hidden bg-slate-100 text-left dark:bg-slate-900"
                 >
                   <img
                     src={document.url}
                     alt={document.label}
-                    className="h-28 w-full object-cover transition duration-200 group-hover:scale-[1.02]"
+                    className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.02]"
                   />
+                  <div className="absolute inset-0 flex items-center justify-center bg-slate-950/0 transition-colors group-hover:bg-slate-950/35">
+                    <span className="rounded bg-slate-950/60 px-3 py-1 text-xs font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100">
+                      View
+                    </span>
+                  </div>
                 </button>
               ) : (
-                <div
-                  className={`flex h-28 items-center justify-center ${
-                    available ? "bg-slate-100 dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-900/70"
-                  }`}
+                <button
+                  type="button"
+                  onClick={() => onSelectDocument(document)}
+                  className="group flex h-24 w-full items-center justify-center bg-slate-100 transition-colors hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800"
                 >
-                  <div className="space-y-2 text-center">
-                    <div
-                      className={`mx-auto flex h-10 w-10 items-center justify-center rounded-full ${
-                        available
-                          ? "bg-white text-slate-600 dark:bg-slate-950 dark:text-slate-300"
-                          : "bg-slate-200 text-slate-400 dark:bg-slate-800 dark:text-slate-600"
-                      }`}
-                    >
-                      <FileText className="h-4 w-4" />
+                  <div className="flex flex-col items-center gap-2 text-slate-500 dark:text-slate-400">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-sm dark:bg-slate-950">
+                      <FileText className="h-4 w-4 text-blue-600 dark:text-blue-300" />
                     </div>
-                    {!available ? (
-                      <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-                        Not Uploaded
-                      </p>
-                    ) : null}
+                    <span className="text-xs font-semibold opacity-0 transition-opacity group-hover:opacity-100">
+                      View
+                    </span>
                   </div>
-                </div>
+                </button>
               )}
 
-              <div className="space-y-3 p-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-                    {available ? "Available" : "Missing"}
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
-                    {document.label}
-                  </p>
-                </div>
-
-                {available ? (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => onSelectDocument(document)}
-                    >
-                      <FileText className="h-3.5 w-3.5" />
-                      Preview
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={(event) => downloadFile(event, document.url, document.label)}
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                    {toDisplayLabel(document.key)} is not attached to this transaction.
-                  </div>
-                )}
+              <div className="flex items-center justify-between gap-2 bg-slate-100/80 px-3 py-2 dark:bg-slate-900/80">
+                <p className="min-w-0 truncate text-sm font-medium text-slate-700 dark:text-slate-200">
+                  {document.label}
+                </p>
+                <button
+                  type="button"
+                  onClick={(event) => downloadFile(event, document.url, document.label)}
+                  className="inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-slate-500 transition-colors hover:bg-white hover:text-blue-600 dark:text-slate-400 dark:hover:bg-slate-950 dark:hover:text-blue-300"
+                  aria-label={`Download ${document.label}`}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
           );
         })}
-      </div>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
+          No supporting documents uploaded.
+        </div>
+      )}
     </div>
   );
 }
@@ -330,6 +404,7 @@ export default function TransactionDetailsDialog({
 
   const payments = transaction?.payments_json?.payments || [];
   const items = transaction?.items || [];
+  const qrStickerPreviewItems = getQRStickerPreviewItems(items);
   const totalDiscount = getTransactionDiscountTotal(transaction || {});
   const hasChange = Number(transaction?.change_amount || 0) > 0;
 
@@ -376,6 +451,31 @@ export default function TransactionDetailsDialog({
               </div>
             ) : (
               <div className="space-y-6 px-6 py-6">
+                {qrStickerPreviewItems.length ? (
+                  <Card className={SECTION_CARD_CLASS}>
+                    <div className="h-1.5 bg-emerald-500/80 dark:bg-emerald-500/70" />
+                    <CardContent className="space-y-3 pt-4">
+                      <p className={TILE_LABEL_CLASS}>QR Sticker Preview</p>
+                      <div className="flex flex-wrap gap-4 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-950/60">
+                        {qrStickerPreviewItems.map((item) => (
+                          <QRStickerPreview
+                            key={item.key}
+                            className="flex-shrink-0"
+                            brand={item.brand}
+                            model={item.model}
+                            specLines={item.specLines}
+                            condition={item.condition}
+                            warrantyLines={item.warrantyLines}
+                            cashPrice={item.cashPrice}
+                            srp={item.srp}
+                            identifier={item.identifier}
+                          />
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : null}
+
                 <div className="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
                   <Card className={SECTION_CARD_CLASS}>
                     <div className="h-1.5 bg-emerald-500/80 dark:bg-emerald-500/70" />
@@ -476,10 +576,6 @@ export default function TransactionDetailsDialog({
                         <tbody>
                           {items.length ? (
                             items.map((item, index) => {
-                              const productName =
-                                [item.product_name, item.variant_name].filter(Boolean).join(" ") ||
-                                item.display_name ||
-                                "N/A";
                               const serialDisplay =
                                 item.imei1 || item.imei2 || item.serial_number || item.identifier || "-";
                               const priceBasis = getPriceBasisLabel(item);
@@ -490,23 +586,7 @@ export default function TransactionDetailsDialog({
                                   className="border-t border-slate-100 transition-colors hover:bg-slate-50/80 dark:border-slate-800 dark:hover:bg-slate-950/40"
                                 >
                                   <td className="px-3 py-3">
-                                    <div className="flex max-w-[340px] flex-col gap-2">
-                                      <p className="text-sm font-semibold leading-tight text-slate-900 dark:text-slate-100">
-                                        {productName}
-                                      </p>
-                                      <div className="flex flex-wrap gap-1.5">
-                                        {item.condition ? (
-                                          <span className={`${INVENTORY_BADGE_BASE} border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300`}>
-                                            {item.condition}
-                                          </span>
-                                        ) : null}
-                                        {item.warranty_description ? (
-                                          <span className={`${INVENTORY_BADGE_BASE} border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-300`}>
-                                            {item.warranty_description}
-                                          </span>
-                                        ) : null}
-                                      </div>
-                                    </div>
+                                    <ProductInfo item={item} />
                                   </td>
                                   <td className="px-3 py-3 font-mono text-xs text-slate-700 dark:text-slate-300">
                                     {serialDisplay}

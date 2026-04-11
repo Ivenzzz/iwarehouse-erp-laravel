@@ -237,6 +237,7 @@ class PosDataTransformer
             $productMaster = $variant?->productMaster;
             $productName = $productMaster?->product_name;
             $variantName = $variant?->variant_name;
+            $attributes = InventoryDataTransformer::variantAttributes($variant);
             $identifier = $this->firstNonEmpty(
                 $inventoryItem?->imei,
                 $inventoryItem?->imei2,
@@ -255,8 +256,12 @@ class PosDataTransformer
                 'variant_id' => $variant?->id,
                 'product_name' => $productName,
                 'variant_name' => $variantName,
+                'category_name' => $productMaster?->subcategory?->parent?->name,
+                'subcategory_name' => $productMaster?->subcategory?->name,
                 'condition' => $variant?->condition,
                 'brand_name' => $productMaster?->model?->brand?->name,
+                'model' => $productMaster?->model?->model_name,
+                'attributes' => $attributes,
                 'imei1' => $inventoryItem?->imei,
                 'imei2' => $inventoryItem?->imei2,
                 'serial_number' => $inventoryItem?->serial_number,

@@ -15,3 +15,4 @@ require __DIR__.'/web/pos.php';
 require __DIR__.'/web/placement-reports.php';
 require __DIR__.'/web/sales.php';
 require __DIR__.'/web/sales-report.php';
+require __DIR__.'/web/price-control.php';

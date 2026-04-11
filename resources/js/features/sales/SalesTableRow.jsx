@@ -23,21 +23,22 @@ export default function SalesTableRow({
     <tr
       className="border-b border-gray-100 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800/50"
     >
-      {/* OR Number */}
-      <td className="px-3 py-2.5">
-        <div className="flex items-center gap-1.5">
-          <FileText className="w-3.5 h-3.5 text-gray-400" />
-          <span className="font-mono font-semibold text-gray-900 dark:text-gray-100">
-            {transaction.or_number || "N/A"}
-          </span>
-        </div>
-      </td>
+      
 
       {/* DR */}
       <td className="px-3 py-2.5">
         <span className="font-mono text-gray-700 dark:text-gray-300">
           {transaction.transaction_number || "N/A"}
         </span>
+      </td>
+
+      {/* OR Number */}
+      <td className="px-3 py-2.5">
+        <div className="flex items-center gap-1.5">
+          <span className="font-mono font-semibold text-gray-900 dark:text-gray-100">
+            {transaction.or_number || "N/A"}
+          </span>
+        </div>
       </td>
 
       {/* Date/Time */}
@@ -57,7 +58,6 @@ export default function SalesTableRow({
       {/* Branch */}
       <td className="px-3 py-2.5">
         <div className="flex items-center gap-1.5">
-          <Store className="w-3.5 h-3.5 text-gray-400" />
           <span className="text-gray-700 dark:text-gray-300">{warehouseName}</span>
         </div>
       </td>
@@ -65,7 +65,6 @@ export default function SalesTableRow({
       {/* Customer */}
       <td className="px-3 py-2.5">
         <div className="flex items-center gap-1.5">
-          <User className="w-3.5 h-3.5 text-gray-400" />
           <span className="text-gray-700 dark:text-gray-300">{customerName}</span>
         </div>
       </td>
@@ -80,12 +79,12 @@ export default function SalesTableRow({
         <div className="flex flex-col gap-0.5">
           {(transaction.payments_json?.payments || []).slice(0, 2).map((payment, idx) => (
             <div key={idx} className="flex items-center gap-1">
-              <span className="text-[10px] font-medium text-slate-700 dark:text-slate-300">
+              <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
                 {new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(payment.amount || 0)}
               </span>
               <Badge
                 variant="outline"
-                className="w-fit border-slate-300 bg-slate-50 text-[10px] text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                className="w-fit border-slate-300 bg-slate-50 rounded-sm text-[10px] text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               >
                 {payment.payment_method}
               </Badge>
@@ -100,12 +99,12 @@ export default function SalesTableRow({
       </td>
 
       {/* Amount */}
-      <td className="px-3 py-2.5 text-right">
+      <td className="px-3 py-2.5">
         <span
           className={`font-semibold ${
             transaction.total_amount < 0
               ? "text-red-600 dark:text-red-400"
-              : "text-blue-600 dark:text-blue-400"
+              : "text-emerald-600 dark:text-emerald-400"
           }`}
         >
           {formatCurrency(transaction.total_amount || 0)}
@@ -119,7 +118,7 @@ export default function SalesTableRow({
             variant="outline"
             size="sm"
             onClick={() => onView(transaction)}
-            className="h-8 w-8 border-slate-300 bg-white p-0 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="h-8 w-8 border-info bg-info p-0 text-info-foreground hover:border-info hover:bg-info/90 rounded-sm"
             title="View Details"
             aria-label="View Details"
           >
@@ -129,7 +128,7 @@ export default function SalesTableRow({
             variant="outline"
             size="sm"
             onClick={() => onPrint(transaction)}
-            className="h-8 w-8 border-slate-300 bg-white p-0 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="h-8 w-8 border-warning bg-warning p-0 text-warning-foreground hover:border-warning hover:bg-warning/90 rounded-sm"
             title="Print Receipt"
             aria-label="Print Receipt"
           >

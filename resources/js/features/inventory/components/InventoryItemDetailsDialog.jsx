@@ -72,7 +72,7 @@ export default function InventoryItemDetailsDialog({
   const cpuValue = item?.cpu || item?.platform_cpu || "";
   const gpuValue = item?.gpu || item?.platform_gpu || "";
   const conditionValue = item?.variantCondition || item?.purchase_file_data?.condition || "";
-  const headerTitle = [item?.brandName, item?.masterModel, item?.productName].filter(Boolean).join(" ");
+  const headerTitle = [item?.productName].filter(Boolean).join(" ");
   const specLines = [
     [ramValue, romValue].filter(Boolean).join("/"),
     colorValue,

@@ -17,7 +17,7 @@ export default function AppShell({ title, children }) {
     usePageToasts([props.flash?.error], 'destructive');
 
     return (
-        <div className="h-screen overflow-hidden bg-[#e9edf5] text-xs text-slate-900">
+        <div className="h-screen overflow-hidden bg-background text-xs text-slate-900">
             <div className="flex h-full">
                 <aside className="hidden h-full w-64 flex-col lg:flex">
                     <SidebarContent sections={sections} storageKey="desktop" />

@@ -62,7 +62,7 @@ export function getAdminNavSections() {
             defaultOpen: false,
             links: [
                 { label: '3 Way Matching', href: route('dashboard') },
-                { label: 'Price Control', href: route('dashboard') },
+                { label: 'Price Control', href: route('price-control.index'), active: route().current('price-control.*') },
             ],
         },
         {

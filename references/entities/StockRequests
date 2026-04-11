@@ -4,11 +4,11 @@
   "properties": {
     "request_number": {
       "type": "string",
-      "description": "Unique request number (auto-generated)"
+      "description": "Unique request number (auto-generated, incremental)"
     },
-    "branch_id": {
+    "warehouse_id": {
       "type": "string",
-      "description": "Requesting branch/store ID"
+      "description": "Requesting warehouse ID"
     },
     "requestor_id": {
       "type": "string",

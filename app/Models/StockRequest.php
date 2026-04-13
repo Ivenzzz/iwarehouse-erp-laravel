@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class StockRequest extends Model
 {
@@ -61,5 +62,15 @@ class StockRequest extends Model
     public function statusHistories(): HasMany
     {
         return $this->hasMany(StockRequestStatusHistory::class)->orderBy('occurred_at');
+    }
+
+    public function approval(): HasOne
+    {
+        return $this->hasOne(StockRequestApproval::class)->latestOfMany('approval_date');
+    }
+
+    public function requestForQuotation(): HasOne
+    {
+        return $this->hasOne(RequestForQuotation::class)->latestOfMany();
     }
 }

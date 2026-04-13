@@ -8,6 +8,9 @@ use App\Models\ProductMaster;
 use App\Models\ProductModel;
 use App\Models\ProductVariant;
 use App\Models\StockRequest;
+use App\Models\StockRequestApproval;
+use App\Models\StockRequestApprovalItem;
+use App\Models\StockRequestApprovalReference;
 use App\Models\StockRequestItem;
 use App\Models\StockRequestStatusHistory;
 use App\Models\User;
@@ -27,6 +30,9 @@ class StockRequestsSchemaTest extends TestCase
         $this->assertTrue(Schema::hasTable('stock_requests'));
         $this->assertTrue(Schema::hasTable('stock_request_items'));
         $this->assertTrue(Schema::hasTable('stock_request_status_histories'));
+        $this->assertTrue(Schema::hasTable('stock_request_approvals'));
+        $this->assertTrue(Schema::hasTable('stock_request_approval_items'));
+        $this->assertTrue(Schema::hasTable('stock_request_approval_references'));
     }
 
     public function test_stock_request_number_must_be_unique(): void
@@ -201,6 +207,159 @@ class StockRequestsSchemaTest extends TestCase
         $this->assertFalse($this->canDelete(fn () => $variant->delete()));
     }
 
+    public function test_stock_request_approval_one_per_request_is_enforced(): void
+    {
+        [$stockRequest, $history] = $this->createRequestWithHistory();
+        $user = User::factory()->create();
+
+        StockRequestApproval::create([
+            'stock_request_id' => $stockRequest->id,
+            'status_history_id' => $history->id,
+            'approver_id' => $user->id,
+            'approval_date' => now(),
+            'action' => 'rfq_created',
+        ]);
+
+        $otherHistory = StockRequestStatusHistory::create([
+            'stock_request_id' => $stockRequest->id,
+            'status' => 'stock_transfer_created',
+            'actor_id' => $user->id,
+            'occurred_at' => now()->addMinute(),
+        ]);
+
+        $this->expectException(QueryException::class);
+
+        StockRequestApproval::create([
+            'stock_request_id' => $stockRequest->id,
+            'status_history_id' => $otherHistory->id,
+            'approver_id' => $user->id,
+            'approval_date' => now()->addMinute(),
+            'action' => 'stock_transfer_created',
+        ]);
+    }
+
+    public function test_stock_request_approval_reference_one_per_type_is_enforced(): void
+    {
+        [$stockRequest, $history] = $this->createRequestWithHistory();
+        $user = User::factory()->create();
+
+        $approval = StockRequestApproval::create([
+            'stock_request_id' => $stockRequest->id,
+            'status_history_id' => $history->id,
+            'approver_id' => $user->id,
+            'approval_date' => now(),
+            'action' => 'rfq_created',
+        ]);
+
+        StockRequestApprovalReference::create([
+            'stock_request_approval_id' => $approval->id,
+            'reference_type' => 'rfq',
+            'reference_number' => 'RFQ-001',
+        ]);
+
+        $this->expectException(QueryException::class);
+
+        StockRequestApprovalReference::create([
+            'stock_request_approval_id' => $approval->id,
+            'reference_type' => 'rfq',
+            'reference_number' => 'RFQ-002',
+        ]);
+    }
+
+    public function test_stock_request_approval_item_requires_valid_stock_request_item_fk(): void
+    {
+        [$stockRequest, $history] = $this->createRequestWithHistory();
+        $user = User::factory()->create();
+
+        $approval = StockRequestApproval::create([
+            'stock_request_id' => $stockRequest->id,
+            'status_history_id' => $history->id,
+            'approver_id' => $user->id,
+            'approval_date' => now(),
+            'action' => 'rfq_created',
+        ]);
+
+        $this->expectException(QueryException::class);
+
+        StockRequestApprovalItem::create([
+            'stock_request_approval_id' => $approval->id,
+            'stock_request_item_id' => 999999,
+            'approved_quantity' => 1,
+        ]);
+    }
+
+    public function test_deleting_stock_request_cascades_to_approval_tables(): void
+    {
+        [$stockRequest, $history, $requestItem] = $this->createRequestWithHistoryAndItem();
+        $user = User::factory()->create();
+
+        $approval = StockRequestApproval::create([
+            'stock_request_id' => $stockRequest->id,
+            'status_history_id' => $history->id,
+            'approver_id' => $user->id,
+            'approval_date' => now(),
+            'action' => 'rfq_created',
+        ]);
+
+        $approvalItem = StockRequestApprovalItem::create([
+            'stock_request_approval_id' => $approval->id,
+            'stock_request_item_id' => $requestItem->id,
+            'approved_quantity' => 1,
+        ]);
+
+        $approvalReference = StockRequestApprovalReference::create([
+            'stock_request_approval_id' => $approval->id,
+            'reference_type' => 'rfq',
+            'reference_number' => 'RFQ-1000',
+        ]);
+
+        $stockRequest->delete();
+
+        $this->assertDatabaseMissing('stock_request_approvals', ['id' => $approval->id]);
+        $this->assertDatabaseMissing('stock_request_approval_items', ['id' => $approvalItem->id]);
+        $this->assertDatabaseMissing('stock_request_approval_references', ['id' => $approvalReference->id]);
+    }
+
+    public function test_approval_tables_follow_normalized_columns(): void
+    {
+        $this->assertFalse(Schema::hasColumn('stock_request_approvals', 'approver_name'));
+        $this->assertFalse(Schema::hasColumn('stock_request_approval_items', 'original_quantity'));
+        $this->assertTrue(Schema::hasColumn('stock_request_approval_items', 'approved_quantity'));
+    }
+
+    public function test_original_quantity_is_reconstructable_by_join(): void
+    {
+        [$stockRequest, $history, $requestItem] = $this->createRequestWithHistoryAndItem();
+        $user = User::factory()->create();
+
+        $approval = StockRequestApproval::create([
+            'stock_request_id' => $stockRequest->id,
+            'status_history_id' => $history->id,
+            'approver_id' => $user->id,
+            'approval_date' => now(),
+            'action' => 'rfq_created',
+        ]);
+
+        StockRequestApprovalItem::create([
+            'stock_request_approval_id' => $approval->id,
+            'stock_request_item_id' => $requestItem->id,
+            'approved_quantity' => 3,
+        ]);
+
+        $row = DB::table('stock_request_approval_items')
+            ->join('stock_request_items', 'stock_request_items.id', '=', 'stock_request_approval_items.stock_request_item_id')
+            ->where('stock_request_approval_items.stock_request_approval_id', $approval->id)
+            ->select([
+                'stock_request_approval_items.approved_quantity',
+                'stock_request_items.quantity as original_quantity',
+            ])
+            ->first();
+
+        $this->assertNotNull($row);
+        $this->assertSame(3, (int) $row->approved_quantity);
+        $this->assertSame((int) $requestItem->quantity, (int) $row->original_quantity);
+    }
+
     private function createProductVariant(): ProductVariant
     {
         $brand = ProductBrand::create(['name' => 'Brand-Stock-Request']);
@@ -250,5 +409,42 @@ class StockRequestsSchemaTest extends TestCase
         }
 
         return true;
+    }
+
+    private function createRequestWithHistory(): array
+    {
+        $warehouse = Warehouse::create([
+            'name' => 'Warehouse F',
+            'warehouse_type' => 'store',
+        ]);
+
+        $stockRequest = StockRequest::create([
+            'request_number' => 'SR-APP-'.str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT),
+            'warehouse_id' => $warehouse->id,
+            'required_at' => now()->addDay(),
+            'status' => 'rfq_created',
+        ]);
+
+        $history = StockRequestStatusHistory::create([
+            'stock_request_id' => $stockRequest->id,
+            'status' => 'rfq_created',
+            'occurred_at' => now(),
+        ]);
+
+        return [$stockRequest, $history];
+    }
+
+    private function createRequestWithHistoryAndItem(): array
+    {
+        [$stockRequest, $history] = $this->createRequestWithHistory();
+        $variant = $this->createProductVariant();
+
+        $item = StockRequestItem::create([
+            'stock_request_id' => $stockRequest->id,
+            'variant_id' => $variant->id,
+            'quantity' => 5,
+        ]);
+
+        return [$stockRequest, $history, $item];
     }
 }

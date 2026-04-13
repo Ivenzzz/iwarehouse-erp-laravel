@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class StockRequestStatusHistory extends Model
 {
@@ -30,5 +31,10 @@ class StockRequestStatusHistory extends Model
     public function actor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'actor_id');
+    }
+
+    public function approval(): HasOne
+    {
+        return $this->hasOne(StockRequestApproval::class, 'status_history_id');
     }
 }

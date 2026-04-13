@@ -1,7 +1,14 @@
 import React, { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-export default function PortalTooltip({ children, parentRef, isVisible }) {
+export default function PortalTooltip({
+  children,
+  parentRef,
+  isVisible,
+  interactive = false,
+  onMouseEnter,
+  onMouseLeave,
+}) {
   const tooltipRef = useRef(null);
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
   const [arrowData, setArrowData] = useState({ position: "bottom", offset: 0 }); // "bottom" means arrow is at bottom of tooltip (tooltip is above)
@@ -79,12 +86,14 @@ export default function PortalTooltip({ children, parentRef, isVisible }) {
   return createPortal(
     <div 
       ref={tooltipRef}
-      className="fixed z-[9999] pointer-events-none transition-opacity duration-200"
+      className={`fixed z-[9999] transition-opacity duration-200 ${interactive ? "pointer-events-auto" : "pointer-events-none"}`}
       style={{ 
         top: `${coords.top}px`, 
         left: `${coords.left}px`, 
         width: `${coords.width}px` 
       }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
     >
       <div className={`relative animate-in fade-in zoom-in-95 duration-200`}>
         {children}

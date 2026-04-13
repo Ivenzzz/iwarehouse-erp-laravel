@@ -1,0 +1,1 @@
+create purchase_orders_* tables. Use the schema defined in [PurchaseOrder.json](references/entities/PurchaseOrder.json) . Make sure that the tables to be created are normalized up to 3nf and mustn't contain repeated columns across related tables. 

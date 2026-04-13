@@ -53,8 +53,9 @@ export function getAdminNavSections({ permissions = [] } = {}) {
             icon: ShoppingCart,
             defaultOpen: false,
             links: [
-                { label: 'Stock Requests', href: route('dashboard') },
-                { label: 'RFQs', href: route('dashboard') },
+                { label: 'Stock Requests', href: route('stock-requests.index'), active: route().current('stock-requests.*') },
+                { label: 'SR Approval', href: route('stock-request-approvals.index'), active: route().current('stock-request-approvals.*') },
+                { label: 'RFQs', href: route('request-for-quotations.index'), active: route().current('request-for-quotations.*') },
                 { label: 'Purchase Orders', href: route('dashboard') },
                 { label: 'Delivery Receipts', href: route('dashboard') },
                 { label: 'GRNs', href: route('dashboard') },

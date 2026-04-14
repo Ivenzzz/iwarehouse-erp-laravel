@@ -5,7 +5,6 @@ namespace App\Features\RequestForQuotations\Queries;
 use App\Features\RequestForQuotations\Support\RequestForQuotationDataTransformer;
 use App\Features\RequestForQuotations\Support\RequestForQuotationListQuery;
 use App\Models\RequestForQuotation;
-use App\Models\StockRequest;
 use App\Models\Supplier;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
@@ -65,66 +64,7 @@ class ListRequestForQuotationPageData
                     'trade_name' => $s->trade_name,
                 ],
             ])->values()->all(),
-            'ready_stock_requests' => $this->readyStockRequests(),
         ];
-    }
-
-    private function readyStockRequests(): array
-    {
-        return StockRequest::query()
-            ->whereIn('stock_requests.status', ['rfq_created', 'split_operation_created'])
-            ->whereHas('approval', function ($query) {
-                $query->whereIn('action', ['rfq_created', 'split_operation_created'])
-                    ->whereHas('references', function ($ref) {
-                        $ref->where('reference_type', 'rfq');
-                    });
-            })
-            ->whereDoesntHave('requestForQuotation', function ($query) {
-                $query->whereIn('status', ['draft', 'receiving_quotes']);
-            })
-            ->with([
-                'items:id,stock_request_id,variant_id,quantity,reason',
-                'items.variant:id,product_master_id,model_code,sku,condition,color,ram,rom,cpu,gpu,ram_type,rom_type,operating_system,screen',
-                'items.variant.productMaster:id,model_id',
-                'items.variant.productMaster.model:id,brand_id,model_name',
-                'items.variant.productMaster.model.brand:id,name',
-                'approval',
-                'approval.approver:id,name,email',
-            ])
-            ->orderByDesc('id')
-            ->get()
-            ->map(function (StockRequest $request) {
-                return [
-                    'id' => $request->id,
-                    'request_number' => $request->request_number,
-                    'purpose' => $request->purpose,
-                    'required_date' => optional($request->required_at)?->toDateString(),
-                    'approval' => [
-                        'action' => $request->approval?->action,
-                        'approver_name' => $request->approval?->approver?->name ?? $request->approval?->approver?->email,
-                    ],
-                    'items' => $request->items->map(function ($item) {
-                        $variant = $item->variant;
-                        $master = $variant?->productMaster;
-                        $model = $master?->model;
-                        $attributes = $variant?->attributesMap() ?? [];
-
-                        return [
-                            'variant_id' => $item->variant_id,
-                            'brand' => $model?->brand?->name,
-                            'model' => $model?->model_name,
-                            'variant_sku' => $variant?->sku,
-                            'variant_name' => $variant?->variant_name,
-                            'condition' => $variant?->condition,
-                            'variant_attributes' => $attributes,
-                            'quantity' => $item->quantity,
-                            'reason' => $item->reason,
-                        ];
-                    })->values()->all(),
-                ];
-            })
-            ->values()
-            ->all();
     }
 
     private function kpis(): array

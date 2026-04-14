@@ -80,6 +80,7 @@ function Combobox({
 }) {
   const [open, setOpen] = useState(false)
   const [inputValue, setInputValue] = useState("")
+  const onSearchChangeRef = useRef(onSearchChange)
   const handleValueChange = onValueChange ?? onChange
   const isExternalSearch = typeof onSearchChange === "function"
   const effectiveSelectedOption =
@@ -107,16 +108,24 @@ function Combobox({
   }, [searchValue])
 
   useEffect(() => {
+    onSearchChangeRef.current = onSearchChange
+  }, [onSearchChange])
+
+  useEffect(() => {
     if (!isExternalSearch) {
       return undefined
     }
 
+    if (!open) {
+      return undefined
+    }
+
     const timeoutId = window.setTimeout(() => {
-      onSearchChange(inputValue)
+      onSearchChangeRef.current?.(inputValue)
     }, debounceMs)
 
     return () => window.clearTimeout(timeoutId)
-  }, [debounceMs, inputValue, isExternalSearch, onSearchChange])
+  }, [debounceMs, inputValue, isExternalSearch, open])
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter") {

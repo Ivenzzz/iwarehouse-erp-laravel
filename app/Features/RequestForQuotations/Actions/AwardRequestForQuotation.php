@@ -42,6 +42,7 @@ class AwardRequestForQuotation
             }
 
             $poNumber = $this->nextPoNumber();
+            $expectedDeliveryDate = $quote->eta?->toDateString();
 
             $purchaseOrderId = (int) DB::table('purchase_orders')->insertGetId([
                 'po_number' => $poNumber,
@@ -50,7 +51,7 @@ class AwardRequestForQuotation
                 'selected_supplier_quote_id' => $quote->id,
                 'shipping_method_id' => $shippingMethodId,
                 'payment_term_id' => $paymentTermId,
-                'expected_delivery_date' => $quote->eta,
+                'expected_delivery_date' => $expectedDeliveryDate,
                 'status' => 'pending',
                 'has_delivery_receipt' => false,
                 'created_at' => now(),
@@ -60,7 +61,7 @@ class AwardRequestForQuotation
             foreach ($quote->items as $quoteItem) {
                 $purchaseOrderItemId = (int) DB::table('purchase_order_items')->insertGetId([
                     'purchase_order_id' => $purchaseOrderId,
-                    'supplier_quote_item_id' => $quoteItem->id,
+                    'product_master_id' => $quoteItem->rfqItem?->variant?->product_master_id,
                     'quantity' => $quoteItem->quoted_quantity,
                     'unit_price' => $quoteItem->unit_price,
                     'discount' => $quoteItem->discount,
@@ -73,6 +74,7 @@ class AwardRequestForQuotation
 
                 DB::table('purchase_order_item_specs')->insert([
                     'purchase_order_item_id' => $purchaseOrderItemId,
+                    'model_code' => $variant?->model_code,
                     'ram' => $variant?->ram,
                     'rom' => $variant?->rom,
                     'condition' => $variant?->condition,

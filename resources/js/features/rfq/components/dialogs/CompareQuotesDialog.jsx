@@ -57,6 +57,14 @@ export default function CompareQuotesDialog({
                   const isFastest = quote.leadTimeDays === minLead;
                   const savings = avgPrice - quote.total_amount;
                   const savingsPct = avgPrice > 0 ? (savings / avgPrice) * 100 : 0;
+                  const grossSubtotal = (quote.items || []).reduce(
+                    (sum, item) => sum + ((Number(item.quantity) || 0) * (Number(item.unit_price) || 0)),
+                    0
+                  );
+                  const discountedSubtotal = Number(quote.subtotal) || 0;
+                  const discountAmount = Math.max(0, grossSubtotal - discountedSubtotal);
+                  const totalWithoutDiscount =
+                    grossSubtotal + (Number(quote.shipping_cost) || 0) + (Number(quote.tax_amount) || 0);
 
                   return (
                     <Card
@@ -102,6 +110,18 @@ export default function CompareQuotesDialog({
                             }`}
                           >
                             {quote.total_amount.toLocaleString("en-PH", {
+                              minimumFractionDigits: 2,
+                            })}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Total before discount:{" "}
+                            {totalWithoutDiscount.toLocaleString("en-PH", {
+                              minimumFractionDigits: 2,
+                            })}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Discount:{" "}
+                            {discountAmount.toLocaleString("en-PH", {
                               minimumFractionDigits: 2,
                             })}
                           </p>

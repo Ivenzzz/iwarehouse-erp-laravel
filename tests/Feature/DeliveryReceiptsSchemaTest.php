@@ -132,28 +132,16 @@ class DeliveryReceiptsSchemaTest extends TestCase
         ]);
     }
 
-    public function test_item_specs_are_one_to_one_and_purchase_order_item_fk_is_optional(): void
+    public function test_item_specs_are_one_to_one_without_purchase_order_item_link(): void
     {
         $context = $this->createDeliveryReceiptContext();
 
         $poId = $this->createPurchaseOrder($context, 'PO-DR-000002');
-        $poItemId = DB::table('purchase_order_items')->insertGetId([
-            'purchase_order_id' => $poId,
-            'supplier_quote_item_id' => $context['supplier_quote_item_id'],
-            'quantity' => 2,
-            'unit_price' => 900,
-            'discount' => 0,
-            'description' => 'PO item for DR FK validation',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
         $drId = $this->createDeliveryReceipt($context, 'DR-000007', $context['supplier_id'], $poId);
 
-        $itemWithPoId = DB::table('delivery_receipt_items')->insertGetId([
+        $itemId = DB::table('delivery_receipt_items')->insertGetId([
             'delivery_receipt_id' => $drId,
             'product_master_id' => $context['product_master_id'],
-            'purchase_order_item_id' => $poItemId,
             'expected_quantity' => 2,
             'actual_quantity' => 2,
             'unit_cost' => 900,
@@ -167,7 +155,7 @@ class DeliveryReceiptsSchemaTest extends TestCase
         ]);
 
         DB::table('delivery_receipt_item_specs')->insert([
-            'delivery_receipt_item_id' => $itemWithPoId,
+            'delivery_receipt_item_id' => $itemId,
             'ram' => '8GB',
             'rom' => '256GB',
             'condition' => 'Brand New',
@@ -175,10 +163,9 @@ class DeliveryReceiptsSchemaTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        $itemWithoutPoId = DB::table('delivery_receipt_items')->insertGetId([
+        $secondItemId = DB::table('delivery_receipt_items')->insertGetId([
             'delivery_receipt_id' => $drId,
             'product_master_id' => $context['second_product_master_id'],
-            'purchase_order_item_id' => null,
             'expected_quantity' => 1,
             'actual_quantity' => 1,
             'unit_cost' => 850,
@@ -192,14 +179,13 @@ class DeliveryReceiptsSchemaTest extends TestCase
         ]);
 
         $this->assertDatabaseHas('delivery_receipt_items', [
-            'id' => $itemWithoutPoId,
-            'purchase_order_item_id' => null,
+            'id' => $secondItemId,
         ]);
 
         $this->expectException(QueryException::class);
 
         DB::table('delivery_receipt_item_specs')->insert([
-            'delivery_receipt_item_id' => $itemWithPoId,
+            'delivery_receipt_item_id' => $itemId,
             'ram' => '16GB',
             'rom' => '512GB',
             'condition' => 'Brand New',

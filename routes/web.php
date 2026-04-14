@@ -15,6 +15,7 @@ require __DIR__.'/web/stock-transfers.php';
 require __DIR__.'/web/stock-requests.php';
 require __DIR__.'/web/stock-request-approvals.php';
 require __DIR__.'/web/request-for-quotations.php';
+require __DIR__.'/web/purchase-orders.php';
 require __DIR__.'/web/pos.php';
 require __DIR__.'/web/placement-reports.php';
 require __DIR__.'/web/sales.php';

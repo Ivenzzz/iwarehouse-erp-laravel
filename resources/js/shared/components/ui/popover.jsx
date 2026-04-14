@@ -29,7 +29,7 @@ const PopoverContent = React.forwardRef(function PopoverContent({
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          "z-[100] flex w-72 origin-[var(--radix-popover-content-transform-origin)] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white p-0 text-sm text-slate-900 shadow-[0_10px_30px_rgba(15,23,42,0.16)] outline-none duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 dark:border-slate-800 dark:bg-[#0f172a] dark:text-slate-100",
+          "z-[100] flex w-72 origin-[var(--radix-popover-content-transform-origin)] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-900 shadow-[0_10px_30px_rgba(15,23,42,0.16)] outline-none duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 dark:border-slate-800 dark:bg-[#0f172a] dark:text-slate-100",
           className
         )}
         {...props} />

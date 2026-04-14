@@ -5,7 +5,7 @@ import AppShell from "@/shared/layouts/AppShell";
 import { toast } from "@/shared/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RefreshCw, Plus, Merge } from "lucide-react";
+import { RefreshCw, Merge } from "lucide-react";
 import { format } from "date-fns";
 import {
   AlertDialog,
@@ -24,13 +24,12 @@ import { buildAddQuotePayload } from "../lib/rfqService";
 import RFQStatsCards from "../components/RFQStatsCards";
 import RFQFilters from "../components/RFQFilters";
 import RFQTableRow from "../components/RFQTableRow";
-import CreateRFQDialog from "../components/dialogs/CreateRFQDialog";
 import AddQuoteDialog from "../components/dialogs/AddQuoteDialog";
 import CompareQuotesDialog from "../components/dialogs/CompareQuotesDialog";
 import ItemsDialog from "../components/dialogs/ItemsDialog";
 import ConsolidateRFQDialog from "../components/dialogs/ConsolidateRFQDialog";
 
-const RELOAD_PROPS = ["rfqs", "pagination", "filters", "kpis", "suppliers", "suppliers_count", "ready_stock_requests"];
+const RELOAD_PROPS = ["rfqs", "pagination", "filters", "kpis", "suppliers", "suppliers_count"];
 
 const createEmptyQuoteForm = () => ({
   supplier_id: "",
@@ -49,14 +48,11 @@ export default function RequestForQuotationPage({
   kpis = { total_rfqs: 0, receiving_quotes_count: 0, avg_turnaround: 0, converted_count: 0 },
   suppliers = [],
   suppliers_count = 0,
-  ready_stock_requests: readyStockRequests = [],
 }) {
-  const [showRFQDialog, setShowRFQDialog] = useState(false);
   const [showAddQuoteDialog, setShowAddQuoteDialog] = useState(false);
   const [showCompareDialog, setShowCompareDialog] = useState(false);
   const [showItemsDialog, setShowItemsDialog] = useState(false);
   const [selectedRFQ, setSelectedRFQ] = useState(null);
-  const [selectedStockRequest, setSelectedStockRequest] = useState(null);
   const [selectedRFQItems, setSelectedRFQItems] = useState(null);
   const [searchTerm, setSearchTerm] = useState(filters.search || "");
   const [statusFilter, setStatusFilter] = useState(filters.status_tab || "all");
@@ -118,30 +114,6 @@ export default function RequestForQuotationPage({
     const direction = sortConfig.key === key && sortConfig.direction === "asc" ? "desc" : "asc";
     setSortConfig({ key, direction });
     refresh({ sort: key, direction, page: 1 });
-  };
-
-  const handleCreateRFQ = (stockRequest) => {
-    setSelectedStockRequest(stockRequest);
-    setShowRFQDialog(true);
-  };
-
-  const handleSubmitRFQ = async () => {
-    if (!selectedStockRequest?.id) return;
-
-    setIsSubmitting(true);
-    try {
-      await axios.post(route("request-for-quotations.create-from-approval"), {
-        stock_request_id: selectedStockRequest.id,
-      });
-      toast({ title: "Success", description: "RFQ created successfully." });
-      setShowRFQDialog(false);
-      setSelectedStockRequest(null);
-      router.reload({ only: RELOAD_PROPS, preserveScroll: true, preserveState: true });
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: error?.response?.data?.message || "Failed to create RFQ" });
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   const handleAddQuote = (rfq) => {
@@ -291,32 +263,6 @@ export default function RequestForQuotationPage({
           onFilterChange={handleStatClick}
         />
 
-        {readyStockRequests.length > 0 && (
-          <Card className="border-border bg-muted/40">
-            <CardHeader>
-              <CardTitle className="text-foreground">Approved Stock Requests Ready for RFQ</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {readyStockRequests.map((sr) => (
-                  <div key={sr.id} className="flex items-center justify-between rounded-lg border border-border bg-card p-3">
-                    <div>
-                      <p className="font-semibold text-foreground">{sr.request_number}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {sr.purpose || "Stock Request"} - {sr.items?.length || 0} items
-                      </p>
-                    </div>
-                    <Button onClick={() => handleCreateRFQ(sr)} size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
-                      <Plus className="mr-1 h-4 w-4" />
-                      Create RFQ
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         <Card className="border-border bg-card">
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -375,14 +321,6 @@ export default function RequestForQuotationPage({
             </Tabs>
           </CardContent>
         </Card>
-
-        <CreateRFQDialog
-          open={showRFQDialog}
-          onOpenChange={setShowRFQDialog}
-          selectedStockRequest={selectedStockRequest}
-          onSubmit={handleSubmitRFQ}
-          isSubmitting={isSubmitting}
-        />
 
         <AddQuoteDialog
           open={showAddQuoteDialog}

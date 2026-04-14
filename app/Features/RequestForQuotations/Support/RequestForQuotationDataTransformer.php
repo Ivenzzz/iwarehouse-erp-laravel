@@ -100,7 +100,9 @@ class RequestForQuotationDataTransformer
     private static function transformQuote(RequestForQuotationSupplierQuote $quote): array
     {
         $normalizedItems = $quote->items->map(function (RequestForQuotationSupplierQuoteItem $item) {
-            $lineTotal = ((float) $item->quoted_quantity * (float) $item->unit_price) - (float) $item->discount;
+            $gross = (float) $item->quoted_quantity * (float) $item->unit_price;
+            $discountPercent = min(100, max(0, (float) $item->discount));
+            $lineTotal = $gross - ($gross * ($discountPercent / 100));
             $rfqItem = $item->rfqItem;
 
             return [

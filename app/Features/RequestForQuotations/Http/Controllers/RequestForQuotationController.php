@@ -5,7 +5,6 @@ namespace App\Features\RequestForQuotations\Http\Controllers;
 use App\Features\RequestForQuotations\Actions\AddRequestForQuotationSupplierQuote;
 use App\Features\RequestForQuotations\Actions\AwardRequestForQuotation;
 use App\Features\RequestForQuotations\Actions\ConsolidateRequestForQuotations;
-use App\Features\RequestForQuotations\Actions\CreateRequestForQuotationFromApproval;
 use App\Features\RequestForQuotations\Actions\ExportRequestForQuotationsCsv;
 use App\Features\RequestForQuotations\Queries\ListRequestForQuotationPageData;
 use App\Http\Controllers\Controller;
@@ -20,17 +19,6 @@ class RequestForQuotationController extends Controller
     public function index(Request $request, ListRequestForQuotationPageData $query): InertiaResponse
     {
         return Inertia::render('RequestForQuotations', $query($request));
-    }
-
-    public function storeFromStockRequestApproval(Request $request, CreateRequestForQuotationFromApproval $action): JsonResponse
-    {
-        $validated = $request->validate([
-            'stock_request_id' => ['required', 'integer', 'exists:stock_requests,id'],
-        ]);
-
-        $rfq = $action->handle((int) $validated['stock_request_id'], $request->user()?->id);
-
-        return response()->json(['rfq_id' => $rfq->id, 'rfq_number' => $rfq->rfq_number]);
     }
 
     public function addSupplierQuote(Request $request, AddRequestForQuotationSupplierQuote $action): JsonResponse

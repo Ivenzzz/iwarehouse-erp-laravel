@@ -11,7 +11,7 @@ export function getRFQItemDisplay(item = {}) {
     variantName || [brand, model].filter(Boolean).join(" ") || "Unknown Product";
 
   const attrs = item.attributes || {};
-  const specParts = [attrs.RAM, attrs.Storage, item.condition].filter(Boolean);
+  const specParts = [attrs.ram, attrs.rom, item.condition].filter(Boolean);
   const secondaryLabel = specParts.join(" / ") || item.description || "";
 
   return { primaryLabel, secondaryLabel };

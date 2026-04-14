@@ -2,7 +2,6 @@
 
 namespace App\Features\ProductMasters\Http\Requests;
 
-use App\Features\ProductMasters\Actions\SyncCategoryVariantAttributes;
 use App\Models\ProductMaster;
 use App\Support\ProductVariantDefinitions;
 use Illuminate\Foundation\Http\FormRequest;
@@ -24,8 +23,8 @@ class GenerateProductVariantsRequest extends FormRequest
             'colors.*' => ['nullable', 'string', 'max:100'],
             'rams' => ['nullable', 'array'],
             'rams.*' => ['nullable', 'string', 'max:100'],
-            'storages' => ['nullable', 'array'],
-            'storages.*' => ['nullable', 'string', 'max:100'],
+            'roms' => ['nullable', 'array'],
+            'roms.*' => ['nullable', 'string', 'max:100'],
             'shared_attributes' => ['nullable', 'array'],
             'shared_attributes.*' => ['nullable', 'string', 'max:150'],
         ];
@@ -39,8 +38,6 @@ class GenerateProductVariantsRequest extends FormRequest
             if ($productMaster === null) {
                 return;
             }
-
-            app(SyncCategoryVariantAttributes::class)->handle($productMaster->subcategory);
 
             $allowedKeys = ProductVariantDefinitions::allowedKeysForCategory(
                 $productMaster->subcategory,
@@ -62,7 +59,7 @@ class GenerateProductVariantsRequest extends FormRequest
      *     conditions: array<int, string>,
      *     colors: array<int, string>,
      *     rams: array<int, string>,
-     *     storages: array<int, string>,
+     *     roms: array<int, string>,
      *     shared_attributes: array<string, string>
      * }
      */
@@ -74,7 +71,7 @@ class GenerateProductVariantsRequest extends FormRequest
             'conditions' => $this->cleanList($validated['conditions'] ?? []),
             'colors' => $this->cleanList($validated['colors'] ?? []),
             'rams' => $this->cleanList($validated['rams'] ?? []),
-            'storages' => $this->cleanList($validated['storages'] ?? []),
+            'roms' => $this->cleanList($validated['roms'] ?? []),
             'shared_attributes' => collect($validated['shared_attributes'] ?? [])
                 ->only(ProductVariantDefinitions::sharedComputerKeys())
                 ->map(fn ($value) => trim((string) $value))

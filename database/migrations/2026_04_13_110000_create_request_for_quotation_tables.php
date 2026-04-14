@@ -130,7 +130,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('request_for_quotations', function (Blueprint $table) {
-            $table->dropForeign('fk_request_for_quotations_selected_supplier_quote');
+            $table->dropForeign(['selected_supplier_quote_id']);
         });
 
         Schema::dropIfExists('request_for_quotation_status_histories');

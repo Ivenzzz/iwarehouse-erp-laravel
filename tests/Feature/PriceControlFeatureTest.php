@@ -10,8 +10,6 @@ use App\Models\ProductMasterSpecValue;
 use App\Models\ProductModel;
 use App\Models\ProductSpecDefinition;
 use App\Models\ProductVariant;
-use App\Models\ProductVariantAttribute;
-use App\Models\ProductVariantValue;
 use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -95,7 +93,7 @@ class PriceControlFeatureTest extends TestCase
         [$variant, , $productMaster] = $this->createInventoryGraph();
         $this->attachVariantValues($variant, [
             'ram' => ['label' => 'RAM', 'value' => '8GB', 'sort_order' => 10],
-            'storage' => ['label' => 'Storage', 'value' => '256GB', 'sort_order' => 20],
+            'rom' => ['label' => 'ROM', 'value' => '256GB', 'sort_order' => 20],
             'color' => ['label' => 'Color', 'value' => 'Black', 'sort_order' => 30],
         ]);
 
@@ -125,12 +123,12 @@ class PriceControlFeatureTest extends TestCase
 
         $this->attachVariantValues($blackVariant, [
             'ram' => ['label' => 'RAM', 'value' => '8GB', 'sort_order' => 10],
-            'storage' => ['label' => 'Storage', 'value' => '256GB', 'sort_order' => 20],
+            'rom' => ['label' => 'ROM', 'value' => '256GB', 'sort_order' => 20],
             'color' => ['label' => 'Color', 'value' => 'Black', 'sort_order' => 30],
         ]);
         $this->attachVariantValues($blueVariant, [
             'ram' => ['label' => 'RAM', 'value' => '8GB', 'sort_order' => 10],
-            'storage' => ['label' => 'Storage', 'value' => '256GB', 'sort_order' => 20],
+            'rom' => ['label' => 'ROM', 'value' => '256GB', 'sort_order' => 20],
             'color' => ['label' => 'Color', 'value' => 'Blue', 'sort_order' => 30],
         ]);
 
@@ -419,7 +417,7 @@ class PriceControlFeatureTest extends TestCase
     {
         $this->attachVariantValues($variant, [
             'ram' => ['label' => 'RAM', 'value' => '8GB', 'sort_order' => 10],
-            'storage' => ['label' => 'Storage', 'value' => '256GB', 'sort_order' => 20],
+            'rom' => ['label' => 'ROM', 'value' => '256GB', 'sort_order' => 20],
             'color' => ['label' => 'Color', 'value' => 'Black', 'sort_order' => 30],
         ]);
 
@@ -444,23 +442,8 @@ class PriceControlFeatureTest extends TestCase
 
     private function attachVariantValues(ProductVariant $variant, array $values): void
     {
-        foreach ($values as $key => $attributeData) {
-            $attribute = ProductVariantAttribute::firstOrCreate(
-                ['key' => $key],
-                [
-                    'label' => $attributeData['label'],
-                    'group' => 'Core',
-                    'data_type' => 'text',
-                    'sort_order' => $attributeData['sort_order'],
-                    'is_dimension' => true,
-                ],
-            );
-
-            ProductVariantValue::create([
-                'product_variant_id' => $variant->id,
-                'product_variant_attribute_id' => $attribute->id,
-                'value' => $attributeData['value'],
-            ]);
-        }
+        $variant->update(collect($values)
+            ->mapWithKeys(fn (array $attributeData, string $key) => [$key => $attributeData['value']])
+            ->all());
     }
 }

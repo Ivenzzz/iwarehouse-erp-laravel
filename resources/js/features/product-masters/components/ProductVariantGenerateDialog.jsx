@@ -17,7 +17,7 @@ import { RotateCcw, Wand2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 const RAM_OPTIONS = ['1GB', '2GB', '3GB', '4GB', '6GB', '8GB', '12GB', '16GB', '32GB'];
-const STORAGE_OPTIONS = ['8GB', '16GB', '32GB', '64GB', '128GB', '256GB', '512GB', '1TB', '2TB'];
+const ROM_OPTIONS = ['8GB', '16GB', '32GB', '64GB', '128GB', '256GB', '512GB', '1TB', '2TB'];
 
 function buildInitialForm(variantDefinitions) {
     return {
@@ -26,7 +26,7 @@ function buildInitialForm(variantDefinitions) {
             : ['Brand New'],
         colors: '',
         rams: [],
-        storages: [],
+        roms: [],
         shared_attributes: {},
     };
 }
@@ -79,7 +79,7 @@ export default function ProductVariantGenerateDialog({
         conditions: form.conditions,
         colors: parsedColors,
         rams: form.rams,
-        storages: form.storages,
+        roms: form.roms,
     });
 
     const toggleOption = (field, option) => {
@@ -206,17 +206,17 @@ export default function ProductVariantGenerateDialog({
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label>ROM/Storage Options</Label>
+                                    <Label>ROM Options</Label>
                                     <div className="flex flex-wrap gap-2">
-                                        {STORAGE_OPTIONS.map((storage) => {
-                                            const selected = form.storages.includes(storage);
+                                        {ROM_OPTIONS.map((rom) => {
+                                            const selected = form.roms.includes(rom);
 
                                             return (
                                                 <button
-                                                    key={storage}
+                                                    key={rom}
                                                     type="button"
                                                     onClick={() =>
-                                                        toggleOption('storages', storage)
+                                                        toggleOption('roms', rom)
                                                     }
                                                     className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium transition ${
                                                         selected
@@ -224,14 +224,14 @@ export default function ProductVariantGenerateDialog({
                                                             : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
                                                     }`}
                                                 >
-                                                    {storage}
+                                                    {rom}
                                                 </button>
                                             );
                                         })}
                                     </div>
                                     <InputError
                                         message={
-                                            errors['storages.0']?.[0] ?? errors.storages?.[0]
+                                            errors['roms.0']?.[0] ?? errors.roms?.[0]
                                         }
                                     />
                                 </div>

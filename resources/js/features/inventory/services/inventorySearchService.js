@@ -28,7 +28,7 @@ export function buildSearchableRecord(item) {
     gpu: norm(item.gpu),
     grn: norm(item.grn_number),
     ram: extractNumber(attrs.RAM || attrs.ram || attrs.ram_capacity || attrs.ramCapacity || attrs.ram),
-    rom: extractNumber(attrs.ROM || attrs.rom || attrs.Storage || attrs.storage || attrs.storage_capacity),
+    rom: extractNumber(attrs.rom),
     color: norm(attrs.Color || attrs.color),
     condition: norm(item.variantCondition),
   };

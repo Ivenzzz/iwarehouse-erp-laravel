@@ -58,7 +58,7 @@ export default function SelectedItemsList({
           items.map((item, idx) => {
             const productTitle = [item.brand, item.model].filter(Boolean).join(" ") || item.variant_name || "Unknown Product";
             const attrs = item.variant_attributes || {};
-            const specBadges = [attrs.RAM || attrs.ram, attrs.ROM || attrs.rom || attrs.Storage || attrs.storage, attrs.Color || attrs.color].filter(Boolean);
+            const specBadges = [attrs.ram, attrs.rom, attrs.color].filter(Boolean);
             const conditionLabel = item.condition === "Certified Pre-Owned" ? "CPO" : "Brand New";
             const conditionBadgeClass =
               conditionLabel === "CPO"

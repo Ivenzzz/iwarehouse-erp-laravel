@@ -8,7 +8,6 @@ use App\Models\ProductBrand;
 use App\Models\ProductCategory;
 use App\Models\ProductMaster;
 use App\Models\ProductVariant;
-use App\Models\ProductVariantValue;
 use App\Models\Warehouse;
 
 class InventoryDataTransformer
@@ -16,7 +15,6 @@ class InventoryDataTransformer
     public const INVENTORY_RELATIONS = [
         'warehouse',
         'logs.actor',
-        'productVariant.values.attribute',
         'productVariant.productMaster.model.brand',
         'productVariant.productMaster.subcategory.parent',
         'productVariant.productMaster.specValues.definition',
@@ -29,7 +27,6 @@ class InventoryDataTransformer
     ];
 
     public const VARIANT_RELATIONS = [
-        'values.attribute',
         'productMaster.model.brand',
         'productMaster.subcategory.parent',
     ];
@@ -90,7 +87,7 @@ class InventoryDataTransformer
             'subcategoryName' => $productMaster?->subcategory?->name ?? '',
             'variantCondition' => $variant?->condition,
             'attrRAM' => $attributes['ram'] ?? '',
-            'attrROM' => $attributes['storage'] ?? '',
+            'attrROM' => $attributes['rom'] ?? '',
             'attrColor' => $attributes['color'] ?? '',
             '_variantAttributes' => $attributes,
         ];
@@ -262,12 +259,7 @@ class InventoryDataTransformer
             return [];
         }
 
-        $variant->loadMissing('values.attribute');
-
-        return $variant->values
-            ->sortBy(fn (ProductVariantValue $value) => $value->attribute->sort_order)
-            ->mapWithKeys(fn (ProductVariantValue $value) => [$value->attribute->key => $value->value])
-            ->all();
+        return $variant->attributesMap();
     }
 
     private static function nullableInt(mixed $value): ?int

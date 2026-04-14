@@ -10,7 +10,7 @@ export function buildVariantSkuPreview(brandName, modelName, condition, attribut
         normalizeVariantSkuToken(brandName),
         normalizeVariantSkuToken(modelName),
         normalizeVariantSkuToken(attributes.ram),
-        normalizeVariantSkuToken(attributes.storage),
+        normalizeVariantSkuToken(attributes.rom),
         normalizeVariantSkuToken(attributes.color),
     ].filter(Boolean);
 
@@ -24,7 +24,7 @@ export function buildVariantNamePreview(brandName, modelName, condition, attribu
         String(brandName ?? '').trim(),
         String(modelName ?? '').trim(),
         String(attributes.ram ?? '').trim(),
-        String(attributes.storage ?? '').trim(),
+        String(attributes.rom ?? '').trim(),
         String(attributes.color ?? '').trim(),
     ]
         .filter(Boolean)
@@ -35,13 +35,13 @@ export function calculateVariantGenerationCount({
     conditions = [],
     colors = [],
     rams = [],
-    storages = [],
+    roms = [],
 }) {
     const colorCount = colors.length > 0 ? colors.length : 1;
     const ramCount = rams.length > 0 ? rams.length : 1;
-    const storageCount = storages.length > 0 ? storages.length : 1;
+    const romCount = roms.length > 0 ? roms.length : 1;
 
-    return conditions.length * colorCount * ramCount * storageCount;
+    return conditions.length * colorCount * ramCount * romCount;
 }
 
 export function getVariantDefinitionMap(variantDefinitions) {

@@ -10,7 +10,7 @@ const getRequestItemDisplayName = (item) =>
 
 const getRequestItemSecondaryText = (item) => {
   const attrs = item?.variant_attributes || {};
-  return [attrs.RAM || attrs.ram, attrs.ROM || attrs.rom || attrs.Storage || attrs.storage, attrs.Color || attrs.color]
+  return [attrs.ram, attrs.rom, attrs.color]
     .filter(Boolean)
     .join(" | ");
 };

@@ -17,9 +17,7 @@ class BuildBatchAllocationData
             ->with([
                 'warehouse:id,name,warehouse_type',
                 'items:id,stock_request_id,variant_id,quantity,reason',
-                'items.variant:id,product_master_id,variant_name,sku,condition',
-                'items.variant.values:id,product_variant_id,product_variant_attribute_id,value',
-                'items.variant.values.attribute:id,key,label',
+                'items.variant:id,product_master_id,variant_name,sku,condition,color,ram,rom,cpu,gpu,ram_type,rom_type,operating_system,screen',
                 'items.variant.productMaster:id,model_id',
                 'items.variant.productMaster.model:id,brand_id,model_name',
                 'items.variant.productMaster.model.brand:id,name',
@@ -76,14 +74,7 @@ class BuildBatchAllocationData
                 $defaultTransfer = min($mainStock, $requestedQty);
                 $defaultRfq = max(0, $requestedQty - $defaultTransfer);
 
-                $attrs = collect($item->variant?->values ?? [])->reduce(function (array $carry, $value): array {
-                    $key = $value->attribute?->key ?? $value->attribute?->label;
-                    if ($key) {
-                        $carry[$key] = $value->value;
-                    }
-
-                    return $carry;
-                }, []);
+                $attrs = $item->variant?->attributesMap() ?? [];
 
                 $result[] = [
                     'srId' => $request->id,
@@ -105,11 +96,11 @@ class BuildBatchAllocationData
                         'title' => $item->variant?->variant_name,
                         'modelCode' => $item->variant?->sku,
                         'condition' => $item->variant?->condition,
-                        'ram' => $attrs['RAM'] ?? $attrs['ram'] ?? null,
-                        'rom' => $attrs['ROM'] ?? $attrs['rom'] ?? $attrs['Storage'] ?? $attrs['storage'] ?? null,
-                        'color' => $attrs['Color'] ?? $attrs['color'] ?? null,
-                        'cpu' => $attrs['CPU'] ?? $attrs['cpu'] ?? null,
-                        'gpu' => $attrs['GPU'] ?? $attrs['gpu'] ?? null,
+                        'ram' => $attrs['ram'] ?? null,
+                        'rom' => $attrs['rom'] ?? null,
+                        'color' => $attrs['color'] ?? null,
+                        'cpu' => $attrs['cpu'] ?? null,
+                        'gpu' => $attrs['gpu'] ?? null,
                     ],
                 ];
             }

@@ -171,7 +171,6 @@ class PosDataTransformer
     public function transformInventorySearchItem(InventoryItem $item, int $stockOnHand): array
     {
         $item->loadMissing([
-            'productVariant.values.attribute',
             'productVariant.productMaster.model.brand',
             'productVariant.productMaster.subcategory.parent',
         ]);
@@ -222,7 +221,6 @@ class PosDataTransformer
             'customer.addresses',
             'salesRepresentative.jobTitle.department',
             'posSession.warehouse',
-            'items.inventoryItem.productVariant.values.attribute',
             'items.inventoryItem.productVariant.productMaster.model.brand',
             'items.inventoryItem.productVariant.productMaster.subcategory.parent',
             'items.components.inventoryItem.productVariant.productMaster.model.brand',

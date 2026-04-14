@@ -7,8 +7,6 @@ use App\Models\ProductCategory;
 use App\Models\ProductMaster;
 use App\Models\ProductModel;
 use App\Models\ProductVariant;
-use App\Models\ProductVariantAttribute;
-use App\Models\ProductVariantValue;
 use App\Support\ProductVariantDefinitions;
 use Illuminate\Database\Seeder;
 
@@ -47,7 +45,7 @@ class PosCatalogSeeder extends Seeder
             attributes: [
                 'color' => 'Black',
                 'ram' => '8GB',
-                'storage' => '256GB',
+                'rom' => '256GB',
             ],
         );
 
@@ -62,7 +60,7 @@ class PosCatalogSeeder extends Seeder
             attributes: [
                 'color' => 'Iceblue',
                 'ram' => '8GB',
-                'storage' => '256GB',
+                'rom' => '256GB',
             ],
         );
 
@@ -78,18 +76,6 @@ class PosCatalogSeeder extends Seeder
                 'color' => 'White',
             ],
         );
-
-        foreach ([$smartphonesSubcategory, $mobileAccessoriesSubcategory] as $subcategory) {
-            foreach (ProductVariantDefinitions::commonKeys() as $attributeKey) {
-                $attribute = ProductVariantAttribute::query()->where('key', $attributeKey)->first();
-
-                if ($attribute === null) {
-                    continue;
-                }
-
-                $subcategory->variantAttributes()->syncWithoutDetaching([$attribute->id]);
-            }
-        }
     }
 
     private function seedVariant(
@@ -124,25 +110,18 @@ class PosCatalogSeeder extends Seeder
                 'product_master_id' => $master->id,
                 'variant_name' => $variantName,
                 'condition' => $condition,
+                'color' => $attributes['color'] ?? null,
+                'ram' => $attributes['ram'] ?? null,
+                'rom' => $attributes['rom'] ?? null,
+                'cpu' => $attributes['cpu'] ?? null,
+                'gpu' => $attributes['gpu'] ?? null,
+                'ram_type' => $attributes['ram_type'] ?? null,
+                'rom_type' => $attributes['rom_type'] ?? null,
+                'operating_system' => $attributes['operating_system'] ?? null,
+                'screen' => $attributes['screen'] ?? null,
                 'is_active' => true,
             ],
         );
-
-        foreach ($attributes as $key => $value) {
-            $attribute = ProductVariantAttribute::query()->where('key', $key)->first();
-
-            if ($attribute === null) {
-                continue;
-            }
-
-            ProductVariantValue::query()->updateOrCreate(
-                [
-                    'product_variant_id' => $variant->id,
-                    'product_variant_attribute_id' => $attribute->id,
-                ],
-                ['value' => $value],
-            );
-        }
 
         return $variant;
     }

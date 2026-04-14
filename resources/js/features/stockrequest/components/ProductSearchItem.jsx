@@ -5,7 +5,7 @@ import { Plus, Check, Building2, MapPin, Truck, Package, Activity, AlertTriangle
 import PortalTooltip from "@/components/shared/PortalTooltip";
 
 function getSpecBadges(attrs = {}) {
-  return [attrs.RAM || attrs.ram, attrs.ROM || attrs.rom || attrs.Storage || attrs.storage, attrs.Color || attrs.color].filter(Boolean);
+  return [attrs.ram, attrs.rom, attrs.color].filter(Boolean);
 }
 
 export default function ProductSearchItem({ variant, onAdd, cartQty }) {

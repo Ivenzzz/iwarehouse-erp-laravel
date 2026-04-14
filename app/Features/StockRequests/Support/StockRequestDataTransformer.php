@@ -12,9 +12,7 @@ class StockRequestDataTransformer
         'warehouse:id,name',
         'requestor:id,name,email',
         'items:id,stock_request_id,variant_id,quantity,reason',
-        'items.variant:id,product_master_id,variant_name,sku,condition',
-        'items.variant.values:id,product_variant_id,product_variant_attribute_id,value',
-        'items.variant.values.attribute:id,key,label',
+        'items.variant:id,product_master_id,variant_name,sku,condition,color,ram,rom,cpu,gpu,ram_type,rom_type,operating_system,screen',
         'items.variant.productMaster:id,model_id',
         'items.variant.productMaster.model:id,brand_id,model_name',
         'items.variant.productMaster.model.brand:id,name',
@@ -71,14 +69,7 @@ class StockRequestDataTransformer
         $variant = $item->variant;
         $master = $variant?->productMaster;
         $model = $master?->model;
-        $attributes = [];
-
-        foreach ($variant?->values ?? [] as $value) {
-            $key = $value->attribute?->key ?? $value->attribute?->label;
-            if ($key) {
-                $attributes[$key] = $value->value;
-            }
-        }
+        $attributes = $variant?->attributesMap() ?? [];
 
         return [
             'id' => $item->id,

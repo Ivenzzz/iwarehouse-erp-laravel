@@ -49,11 +49,11 @@ class ListPriceControlPageData
                 ->where('product_variants.product_master_id', (int) $filters['product_master_id']);
 
             if (($filters['variant_ram'] ?? '') !== '') {
-                $query->where('variant_ram_values.value', $filters['variant_ram']);
+                $query->where('product_variants.ram', $filters['variant_ram']);
             }
 
             if (($filters['variant_rom'] ?? '') !== '') {
-                $query->where('variant_rom_values.value', $filters['variant_rom']);
+                $query->where('product_variants.rom', $filters['variant_rom']);
             }
 
             if (($filters['condition'] ?? '') !== '') {

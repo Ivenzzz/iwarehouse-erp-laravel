@@ -2,7 +2,6 @@
 
 namespace App\Features\Inventory\Actions;
 
-use App\Features\ProductMasters\Actions\EnsureProductVariantAttributes;
 use App\Models\InventoryItem;
 use App\Models\ProductBrand;
 use App\Models\ProductMaster;
@@ -23,7 +22,6 @@ class ImportInventoryItemsFromCsv
     private const CACHE_TTL_MINUTES = 30;
 
     public function __construct(
-        private readonly EnsureProductVariantAttributes $ensureProductVariantAttributes,
         private readonly GeneratesProductVariantSku $generatesProductVariantSku,
         private readonly GeneratesProductVariantName $generatesProductVariantName,
         private readonly LogInventoryActivity $logInventoryActivity,
@@ -304,7 +302,7 @@ class ImportInventoryItemsFromCsv
             ->with(['model.brand', 'subcategory.parent'])
             ->get();
         $variants = ProductVariant::query()
-            ->with(['values.attribute', 'productMaster.model.brand'])
+            ->with(['productMaster.model.brand'])
             ->get();
         $warehouses = Warehouse::query()->get();
         ProductBrand::query()->get();
@@ -482,15 +480,11 @@ class ImportInventoryItemsFromCsv
      */
     private function buildVariantDescriptor(ProductVariant $variant): array
     {
-        $attributes = $variant->values
-            ->mapWithKeys(fn ($value) => [$value->attribute->key => $value->value])
-            ->all();
-
         return [
             'variant' => $variant,
-            'ram' => $this->normalizeStorageValue($attributes['ram'] ?? ''),
-            'rom' => $this->normalizeStorageValue($attributes['storage'] ?? ''),
-            'color' => $this->normalizeKey($attributes['color'] ?? ''),
+            'ram' => $this->normalizeStorageValue($variant->ram ?? ''),
+            'rom' => $this->normalizeStorageValue($variant->rom ?? ''),
+            'color' => $this->normalizeKey($variant->color ?? ''),
             'condition' => $this->normalizeCondition($variant->condition),
         ];
     }
@@ -514,12 +508,11 @@ class ImportInventoryItemsFromCsv
         $attributes = array_filter([
             'color' => $this->collapseWhitespace($row['Color'] ?? ''),
             'ram' => $this->normalizeCapacityWithUnit($row['RAM Capacity'] ?? ''),
-            'storage' => $this->normalizeCapacityWithUnit($row['ROM Capacity'] ?? ''),
+            'rom' => $this->normalizeCapacityWithUnit($row['ROM Capacity'] ?? ''),
             'ram_type' => $this->collapseWhitespace($row['RAM Type'] ?? ''),
             'rom_type' => $this->collapseWhitespace($row['ROM Type'] ?? ''),
         ]);
 
-        $this->ensureProductVariantAttributes->handle(array_keys($attributes));
         $condition = $this->conditionLabel($this->normalizeCondition($row['Condition'] ?? ''));
 
         return DB::transaction(function () use ($productMaster, $attributes, $condition): ProductVariant {
@@ -528,25 +521,15 @@ class ImportInventoryItemsFromCsv
                 'variant_name' => $this->generatesProductVariantName->fromAttributes($productMaster, $condition, $attributes),
                 'sku' => $this->uniqueSku($productMaster, $condition, $attributes),
                 'condition' => $condition,
+                'color' => $attributes['color'] ?? null,
+                'ram' => $attributes['ram'] ?? null,
+                'rom' => $attributes['rom'] ?? null,
+                'ram_type' => $attributes['ram_type'] ?? null,
+                'rom_type' => $attributes['rom_type'] ?? null,
                 'is_active' => true,
             ]);
 
-            $attributeIds = $this->ensureProductVariantAttributes->handle(array_keys($attributes));
-
-            foreach ($attributes as $key => $value) {
-                $attributeId = $attributeIds[$key] ?? null;
-
-                if ($attributeId === null || trim($value) === '') {
-                    continue;
-                }
-
-                $variant->values()->create([
-                    'product_variant_attribute_id' => $attributeId,
-                    'value' => $value,
-                ]);
-            }
-
-            return $variant->fresh(['values.attribute', 'productMaster.model.brand']);
+            return $variant->fresh(['productMaster.model.brand']);
         });
     }
 

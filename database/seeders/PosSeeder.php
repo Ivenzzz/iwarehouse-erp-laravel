@@ -10,7 +10,6 @@ class PosSeeder extends Seeder
     {
         $this->call([
             ProductSpecDefinitionSeeder::class,
-            ProductVariantAttributeSeeder::class,
             PosLookupSeeder::class,
             PosCatalogSeeder::class,
             PosCustomerSeeder::class,

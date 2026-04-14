@@ -143,7 +143,7 @@ export const enrichInventoryItems = ({
       cpu: item.cpu || pm?.fixed_specifications?.platform_cpu || "",
       gpu: item.gpu || pm?.fixed_specifications?.platform_gpu || "",
       attrRAM: variant?.attributes?.ram || variant?.attributes?.RAM || item.attrRAM || "",
-      attrROM: variant?.attributes?.storage || variant?.attributes?.Storage || variant?.attributes?.rom || variant?.attributes?.ROM || item.attrROM || "",
+      attrROM: variant?.attributes?.rom || item.attrROM || "",
       attrColor: variant?.attributes?.color || variant?.attributes?.Color || item.attrColor || "",
       _variantAttributes: variant?.attributes || item._variantAttributes || {},
     };

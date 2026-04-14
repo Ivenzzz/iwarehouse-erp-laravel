@@ -24,13 +24,11 @@ class ListStockRequestCatalog
         $allWarehouses = Warehouse::query()->select(['id', 'name'])->get()->keyBy('id');
 
         $query = ProductVariant::query()
-            ->select(['id', 'product_master_id', 'variant_name', 'sku', 'condition'])
+            ->select(['id', 'product_master_id', 'variant_name', 'sku', 'condition', 'color', 'ram', 'rom', 'cpu', 'gpu', 'ram_type', 'rom_type', 'operating_system', 'screen'])
             ->with([
                 'productMaster:id,model_id',
                 'productMaster.model:id,brand_id,model_name',
                 'productMaster.model.brand:id,name',
-                'values:id,product_variant_id,product_variant_attribute_id,value',
-                'values.attribute:id,key,label',
             ])
             ->where('is_active', true)
             ->orderBy('variant_name');
@@ -40,6 +38,9 @@ class ListStockRequestCatalog
             $query->where(function ($inner) use ($like) {
                 $inner->where('variant_name', 'like', $like)
                     ->orWhere('sku', 'like', $like)
+                    ->orWhere('color', 'like', $like)
+                    ->orWhere('ram', 'like', $like)
+                    ->orWhere('rom', 'like', $like)
                     ->orWhereHas('productMaster.model', fn ($q) => $q->where('model_name', 'like', $like))
                     ->orWhereHas('productMaster.model.brand', fn ($q) => $q->where('name', 'like', $like));
             });
@@ -97,13 +98,7 @@ class ListStockRequestCatalog
                 $incomingByVariant,
                 $allWarehouses
             ) {
-                $attributes = [];
-                foreach ($variant->values as $value) {
-                    $key = $value->attribute?->key ?? $value->attribute?->label;
-                    if ($key) {
-                        $attributes[$key] = $value->value;
-                    }
-                }
+                $attributes = $variant->attributesMap();
 
                 $perWarehouseStock = ($stockByVariantWarehouse[$variant->id] ?? collect());
                 $stockByBranches = $perWarehouseStock

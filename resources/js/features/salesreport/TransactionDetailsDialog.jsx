@@ -141,7 +141,7 @@ const getItemWarrantyLines = (item) =>
 const getItemSpecLines = (item) => {
   const attributes = item.attributes || {};
   const ramValue = cleanText(attributes.ram);
-  const romValue = cleanText(attributes.storage);
+  const romValue = cleanText(attributes.rom);
   const colorValue = cleanText(attributes.color);
   const cpuValue = cleanText(attributes.cpu);
   const gpuValue = cleanText(attributes.gpu);
@@ -205,7 +205,7 @@ function ProductInfo({ item }) {
   const specBadges = [
     ["condition", item.condition],
     ["ram", attributes.ram],
-    ["rom", attributes.storage],
+    ["rom", attributes.rom],
     ["color", attributes.color],
     ["cpu", attributes.cpu],
     ["gpu", attributes.gpu],

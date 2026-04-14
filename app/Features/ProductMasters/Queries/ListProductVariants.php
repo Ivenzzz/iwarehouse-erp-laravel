@@ -14,14 +14,21 @@ class ListProductVariants
 
         $variants = ProductVariant::query()
             ->where('product_master_id', $productMaster->id)
-            ->with(['values.attribute'])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($query) use ($search) {
                     $query
                         ->where('sku', 'like', "%{$search}%")
                         ->orWhere('variant_name', 'like', "%{$search}%")
                         ->orWhere('condition', 'like', "%{$search}%")
-                        ->orWhereHas('values', fn ($query) => $query->where('value', 'like', "%{$search}%"));
+                        ->orWhere('color', 'like', "%{$search}%")
+                        ->orWhere('ram', 'like', "%{$search}%")
+                        ->orWhere('rom', 'like', "%{$search}%")
+                        ->orWhere('cpu', 'like', "%{$search}%")
+                        ->orWhere('gpu', 'like', "%{$search}%")
+                        ->orWhere('ram_type', 'like', "%{$search}%")
+                        ->orWhere('rom_type', 'like', "%{$search}%")
+                        ->orWhere('operating_system', 'like', "%{$search}%")
+                        ->orWhere('screen', 'like', "%{$search}%");
                 });
             })
             ->orderBy('variant_name')
@@ -38,28 +45,14 @@ class ListProductVariants
 
     public static function transformVariant(ProductVariant $variant): array
     {
-        $attributes = $variant->values
-            ->sortBy(fn ($value) => $value->attribute->sort_order)
-            ->mapWithKeys(fn ($value) => [$value->attribute->key => $value->value])
-            ->all();
-        $tags = $variant->values
-            ->sortBy(fn ($value) => $value->attribute->sort_order)
-            ->map(fn ($value) => [
-                'key' => $value->attribute->key,
-                'label' => $value->attribute->label,
-                'value' => $value->value,
-            ])
-            ->values()
-            ->all();
-
         return [
             'id' => $variant->id,
             'variant_name' => $variant->variant_name,
             'sku' => $variant->sku,
             'condition' => $variant->condition,
             'is_active' => $variant->is_active,
-            'attributes' => $attributes,
-            'tags' => $tags,
+            'attributes' => $variant->attributesMap(),
+            'tags' => $variant->attributeTags(),
             'created_at' => optional($variant->created_at)?->toDateTimeString(),
             'updated_at' => optional($variant->updated_at)?->toDateTimeString(),
         ];

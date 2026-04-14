@@ -254,11 +254,11 @@ class PriceControlQuery
             $query->where('product_variants.product_master_id', (int) $filters['product_master_id']);
 
             if (($filters['variant_ram'] ?? '') !== '') {
-                $this->whereVariantAttributeValue($query, ['ram'], $filters['variant_ram']);
+                $query->where('product_variants.ram', $filters['variant_ram']);
             }
 
             if (($filters['variant_rom'] ?? '') !== '') {
-                $this->whereVariantAttributeValue($query, ['storage', 'rom'], $filters['variant_rom']);
+                $query->where('product_variants.rom', $filters['variant_rom']);
             }
 
             if (($filters['condition'] ?? '') !== '') {
@@ -296,37 +296,12 @@ class PriceControlQuery
             DB::raw("COALESCE(subcategories.name, '') as subcategory_name"),
             DB::raw('product_variants.condition as variant_condition'),
         ])->addSelect([
-            'attr_ram' => $this->variantAttributeValueSubquery(['ram']),
-            'attr_rom' => $this->variantAttributeValueSubquery(['storage', 'rom']),
-            'attr_color' => $this->variantAttributeValueSubquery(['color']),
+            DB::raw('product_variants.ram as attr_ram'),
+            DB::raw('product_variants.rom as attr_rom'),
+            DB::raw('product_variants.color as attr_color'),
             'platform_cpu' => $this->productMasterSpecValueSubquery(['platform_cpu', 'cpu']),
             'platform_gpu' => $this->productMasterSpecValueSubquery(['platform_gpu', 'gpu']),
         ]);
-    }
-
-    private function variantAttributeValueSubquery(array $keys): QueryBuilder
-    {
-        return DB::table('product_variant_values')
-            ->select('product_variant_values.value')
-            ->join('product_variant_attributes', 'product_variant_attributes.id', '=', 'product_variant_values.product_variant_attribute_id')
-            ->whereColumn('product_variant_values.product_variant_id', 'inventory_items.product_variant_id')
-            ->whereIn('product_variant_attributes.key', $keys)
-            ->orderByRaw($this->keyPriorityOrderExpression('product_variant_attributes.key', $keys))
-            ->orderBy('product_variant_attributes.sort_order')
-            ->limit(1);
-    }
-
-    private function whereVariantAttributeValue(Builder $query, array $keys, string $value): void
-    {
-        $query->whereExists(function (QueryBuilder $subquery) use ($keys, $value): void {
-            $subquery
-                ->selectRaw('1')
-                ->from('product_variant_values')
-                ->join('product_variant_attributes', 'product_variant_attributes.id', '=', 'product_variant_values.product_variant_attribute_id')
-                ->whereColumn('product_variant_values.product_variant_id', 'inventory_items.product_variant_id')
-                ->whereIn('product_variant_attributes.key', $keys)
-                ->where('product_variant_values.value', $value);
-        });
     }
 
     private function productMasterSpecValueSubquery(array $keys): QueryBuilder

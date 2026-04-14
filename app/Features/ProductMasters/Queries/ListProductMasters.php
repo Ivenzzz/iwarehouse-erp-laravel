@@ -6,7 +6,6 @@ use App\Models\ProductBrand;
 use App\Models\ProductCategory;
 use App\Models\ProductMaster;
 use App\Models\ProductSpecDefinition;
-use App\Models\ProductVariantAttribute;
 use App\Support\ProductVariantDefinitions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -159,19 +158,18 @@ class ListProductMasters
 
     private function variantDefinitions(): array
     {
-        $groups = ProductVariantAttribute::query()
-            ->orderBy('sort_order')
-            ->get()
+        $groups = collect(ProductVariantDefinitions::all())
+            ->sortBy('sort_order')
             ->groupBy('group')
             ->map(fn ($definitions, $group) => [
                 'group' => $group,
-                'definitions' => $definitions->map(fn (ProductVariantAttribute $definition) => [
-                    'key' => $definition->key,
-                    'label' => $definition->label,
-                    'data_type' => $definition->data_type,
-                    'sort_order' => $definition->sort_order,
-                    'is_computer_only' => $definition->is_computer_only,
-                    'is_dimension' => $definition->is_dimension,
+                'definitions' => $definitions->map(fn (array $definition) => [
+                    'key' => $definition['key'],
+                    'label' => $definition['label'],
+                    'data_type' => $definition['data_type'],
+                    'sort_order' => $definition['sort_order'],
+                    'is_computer_only' => $definition['is_computer_only'],
+                    'is_dimension' => $definition['is_dimension'],
                 ])->values(),
             ])
             ->values()

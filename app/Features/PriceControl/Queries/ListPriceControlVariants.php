@@ -48,16 +48,17 @@ class ListPriceControlVariants
                     ->orWhere('product_models.model_name', 'like', $like)
                     ->orWhere('product_brands.name', 'like', $like)
                     ->orWhere('product_variants.condition', 'like', $like)
-                    ->orWhere('variant_ram_values.value', 'like', $like)
-                    ->orWhere('variant_rom_values.value', 'like', $like);
+                    ->orWhere('product_variants.ram', 'like', $like)
+                    ->orWhere('product_variants.rom', 'like', $like)
+                    ->orWhere('product_variants.color', 'like', $like);
             });
         }
 
         $variants = $query
             ->orderBy('product_brands.name')
             ->orderBy('product_models.model_name')
-            ->orderBy('variant_ram_values.value')
-            ->orderBy('variant_rom_values.value')
+            ->orderBy('product_variants.ram')
+            ->orderBy('product_variants.rom')
             ->orderBy('product_variants.condition')
             ->limit($limit)
             ->get()
@@ -72,23 +73,10 @@ class ListPriceControlVariants
 
     public static function baseQuery(): Builder
     {
-        $ramAttributeIds = self::attributeIds(['ram']);
-        $romAttributeIds = self::attributeIds(['storage', 'rom']);
-
         return DB::table('product_variants')
             ->join('product_masters', 'product_masters.id', '=', 'product_variants.product_master_id')
             ->join('product_models', 'product_models.id', '=', 'product_masters.model_id')
             ->join('product_brands', 'product_brands.id', '=', 'product_models.brand_id')
-            ->leftJoin('product_variant_values as variant_ram_values', function ($join) use ($ramAttributeIds) {
-                $join
-                    ->on('variant_ram_values.product_variant_id', '=', 'product_variants.id')
-                    ->whereIn('variant_ram_values.product_variant_attribute_id', $ramAttributeIds);
-            })
-            ->leftJoin('product_variant_values as variant_rom_values', function ($join) use ($romAttributeIds) {
-                $join
-                    ->on('variant_rom_values.product_variant_id', '=', 'product_variants.id')
-                    ->whereIn('variant_rom_values.product_variant_attribute_id', $romAttributeIds);
-            })
             ->select([
                 DB::raw('MIN(product_variants.id) as id'),
                 'product_variants.product_master_id',
@@ -98,8 +86,8 @@ class ListPriceControlVariants
                 'product_masters.master_sku',
                 DB::raw('product_models.model_name as model_name'),
                 DB::raw('product_brands.name as brand_name'),
-                DB::raw('variant_ram_values.value as variant_ram'),
-                DB::raw('variant_rom_values.value as variant_rom'),
+                DB::raw('product_variants.ram as variant_ram'),
+                DB::raw('product_variants.rom as variant_rom'),
                 DB::raw('COUNT(DISTINCT product_variants.id) as variants_count'),
             ])
             ->groupBy([
@@ -108,16 +96,8 @@ class ListPriceControlVariants
                 'product_masters.master_sku',
                 'product_models.model_name',
                 'product_brands.name',
-                'variant_ram_values.value',
-                'variant_rom_values.value',
+                'product_variants.ram',
+                'product_variants.rom',
             ]);
-    }
-
-    private static function attributeIds(array $keys): array
-    {
-        return DB::table('product_variant_attributes')
-            ->whereIn('key', $keys)
-            ->pluck('id')
-            ->all();
     }
 }

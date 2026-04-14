@@ -19,7 +19,7 @@ export default function POSCartItemCard({
   const attrs = item.attributes || {};
   const condition = item.condition || "";
   const ram = attrs.RAM || attrs.ram || attrs.memory || "";
-  const rom = attrs.ROM || attrs.rom || attrs.Storage || attrs.storage || "";
+  const rom = attrs.rom || "";
   const color = attrs.color || attrs.Color || "";
   const warranty = item.warranty_description || "";
 

@@ -8,7 +8,6 @@ use App\Models\ProductMaster;
 use App\Models\ProductSpecDefinition;
 use App\Models\User;
 use Database\Seeders\ProductSpecDefinitionSeeder;
-use Database\Seeders\ProductVariantAttributeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -24,7 +23,6 @@ class ProductMastersTest extends TestCase
         parent::setUp();
 
         $this->seed(ProductSpecDefinitionSeeder::class);
-        $this->seed(ProductVariantAttributeSeeder::class);
     }
 
     public function test_guests_cannot_access_product_masters_page(): void

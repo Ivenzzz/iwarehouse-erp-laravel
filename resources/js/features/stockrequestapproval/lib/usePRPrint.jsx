@@ -23,7 +23,7 @@ function getItemSpecLine(item) {
   const attrs = item.variant_attributes || {};
   const parts = [
     attrs.RAM || attrs.ram,
-    attrs.ROM || attrs.rom || attrs.Storage || attrs.storage,
+    attrs.rom,
     attrs.Color || attrs.color,
     item.condition,
   ].filter(Boolean);

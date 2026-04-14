@@ -22,7 +22,6 @@ class SearchPosInventory
 
         $query = InventoryItem::query()
             ->with([
-                'productVariant.values.attribute',
                 'productVariant.productMaster.model.brand',
                 'productVariant.productMaster.subcategory.parent',
             ])

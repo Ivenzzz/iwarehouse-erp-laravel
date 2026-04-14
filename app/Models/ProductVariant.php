@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
+use App\Support\ProductVariantDefinitions;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ProductVariant extends Model
 {
@@ -16,6 +16,15 @@ class ProductVariant extends Model
         'variant_name',
         'sku',
         'condition',
+        'color',
+        'ram',
+        'rom',
+        'cpu',
+        'gpu',
+        'ram_type',
+        'rom_type',
+        'operating_system',
+        'screen',
         'is_active',
     ];
 
@@ -28,8 +37,30 @@ class ProductVariant extends Model
         return $this->belongsTo(ProductMaster::class);
     }
 
-    public function values(): HasMany
+    public function attributesMap(bool $includeEmpty = false): array
     {
-        return $this->hasMany(ProductVariantValue::class)->with('attribute');
+        return collect(ProductVariantDefinitions::all())
+            ->reject(fn (array $definition) => $definition['key'] === 'condition')
+            ->sortBy('sort_order')
+            ->mapWithKeys(fn (array $definition) => [
+                $definition['key'] => $this->getAttribute($definition['key']),
+            ])
+            ->filter(fn ($value) => $includeEmpty || trim((string) $value) !== '')
+            ->all();
+    }
+
+    public function attributeTags(bool $includeEmpty = false): array
+    {
+        return collect(ProductVariantDefinitions::all())
+            ->reject(fn (array $definition) => $definition['key'] === 'condition')
+            ->sortBy('sort_order')
+            ->map(fn (array $definition) => [
+                'key' => $definition['key'],
+                'label' => $definition['label'],
+                'value' => $this->getAttribute($definition['key']),
+            ])
+            ->filter(fn (array $tag) => $includeEmpty || trim((string) $tag['value']) !== '')
+            ->values()
+            ->all();
     }
 }

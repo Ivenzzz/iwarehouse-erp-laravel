@@ -32,7 +32,6 @@ class SearchTransferProducts
 
         return InventoryItem::query()
             ->with([
-                'productVariant.values.attribute',
                 'productVariant.productMaster.model.brand',
             ])
             ->where('warehouse_id', $sourceLocationId)
@@ -55,6 +54,9 @@ class SearchTransferProducts
                     $variant?->variant_name,
                     $brand?->name,
                     $productMaster?->model?->model_name,
+                    $variant?->ram,
+                    $variant?->rom,
+                    $variant?->color,
                     $item->imei,
                     $item->imei2,
                     $item->serial_number,
@@ -87,9 +89,7 @@ class SearchTransferProducts
 
         $productMaster = $variant->productMaster;
         $brand = $productMaster?->model?->brand;
-        $attributes = $variant->values
-            ->mapWithKeys(fn ($value) => [$value->attribute->key => $value->value])
-            ->all();
+        $attributes = $variant->attributesMap();
 
         return [
             'id' => $variant->id,

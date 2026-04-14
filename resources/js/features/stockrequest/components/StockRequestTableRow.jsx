@@ -58,7 +58,7 @@ export default function StockRequestTableRow({ request, onPrint }) {
                 {(request.items || []).map((item) => {
                   const conditionLabel = item.condition === "Certified Pre-Owned" ? "CPO" : "Brand New";
                   const attrs = item.variant_attributes || {};
-                  const specBadges = [attrs.RAM || attrs.ram, attrs.ROM || attrs.rom || attrs.Storage || attrs.storage, attrs.Color || attrs.color].filter(Boolean);
+                  const specBadges = [attrs.ram, attrs.rom, attrs.color].filter(Boolean);
                   const conditionBadgeClass =
                     conditionLabel === "CPO"
                       ? "border border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300"

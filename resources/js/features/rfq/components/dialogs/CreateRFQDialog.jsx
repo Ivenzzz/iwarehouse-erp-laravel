@@ -31,7 +31,7 @@ export default function CreateRFQDialog({
               {items.map((item, idx) => {
                 const label = item.variant_name || [item.brand, item.model].filter(Boolean).join(" ") || "Unknown Product";
                 const attrs = item.variant_attributes || {};
-                const specParts = [attrs.RAM, attrs.Storage, item.condition].filter(Boolean);
+                const specParts = [attrs.ram, attrs.rom, item.condition].filter(Boolean);
                 const specLabel = specParts.join(" / ");
 
                 return (

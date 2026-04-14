@@ -133,7 +133,6 @@ class SalesQuery
                 'customer.addresses',
                 'salesRepresentative.jobTitle.department',
                 'posSession.warehouse',
-                'items.inventoryItem.productVariant.values.attribute',
                 'items.inventoryItem.productVariant.productMaster.model.brand',
                 'items.inventoryItem.productVariant.productMaster.subcategory.parent',
                 'items.components.inventoryItem.productVariant.productMaster.model.brand',

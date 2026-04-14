@@ -18,7 +18,6 @@ class LookupTransferInventoryItem
 
         $item = InventoryItem::query()
             ->with([
-                'productVariant.values.attribute',
                 'productVariant.productMaster.model.brand',
             ])
             ->where(function ($query) use ($barcode) {
@@ -36,9 +35,7 @@ class LookupTransferInventoryItem
         $variant = $item->productVariant;
         $productMaster = $variant?->productMaster;
         $brand = $productMaster?->model?->brand;
-        $attributes = $variant?->values
-            ?->mapWithKeys(fn ($value) => [$value->attribute->key => $value->value])
-            ->all() ?? [];
+        $attributes = $variant?->attributesMap() ?? [];
 
         return [
             'id' => $item->id,

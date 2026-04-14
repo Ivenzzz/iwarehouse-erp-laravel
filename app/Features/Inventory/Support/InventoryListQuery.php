@@ -189,6 +189,11 @@ class InventoryListQuery
                     ->orWhere('warehouses.name', 'like', $like)
                     ->orWhere('inventory_items.status', 'like', $like)
                     ->orWhere('inventory_items.warranty', 'like', $like)
+                    ->orWhere('product_variants.color', 'like', $like)
+                    ->orWhere('product_variants.ram', 'like', $like)
+                    ->orWhere('product_variants.rom', 'like', $like)
+                    ->orWhere('product_variants.cpu', 'like', $like)
+                    ->orWhere('product_variants.gpu', 'like', $like)
                     ->orWhere('inventory_items.cpu', 'like', $like)
                     ->orWhere('inventory_items.gpu', 'like', $like)
                     ->orWhere('inventory_items.grn_number', 'like', $like);
@@ -265,24 +270,12 @@ class InventoryListQuery
             DB::raw("COALESCE(subcategories.name, '') as subcategory_name"),
             DB::raw('product_variants.condition as variant_condition'),
         ])->addSelect([
-            'attr_ram' => $this->variantAttributeValueSubquery(['ram']),
-            'attr_rom' => $this->variantAttributeValueSubquery(['storage', 'rom']),
-            'attr_color' => $this->variantAttributeValueSubquery(['color']),
+            DB::raw('product_variants.ram as attr_ram'),
+            DB::raw('product_variants.rom as attr_rom'),
+            DB::raw('product_variants.color as attr_color'),
             'platform_cpu' => $this->productMasterSpecValueSubquery(['platform_cpu', 'cpu']),
             'platform_gpu' => $this->productMasterSpecValueSubquery(['platform_gpu', 'gpu']),
         ]);
-    }
-
-    private function variantAttributeValueSubquery(array $keys): QueryBuilder
-    {
-        return DB::table('product_variant_values')
-            ->select('product_variant_values.value')
-            ->join('product_variant_attributes', 'product_variant_attributes.id', '=', 'product_variant_values.product_variant_attribute_id')
-            ->whereColumn('product_variant_values.product_variant_id', 'inventory_items.product_variant_id')
-            ->whereIn('product_variant_attributes.key', $keys)
-            ->orderByRaw($this->keyPriorityOrderExpression('product_variant_attributes.key', $keys))
-            ->orderBy('product_variant_attributes.sort_order')
-            ->limit(1);
     }
 
     private function productMasterSpecValueSubquery(array $keys): QueryBuilder

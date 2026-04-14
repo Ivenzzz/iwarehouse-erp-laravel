@@ -27,7 +27,7 @@ class ProductVariantDefinitions
             ['key' => 'condition', 'label' => 'Condition', 'group' => 'Core', 'data_type' => 'text', 'sort_order' => 10, 'is_computer_only' => false, 'is_dimension' => true],
             ['key' => 'color', 'label' => 'Color', 'group' => 'Core', 'data_type' => 'text', 'sort_order' => 20, 'is_computer_only' => false, 'is_dimension' => true],
             ['key' => 'ram', 'label' => 'RAM', 'group' => 'Core', 'data_type' => 'text', 'sort_order' => 30, 'is_computer_only' => false, 'is_dimension' => true],
-            ['key' => 'storage', 'label' => 'Storage', 'group' => 'Core', 'data_type' => 'text', 'sort_order' => 40, 'is_computer_only' => false, 'is_dimension' => true],
+            ['key' => 'rom', 'label' => 'ROM', 'group' => 'Core', 'data_type' => 'text', 'sort_order' => 40, 'is_computer_only' => false, 'is_dimension' => true],
             ['key' => 'cpu', 'label' => 'CPU', 'group' => 'Computer Specs', 'data_type' => 'text', 'sort_order' => 100, 'is_computer_only' => true, 'is_dimension' => false],
             ['key' => 'gpu', 'label' => 'GPU', 'group' => 'Computer Specs', 'data_type' => 'text', 'sort_order' => 110, 'is_computer_only' => true, 'is_dimension' => false],
             ['key' => 'ram_type', 'label' => 'RAM Type', 'group' => 'Computer Specs', 'data_type' => 'text', 'sort_order' => 120, 'is_computer_only' => true, 'is_dimension' => false],
@@ -105,7 +105,7 @@ class ProductVariantDefinitions
             'condition',
             'color',
             'ram',
-            'storage',
+            'rom',
         ];
     }
 

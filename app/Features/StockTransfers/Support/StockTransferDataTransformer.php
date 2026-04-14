@@ -19,11 +19,9 @@ class StockTransferDataTransformer
         'createdBy',
         'sourceWarehouse',
         'destinationWarehouse',
-        'items.inventoryItem.productVariant.values.attribute',
         'items.inventoryItem.productVariant.productMaster.model.brand',
         'milestones.actor',
         'shipment',
-        'receipts.items.inventoryItem.productVariant.values.attribute',
         'receipts.items.inventoryItem.productVariant.productMaster.model.brand',
         'receipts.photos',
         'receipts.receivedBy',
@@ -147,7 +145,6 @@ class StockTransferDataTransformer
     public static function transformInventoryUnit(?InventoryItem $item, array $overrides = []): array
     {
         $item?->loadMissing([
-            'productVariant.values.attribute',
             'productVariant.productMaster.model.brand',
         ]);
 

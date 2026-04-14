@@ -334,7 +334,6 @@ class SalesReportQuery
             'salesTransactions.customer.addresses',
             'salesTransactions.salesRepresentative.jobTitle.department',
             'salesTransactions.posSession.warehouse',
-            'salesTransactions.items.inventoryItem.productVariant.values.attribute',
             'salesTransactions.items.inventoryItem.productVariant.productMaster.model.brand',
             'salesTransactions.items.inventoryItem.productVariant.productMaster.subcategory.parent',
             'salesTransactions.items.components.inventoryItem.productVariant.productMaster.model.brand',

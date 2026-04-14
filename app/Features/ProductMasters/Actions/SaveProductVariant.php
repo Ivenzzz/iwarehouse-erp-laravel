@@ -3,7 +3,6 @@
 namespace App\Features\ProductMasters\Actions;
 
 use App\Models\ProductVariant;
-use App\Models\ProductVariantAttribute;
 use App\Support\GeneratesProductVariantName;
 use App\Support\GeneratesProductVariantSku;
 use Illuminate\Support\Facades\DB;
@@ -32,7 +31,7 @@ class SaveProductVariant
             $canonicalAttributes = [
                 'color' => $payload['attributes']['color'] ?? '',
                 'ram' => $payload['attributes']['ram'] ?? '',
-                'storage' => $payload['attributes']['storage'] ?? '',
+                'rom' => $payload['attributes']['rom'] ?? '',
             ];
 
             $sku = $this->skuGenerator->fromAttributes(
@@ -60,52 +59,28 @@ class SaveProductVariant
                 ),
                 'sku' => $sku,
                 'condition' => $payload['condition'],
+                ...$this->variantColumns($payload['attributes']),
             ]);
 
-            $this->syncValues($productVariant, $payload['attributes']);
-
-            return $productVariant->fresh(['values.attribute', 'productMaster.model.brand']);
+            return $productVariant->fresh(['productMaster.model.brand']);
         });
     }
 
-    /**
-     * @param  array<string, string>  $values
-     */
-    private function syncValues(ProductVariant $productVariant, array $values): void
+    /** @param array<string, string> $attributes */
+    private function variantColumns(array $attributes): array
     {
-        $attributeIds = ProductVariantAttribute::query()
-            ->whereIn('key', array_keys($values))
-            ->pluck('id', 'key');
-
-        $allowedAttributeIds = $attributeIds->values();
-
-        $productVariant->values()
-            ->when(
-                $allowedAttributeIds->isNotEmpty(),
-                fn ($query) => $query->whereNotIn('product_variant_attribute_id', $allowedAttributeIds),
-            )
-            ->delete();
-
-        foreach ($values as $key => $value) {
-            $value = trim($value);
-            $attributeId = $attributeIds->get($key);
-
-            if ($attributeId === null) {
-                continue;
-            }
-
-            if ($value === '') {
-                $productVariant->values()
-                    ->where('product_variant_attribute_id', $attributeId)
-                    ->delete();
-
-                continue;
-            }
-
-            $productVariant->values()->updateOrCreate(
-                ['product_variant_attribute_id' => $attributeId],
-                ['value' => $value],
-            );
-        }
+        return collect([
+            'color',
+            'ram',
+            'rom',
+            'cpu',
+            'gpu',
+            'ram_type',
+            'rom_type',
+            'operating_system',
+            'screen',
+        ])->mapWithKeys(fn (string $key) => [
+            $key => trim((string) ($attributes[$key] ?? '')) ?: null,
+        ])->all();
     }
 }

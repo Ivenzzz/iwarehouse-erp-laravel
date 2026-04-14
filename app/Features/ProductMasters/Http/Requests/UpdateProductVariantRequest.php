@@ -2,7 +2,6 @@
 
 namespace App\Features\ProductMasters\Http\Requests;
 
-use App\Features\ProductMasters\Actions\SyncCategoryVariantAttributes;
 use App\Models\ProductMaster;
 use App\Support\ProductVariantDefinitions;
 use Illuminate\Foundation\Http\FormRequest;
@@ -35,11 +34,7 @@ class UpdateProductVariantRequest extends FormRequest
                 return;
             }
 
-            app(SyncCategoryVariantAttributes::class)->handle($productMaster->subcategory);
-
-            $allowedKeys = $productMaster->subcategory
-                ->variantAttributes()
-                ->pluck('key')
+            $allowedKeys = collect(ProductVariantDefinitions::allowedKeysForCategory($productMaster->subcategory))
                 ->reject(fn ($key) => $key === 'condition')
                 ->values()
                 ->all();

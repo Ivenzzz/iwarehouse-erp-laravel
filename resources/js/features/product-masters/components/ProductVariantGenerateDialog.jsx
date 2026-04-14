@@ -54,10 +54,19 @@ export default function ProductVariantGenerateDialog({
     }, [open, productMaster, variantDefinitions]);
 
     const computerDefinitions = useMemo(
-        () =>
-            (variantDefinitions?.groups ?? [])
+        () => {
+            const computerOnlyDefinitions = (variantDefinitions?.groups ?? [])
                 .flatMap((group) => group.definitions ?? [])
-                .filter((definition) => definition.is_computer_only),
+                .filter((definition) => definition.is_computer_only);
+
+            return [
+                {
+                    key: 'model_code',
+                    label: 'Model Code',
+                },
+                ...computerOnlyDefinitions,
+            ];
+        },
         [variantDefinitions],
     );
 

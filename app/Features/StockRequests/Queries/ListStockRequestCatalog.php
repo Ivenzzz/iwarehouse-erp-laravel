@@ -3,6 +3,7 @@
 namespace App\Features\StockRequests\Queries;
 
 use App\Models\ProductVariant;
+use App\Support\ProductVariantNameSql;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,19 +25,23 @@ class ListStockRequestCatalog
         $allWarehouses = Warehouse::query()->select(['id', 'name'])->get()->keyBy('id');
 
         $query = ProductVariant::query()
-            ->select(['id', 'product_master_id', 'variant_name', 'sku', 'condition', 'color', 'ram', 'rom', 'cpu', 'gpu', 'ram_type', 'rom_type', 'operating_system', 'screen'])
+            ->join('product_masters', 'product_masters.id', '=', 'product_variants.product_master_id')
+            ->join('product_models', 'product_models.id', '=', 'product_masters.model_id')
+            ->join('product_brands', 'product_brands.id', '=', 'product_models.brand_id')
+            ->select(['product_variants.id', 'product_variants.product_master_id', 'product_variants.sku', 'product_variants.condition', 'product_variants.model_code', 'product_variants.color', 'product_variants.ram', 'product_variants.rom', 'product_variants.cpu', 'product_variants.gpu', 'product_variants.ram_type', 'product_variants.rom_type', 'product_variants.operating_system', 'product_variants.screen'])
+            ->selectRaw(ProductVariantNameSql::expression().' as variant_name')
             ->with([
                 'productMaster:id,model_id',
                 'productMaster.model:id,brand_id,model_name',
                 'productMaster.model.brand:id,name',
             ])
             ->where('is_active', true)
-            ->orderBy('variant_name');
+            ->orderByRaw(ProductVariantNameSql::expression());
 
         if ($search !== '') {
             $like = '%'.$search.'%';
             $query->where(function ($inner) use ($like) {
-                $inner->where('variant_name', 'like', $like)
+                $inner->whereRaw(ProductVariantNameSql::expression().' like ?', [$like])
                     ->orWhere('sku', 'like', $like)
                     ->orWhere('color', 'like', $like)
                     ->orWhere('ram', 'like', $like)

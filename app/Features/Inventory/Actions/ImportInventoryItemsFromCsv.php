@@ -7,7 +7,6 @@ use App\Models\ProductBrand;
 use App\Models\ProductMaster;
 use App\Models\ProductVariant;
 use App\Models\Warehouse;
-use App\Support\GeneratesProductVariantName;
 use App\Support\GeneratesProductVariantSku;
 use App\Support\ProductVariantDefinitions;
 use Illuminate\Http\UploadedFile;
@@ -20,10 +19,10 @@ class ImportInventoryItemsFromCsv
     private const REQUIRED_COLUMNS = ['Brand', 'Model', 'Warehouse', 'Condition'];
     private const CACHE_PREFIX = 'inventory-import:';
     private const CACHE_TTL_MINUTES = 30;
+    private const CACHE_STORE = 'file';
 
     public function __construct(
         private readonly GeneratesProductVariantSku $generatesProductVariantSku,
-        private readonly GeneratesProductVariantName $generatesProductVariantName,
         private readonly LogInventoryActivity $logInventoryActivity,
     ) {}
 
@@ -80,7 +79,7 @@ class ImportInventoryItemsFromCsv
         $importToken = (string) Str::uuid();
         $expiresAt = now()->addMinutes(self::CACHE_TTL_MINUTES);
 
-        Cache::put($this->cacheKey($importToken), [
+        Cache::store(self::CACHE_STORE)->put($this->cacheKey($importToken), [
             'rows' => $rows,
             'validRows' => $validRows,
             'skippedItems' => $skippedItems,
@@ -104,7 +103,7 @@ class ImportInventoryItemsFromCsv
     public function import(string $importToken, ?int $actorId = null): array
     {
         $cacheKey = $this->cacheKey($importToken);
-        $batch = Cache::get($cacheKey);
+        $batch = Cache::store(self::CACHE_STORE)->get($cacheKey);
 
         if (! is_array($batch)) {
             throw new \InvalidArgumentException('Import token is invalid or expired. Validate the file again.');
@@ -118,7 +117,7 @@ class ImportInventoryItemsFromCsv
         $validRows = $batch['validRows'] ?? null;
 
         if (! is_array($rows) || ! is_array($validRows)) {
-            Cache::forget($cacheKey);
+            Cache::store(self::CACHE_STORE)->forget($cacheKey);
 
             throw new \InvalidArgumentException('Import token is invalid or expired. Validate the file again.');
         }
@@ -194,7 +193,7 @@ class ImportInventoryItemsFromCsv
             }
         }
 
-        Cache::forget($cacheKey);
+        Cache::store(self::CACHE_STORE)->forget($cacheKey);
 
         return compact('created', 'failed', 'skippedItems', 'createdItems');
     }
@@ -361,8 +360,9 @@ class ImportInventoryItemsFromCsv
         array &$batchSeen,
         bool $createMissingVariant,
     ): array {
-        $label = $this->buildRowLabel($row);
-        $productMasterMatches = $references['productMasterMap'][$this->normalizeKey(($row['Brand'] ?? '').'::'.($row['Model'] ?? ''))] ?? [];
+        $mappedRow = $this->mapRowToCanonicalColumns($row);
+        $label = $this->buildRowLabel($mappedRow);
+        $productMasterMatches = $references['productMasterMap'][$this->normalizeKey(($mappedRow['Brand'] ?? '').'::'.($mappedRow['Model'] ?? ''))] ?? [];
 
         if (count($productMasterMatches) !== 1) {
             return [
@@ -375,7 +375,7 @@ class ImportInventoryItemsFromCsv
         }
 
         $productMaster = $productMasterMatches[0];
-        $variantMatches = $this->resolveVariantMatches($row, $references['variantsByMaster'][$productMaster->id] ?? []);
+        $variantMatches = $this->resolveVariantMatches($mappedRow, $references['variantsByMaster'][$productMaster->id] ?? []);
         $variantCreated = false;
         $variant = null;
 
@@ -383,7 +383,7 @@ class ImportInventoryItemsFromCsv
             return [
                 'valid' => false,
                 'label' => $label,
-                'reason' => 'Multiple variants matched RAM + ROM + Color + Condition.',
+                'reason' => 'Multiple variants matched the provided variant attributes.',
             ];
         }
 
@@ -392,7 +392,7 @@ class ImportInventoryItemsFromCsv
             $variant = $variantMatch['variant'];
         }
 
-        $warehouseMatches = $references['warehouseMap'][$this->normalizeKey($row['Warehouse'] ?? '')] ?? [];
+        $warehouseMatches = $references['warehouseMap'][$this->normalizeKey($mappedRow['Warehouse'] ?? '')] ?? [];
 
         if (count($warehouseMatches) !== 1) {
             return [
@@ -404,7 +404,7 @@ class ImportInventoryItemsFromCsv
             ];
         }
 
-        $duplicate = $this->checkDuplicateIdentifiers($row, $existingIdentifiers, $batchSeen);
+        $duplicate = $this->checkDuplicateIdentifiers($mappedRow, $existingIdentifiers, $batchSeen);
 
         if ($duplicate !== null) {
             return [
@@ -416,18 +416,18 @@ class ImportInventoryItemsFromCsv
 
         if (count($variantMatches) === 0) {
             if ($createMissingVariant) {
-                $variant = $this->createVariantForRow($row, $productMaster);
+                $variant = $this->createVariantForRow($mappedRow, $productMaster);
                 $references['variants'][] = $variant;
                 $references['variantsByMaster'][$productMaster->id] ??= [];
                 $references['variantsByMaster'][$productMaster->id][] = $this->buildVariantDescriptor($variant);
             } else {
                 $references['variantsByMaster'][$productMaster->id] ??= [];
-                $references['variantsByMaster'][$productMaster->id][] = $this->buildPredictedVariantDescriptor($row);
+                $references['variantsByMaster'][$productMaster->id][] = $this->buildPredictedVariantDescriptor($mappedRow);
             }
 
             $variantCreated = true;
         } elseif ($variant === null && $createMissingVariant) {
-            $variant = $this->createVariantForRow($row, $productMaster);
+            $variant = $this->createVariantForRow($mappedRow, $productMaster);
             $references['variants'][] = $variant;
             $references['variantsByMaster'][$productMaster->id] = array_values(array_filter(
                 $references['variantsByMaster'][$productMaster->id] ?? [],
@@ -445,7 +445,7 @@ class ImportInventoryItemsFromCsv
             ];
         }
 
-        $this->markIdentifiersUsed($row, $batchSeen);
+        $this->markIdentifiersUsed($mappedRow, $batchSeen);
 
         return [
             'valid' => true,
@@ -457,60 +457,137 @@ class ImportInventoryItemsFromCsv
     }
 
     /**
-     * @param  array<int, array{variant: ProductVariant|null, ram: string, rom: string, color: string, condition: string}>  $variants
-     * @return array<int, array{variant: ProductVariant|null, ram: string, rom: string, color: string, condition: string}>
+     * @param  array<int, array{
+     *     variant: ProductVariant|null,
+     *     condition: string,
+     *     color: string,
+     *     ram: string,
+     *     rom: string,
+     *     cpu: string,
+     *     gpu: string,
+     *     ram_type: string,
+     *     rom_type: string,
+     *     operating_system: string,
+     *     screen: string
+     * }>  $variants
+     * @return array<int, array{
+     *     variant: ProductVariant|null,
+     *     condition: string,
+     *     color: string,
+     *     ram: string,
+     *     rom: string,
+     *     cpu: string,
+     *     gpu: string,
+     *     ram_type: string,
+     *     rom_type: string,
+     *     operating_system: string,
+     *     screen: string
+     * }>
      */
     private function resolveVariantMatches(array $row, array $variants): array
     {
-        $csvRam = $this->normalizeStorageValue($row['RAM Capacity'] ?? '');
-        $csvRom = $this->normalizeStorageValue($row['ROM Capacity'] ?? '');
+        $csvRam = $this->normalizeStorageValue($row['RAM'] ?? '');
+        $csvRom = $this->normalizeStorageValue($row['ROM'] ?? '');
         $csvColor = $this->normalizeKey($row['Color'] ?? '');
         $csvCondition = $this->normalizeCondition($row['Condition'] ?? '');
+        $csvCpu = $this->normalizeKey($row['CPU'] ?? '');
+        $csvGpu = $this->normalizeKey($row['GPU'] ?? '');
+        $csvRamType = $this->normalizeKey($row['RAM Type'] ?? '');
+        $csvRomType = $this->normalizeKey($row['ROM Type'] ?? '');
+        $csvOperatingSystem = $this->normalizeKey($row['Operating System'] ?? '');
+        $csvScreen = $this->normalizeKey($row['Screen'] ?? '');
 
-        return array_values(array_filter($variants, function (array $variant) use ($csvRam, $csvRom, $csvColor, $csvCondition): bool {
+        return array_values(array_filter($variants, function (array $variant) use ($csvRam, $csvRom, $csvColor, $csvCondition, $csvCpu, $csvGpu, $csvRamType, $csvRomType, $csvOperatingSystem, $csvScreen): bool {
             return ($variant['ram'] ?? '') === $csvRam
                 && ($variant['rom'] ?? '') === $csvRom
                 && ($variant['color'] ?? '') === $csvColor
-                && ($variant['condition'] ?? '') === $csvCondition;
+                && ($variant['condition'] ?? '') === $csvCondition
+                && ($variant['cpu'] ?? '') === $csvCpu
+                && ($variant['gpu'] ?? '') === $csvGpu
+                && ($variant['ram_type'] ?? '') === $csvRamType
+                && ($variant['rom_type'] ?? '') === $csvRomType
+                && ($variant['operating_system'] ?? '') === $csvOperatingSystem
+                && ($variant['screen'] ?? '') === $csvScreen;
         }));
     }
 
     /**
-     * @return array{variant: ProductVariant|null, ram: string, rom: string, color: string, condition: string}
+     * @return array{
+     *     variant: ProductVariant|null,
+     *     condition: string,
+     *     color: string,
+     *     ram: string,
+     *     rom: string,
+     *     cpu: string,
+     *     gpu: string,
+     *     ram_type: string,
+     *     rom_type: string,
+     *     operating_system: string,
+     *     screen: string
+     * }
      */
     private function buildVariantDescriptor(ProductVariant $variant): array
     {
         return [
             'variant' => $variant,
+            'condition' => $this->normalizeCondition($variant->condition),
+            'color' => $this->normalizeKey($variant->color ?? ''),
             'ram' => $this->normalizeStorageValue($variant->ram ?? ''),
             'rom' => $this->normalizeStorageValue($variant->rom ?? ''),
-            'color' => $this->normalizeKey($variant->color ?? ''),
-            'condition' => $this->normalizeCondition($variant->condition),
+            'cpu' => $this->normalizeKey($variant->cpu ?? ''),
+            'gpu' => $this->normalizeKey($variant->gpu ?? ''),
+            'ram_type' => $this->normalizeKey($variant->ram_type ?? ''),
+            'rom_type' => $this->normalizeKey($variant->rom_type ?? ''),
+            'operating_system' => $this->normalizeKey($variant->operating_system ?? ''),
+            'screen' => $this->normalizeKey($variant->screen ?? ''),
         ];
     }
 
     /**
-     * @return array{variant: ProductVariant|null, ram: string, rom: string, color: string, condition: string}
+     * @return array{
+     *     variant: ProductVariant|null,
+     *     condition: string,
+     *     color: string,
+     *     ram: string,
+     *     rom: string,
+     *     cpu: string,
+     *     gpu: string,
+     *     ram_type: string,
+     *     rom_type: string,
+     *     operating_system: string,
+     *     screen: string
+     * }
      */
     private function buildPredictedVariantDescriptor(array $row): array
     {
         return [
             'variant' => null,
-            'ram' => $this->normalizeStorageValue($row['RAM Capacity'] ?? ''),
-            'rom' => $this->normalizeStorageValue($row['ROM Capacity'] ?? ''),
-            'color' => $this->normalizeKey($row['Color'] ?? ''),
             'condition' => $this->normalizeCondition($row['Condition'] ?? ''),
+            'color' => $this->normalizeKey($row['Color'] ?? ''),
+            'ram' => $this->normalizeStorageValue($row['RAM'] ?? ''),
+            'rom' => $this->normalizeStorageValue($row['ROM'] ?? ''),
+            'cpu' => $this->normalizeKey($row['CPU'] ?? ''),
+            'gpu' => $this->normalizeKey($row['GPU'] ?? ''),
+            'ram_type' => $this->normalizeKey($row['RAM Type'] ?? ''),
+            'rom_type' => $this->normalizeKey($row['ROM Type'] ?? ''),
+            'operating_system' => $this->normalizeKey($row['Operating System'] ?? ''),
+            'screen' => $this->normalizeKey($row['Screen'] ?? ''),
         ];
     }
 
     private function createVariantForRow(array $row, ProductMaster $productMaster): ProductVariant
     {
         $attributes = array_filter([
+            'model_code' => $this->collapseWhitespace($row['Model Code'] ?? ''),
             'color' => $this->collapseWhitespace($row['Color'] ?? ''),
-            'ram' => $this->normalizeCapacityWithUnit($row['RAM Capacity'] ?? ''),
-            'rom' => $this->normalizeCapacityWithUnit($row['ROM Capacity'] ?? ''),
+            'ram' => $this->normalizeCapacityWithUnit($row['RAM'] ?? ''),
+            'rom' => $this->normalizeCapacityWithUnit($row['ROM'] ?? ''),
+            'cpu' => $this->collapseWhitespace($row['CPU'] ?? ''),
+            'gpu' => $this->collapseWhitespace($row['GPU'] ?? ''),
             'ram_type' => $this->collapseWhitespace($row['RAM Type'] ?? ''),
             'rom_type' => $this->collapseWhitespace($row['ROM Type'] ?? ''),
+            'operating_system' => $this->collapseWhitespace($row['Operating System'] ?? ''),
+            'screen' => $this->collapseWhitespace($row['Screen'] ?? ''),
         ]);
 
         $condition = $this->conditionLabel($this->normalizeCondition($row['Condition'] ?? ''));
@@ -518,7 +595,7 @@ class ImportInventoryItemsFromCsv
         return DB::transaction(function () use ($productMaster, $attributes, $condition): ProductVariant {
             $variant = ProductVariant::query()->create([
                 'product_master_id' => $productMaster->id,
-                'variant_name' => $this->generatesProductVariantName->fromAttributes($productMaster, $condition, $attributes),
+                'model_code' => $attributes['model_code'] ?? null,
                 'sku' => $this->uniqueSku($productMaster, $condition, $attributes),
                 'condition' => $condition,
                 'color' => $attributes['color'] ?? null,
@@ -526,6 +603,10 @@ class ImportInventoryItemsFromCsv
                 'rom' => $attributes['rom'] ?? null,
                 'ram_type' => $attributes['ram_type'] ?? null,
                 'rom_type' => $attributes['rom_type'] ?? null,
+                'cpu' => $attributes['cpu'] ?? null,
+                'gpu' => $attributes['gpu'] ?? null,
+                'operating_system' => $attributes['operating_system'] ?? null,
+                'screen' => $attributes['screen'] ?? null,
                 'is_active' => true,
             ]);
 
@@ -649,7 +730,9 @@ class ImportInventoryItemsFromCsv
 
     private function normalizeStorageValue(mixed $value): string
     {
-        return preg_replace('/\s*(gb|tb|mb)$/i', '', $this->normalizeKey($value)) ?: '';
+        $normalized = preg_replace('/\s*(gb|tb|mb)$/i', '', $this->normalizeKey($value)) ?: '';
+
+        return $this->normalizeWholeNumberString($normalized);
     }
 
     private function normalizeCondition(mixed $value): string
@@ -670,18 +753,21 @@ class ImportInventoryItemsFromCsv
 
     private function normalizeCapacityWithUnit(mixed $value): string
     {
-        $value = preg_replace('/\.0+$/', '', $this->collapseWhitespace($value)) ?: '';
+        $value = $this->collapseWhitespace($value);
 
         if ($value === '') {
             return '';
         }
 
-        if (preg_match('/\d\s*(gb|tb|mb)$/i', $value)) {
-            return strtoupper($value);
+        if (preg_match('/^(?<number>\d+(?:\.\d+)?)\s*(?<unit>gb|tb|mb)$/i', $value, $matches)) {
+            $number = $this->normalizeWholeNumberString($matches['number']);
+            $unit = strtoupper($matches['unit']);
+
+            return "{$number}{$unit}";
         }
 
-        if (preg_match('/^\d+$/', $value)) {
-            $number = (int) $value;
+        if (preg_match('/^\d+(?:\.\d+)?$/', $value)) {
+            $number = (int) $this->normalizeWholeNumberString($value);
 
             return $number >= 1024 ? ($number / 1024).'TB' : $number.'GB';
         }
@@ -722,14 +808,62 @@ class ImportInventoryItemsFromCsv
         return collect([
             $row['Brand'] ?? null,
             $row['Model'] ?? null,
-            $row['RAM Capacity'] ?? null,
-            $row['ROM Capacity'] ?? null,
+            $row['RAM'] ?? null,
+            $row['ROM'] ?? null,
             $row['Color'] ?? null,
             $row['Condition'] ?? null,
         ])
             ->filter(fn ($value) => trim((string) $value) !== '')
             ->map(fn ($value) => $this->collapseWhitespace($value))
             ->implode(' / ') ?: 'Inventory row';
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function mapRowToCanonicalColumns(array $row): array
+    {
+        $mapped = $row;
+        $mapped['RAM'] = $this->normalizeWholeNumberString($this->valueFromAliases($row, ['RAM', 'RAM Capacity']));
+        $mapped['ROM'] = $this->normalizeWholeNumberString($this->valueFromAliases($row, ['ROM', 'ROM Capacity']));
+        $mapped['Operating System'] = $this->valueFromAliases($row, ['Operating System', 'OS']);
+        $mapped['Screen'] = $this->valueFromAliases($row, ['Screen', 'Display']);
+
+        foreach (['Color', 'CPU', 'GPU', 'RAM Type', 'ROM Type', 'Brand', 'Model', 'Warehouse', 'Condition'] as $header) {
+            $mapped[$header] = $this->valueFromAliases($row, [$header]);
+        }
+
+        return $mapped;
+    }
+
+    /**
+     * @param  array<int, string>  $aliases
+     */
+    private function valueFromAliases(array $row, array $aliases): string
+    {
+        foreach ($aliases as $alias) {
+            $value = $this->collapseWhitespace($row[$alias] ?? '');
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return '';
+    }
+
+    private function normalizeWholeNumberString(string $value): string
+    {
+        $value = $this->collapseWhitespace($value);
+
+        if ($value === '') {
+            return '';
+        }
+
+        if (preg_match('/^\d+(\.\d+)?$/', $value) !== 1) {
+            return $value;
+        }
+
+        return (string) ((int) ((float) $value));
     }
 
     /**

@@ -46,7 +46,12 @@ class StockRequestListQuery
                 ->orWhere('stock_requests.notes', 'like', $like)
                 ->orWhereHas('warehouse', fn (Builder $q) => $q->where('name', 'like', $like))
                 ->orWhereHas('requestor', fn (Builder $q) => $q->where('name', 'like', $like)->orWhere('email', 'like', $like))
-                ->orWhereHas('items.variant', fn (Builder $q) => $q->where('variant_name', 'like', $like)->orWhere('sku', 'like', $like))
+                ->orWhereHas('items.variant', fn (Builder $q) => $q
+                    ->where('sku', 'like', $like)
+                    ->orWhere('model_code', 'like', $like)
+                    ->orWhere('ram', 'like', $like)
+                    ->orWhere('rom', 'like', $like)
+                    ->orWhere('color', 'like', $like))
                 ->orWhereHas('items.variant.productMaster.model.brand', fn (Builder $q) => $q->where('name', 'like', $like))
                 ->orWhereHas('items.variant.productMaster.model', fn (Builder $q) => $q->where('model_name', 'like', $like));
         });

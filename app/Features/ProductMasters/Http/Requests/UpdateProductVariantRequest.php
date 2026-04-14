@@ -17,7 +17,7 @@ class UpdateProductVariantRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'variant_name' => ['nullable', 'string', 'max:255'],
+            'model_code' => ['nullable', 'string', 'max:100'],
             'sku' => ['nullable', 'string', 'max:190'],
             'condition' => ['required', 'string', Rule::in(ProductVariantDefinitions::conditions())],
             'attributes' => ['nullable', 'array'],
@@ -52,7 +52,7 @@ class UpdateProductVariantRequest extends FormRequest
 
     /**
      * @return array{
-     *     variant_name: string|null,
+     *     model_code: string|null,
      *     sku: string|null,
      *     condition: string,
      *     attributes: array<string, string>
@@ -67,12 +67,13 @@ class UpdateProductVariantRequest extends FormRequest
             ->all();
 
         return [
-            'variant_name' => $this->nullableTrim($validated['variant_name'] ?? null),
+            'model_code' => $this->nullableTrim($validated['model_code'] ?? null),
             'sku' => $this->nullableTrim($validated['sku'] ?? null),
             'condition' => trim((string) $validated['condition']),
             'attributes' => collect($validated['attributes'] ?? [])
                 ->only($allowedKeys)
                 ->map(fn ($value) => trim((string) $value))
+                ->put('model_code', $this->nullableTrim($validated['model_code'] ?? null) ?? '')
                 ->all(),
         ];
     }

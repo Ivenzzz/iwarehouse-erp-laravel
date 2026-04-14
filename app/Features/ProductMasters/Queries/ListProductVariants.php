@@ -4,7 +4,9 @@ namespace App\Features\ProductMasters\Queries;
 
 use App\Models\ProductMaster;
 use App\Models\ProductVariant;
+use App\Support\ProductVariantNameSql;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ListProductVariants
 {
@@ -13,12 +15,17 @@ class ListProductVariants
         $search = trim((string) $request->query('search', ''));
 
         $variants = ProductVariant::query()
+            ->join('product_masters', 'product_masters.id', '=', 'product_variants.product_master_id')
+            ->join('product_models', 'product_models.id', '=', 'product_masters.model_id')
+            ->join('product_brands', 'product_brands.id', '=', 'product_models.brand_id')
             ->where('product_master_id', $productMaster->id)
+            ->select('product_variants.*')
+            ->selectRaw(ProductVariantNameSql::expression().' as variant_name')
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($query) use ($search) {
                     $query
                         ->where('sku', 'like', "%{$search}%")
-                        ->orWhere('variant_name', 'like', "%{$search}%")
+                        ->orWhere(DB::raw(ProductVariantNameSql::expression()), 'like', "%{$search}%")
                         ->orWhere('condition', 'like', "%{$search}%")
                         ->orWhere('color', 'like', "%{$search}%")
                         ->orWhere('ram', 'like', "%{$search}%")
@@ -31,7 +38,7 @@ class ListProductVariants
                         ->orWhere('screen', 'like', "%{$search}%");
                 });
             })
-            ->orderBy('variant_name')
+            ->orderByRaw(ProductVariantNameSql::expression())
             ->paginate(10)
             ->through(fn (ProductVariant $variant) => self::transformVariant($variant));
 

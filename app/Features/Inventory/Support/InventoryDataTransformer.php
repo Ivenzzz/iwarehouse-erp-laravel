@@ -39,6 +39,8 @@ class InventoryDataTransformer
         $productMaster = $variant?->productMaster;
         $warehouse = $item->warehouse;
         $attributes = self::variantAttributes($variant);
+        $resolvedCpu = self::nullableString($variant?->cpu) ?? self::nullableString($item->cpu);
+        $resolvedGpu = self::nullableString($variant?->gpu) ?? self::nullableString($item->gpu);
 
         return [
             'id' => $item->id,
@@ -55,8 +57,8 @@ class InventoryDataTransformer
             'srp' => $item->srp_price !== null ? (float) $item->srp_price : null,
             'package' => $item->package,
             'warranty_description' => $item->warranty,
-            'cpu' => $item->cpu,
-            'gpu' => $item->gpu,
+            'cpu' => $resolvedCpu,
+            'gpu' => $resolvedGpu,
             'submodel' => $item->submodel,
             'ram_type' => $item->ram_type,
             'rom_type' => $item->rom_type,
@@ -95,6 +97,9 @@ class InventoryDataTransformer
 
     public static function transformInventoryListItem(InventoryItem $item): array
     {
+        $resolvedCpu = self::nullableString($item->getAttribute('variant_cpu')) ?? self::nullableString($item->cpu);
+        $resolvedGpu = self::nullableString($item->getAttribute('variant_gpu')) ?? self::nullableString($item->gpu);
+
         return [
             'id' => $item->id,
             'product_master_id' => self::nullableInt($item->getAttribute('product_master_id')),
@@ -110,8 +115,8 @@ class InventoryDataTransformer
             'srp' => $item->srp_price !== null ? (float) $item->srp_price : null,
             'package' => $item->package,
             'warranty_description' => $item->warranty,
-            'cpu' => $item->cpu,
-            'gpu' => $item->gpu,
+            'cpu' => $resolvedCpu,
+            'gpu' => $resolvedGpu,
             'platform_cpu' => self::nullableString($item->getAttribute('platform_cpu')),
             'platform_gpu' => self::nullableString($item->getAttribute('platform_gpu')),
             'submodel' => $item->submodel,

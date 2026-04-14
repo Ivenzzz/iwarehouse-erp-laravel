@@ -93,7 +93,7 @@ export default function ProductMasterDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-3xl overflow-y-auto p-1">
                 <DialogHeader>
                     <DialogTitle>
                         {isEditing ? 'Edit Product Master' : 'Add Product Master'}

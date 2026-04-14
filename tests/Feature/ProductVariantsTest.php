@@ -66,6 +66,9 @@ class ProductVariantsTest extends TestCase
             'colors' => ['Black'],
             'rams' => ['8GB'],
             'roms' => ['256GB'],
+            'shared_attributes' => [
+                'model_code' => 'A2890',
+            ],
         ];
 
         $this->actingAs($user)
@@ -84,7 +87,8 @@ class ProductVariantsTest extends TestCase
 
         $this->assertDatabaseHas('product_variants', [
             'product_master_id' => $productMaster->id,
-            'sku' => 'APPLE-IPHONE17-8GB-256GB-BLACK',
+            'model_code' => 'A2890',
+            'sku' => 'APPLE-IPHONE17-A2890-8GB-256GB-BLACK',
             'condition' => 'Brand New',
             'ram' => '8GB',
             'rom' => '256GB',
@@ -92,7 +96,8 @@ class ProductVariantsTest extends TestCase
         ]);
         $this->assertDatabaseHas('product_variants', [
             'product_master_id' => $productMaster->id,
-            'sku' => 'CPO-APPLE-IPHONE17-8GB-256GB-BLACK',
+            'model_code' => 'A2890',
+            'sku' => 'CPO-APPLE-IPHONE17-A2890-8GB-256GB-BLACK',
             'condition' => 'Certified Pre-Owned',
             'ram' => '8GB',
             'rom' => '256GB',
@@ -117,6 +122,7 @@ class ProductVariantsTest extends TestCase
                 'rams' => ['16GB', '32GB'],
                 'roms' => ['512GB'],
                 'shared_attributes' => [
+                    'model_code' => 'LAT7440',
                     'cpu' => 'Intel Core Ultra 7',
                     'gpu' => 'Intel Arc',
                 ],
@@ -128,6 +134,7 @@ class ProductVariantsTest extends TestCase
 
         $this->assertSame(4, ProductVariant::count());
         $this->assertDatabaseHas('product_variants', [
+            'model_code' => 'LAT7440',
             'cpu' => 'Intel Core Ultra 7',
             'gpu' => 'Intel Arc',
             'rom' => '512GB',
@@ -223,12 +230,45 @@ class ProductVariantsTest extends TestCase
 
         $this->assertDatabaseHas('product_variants', [
             'product_master_id' => $productMaster->id,
-            'variant_name' => 'Apple iPhone 17 Black',
             'sku' => 'APPLE-IPHONE17-BLACK',
             'condition' => 'Brand New',
             'color' => 'Black',
             'ram' => null,
             'rom' => null,
+        ]);
+
+        $this->assertSame('Apple iPhone 17 Black', ProductVariant::query()->value('variant_name'));
+    }
+
+    public function test_generation_accepts_model_code_for_computer_category_and_includes_it_in_sku(): void
+    {
+        $user = User::factory()->create();
+        $productMaster = $this->createProductMaster(
+            brandName: 'Lenovo',
+            modelName: 'ThinkPad X1',
+            categoryName: 'Computers',
+            subcategoryName: 'Laptops',
+        );
+
+        $this->actingAs($user)
+            ->postJson(route('product-masters.variants.generate', $productMaster), [
+                'conditions' => ['Brand New'],
+                'colors' => ['Black'],
+                'rams' => ['16GB'],
+                'roms' => ['1TB'],
+                'shared_attributes' => [
+                    'model_code' => 'X1G12',
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('summary.requested', 1)
+            ->assertJsonPath('summary.created', 1)
+            ->assertJsonPath('summary.skipped', 0);
+
+        $this->assertDatabaseHas('product_variants', [
+            'product_master_id' => $productMaster->id,
+            'model_code' => 'X1G12',
+            'sku' => 'LENOVO-THINKPADX1-X1G12-16GB-1TB-BLACK',
         ]);
     }
 

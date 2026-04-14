@@ -177,7 +177,7 @@ export default function ProductMastersPage({
                 onChange={handleImport}
             />
 
-            <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-4">
+            <div className="mx-auto flex w-full max-w-full flex-col gap-4">
                 <section className="bg-white shadow-[0_14px_40px_rgba(15,23,42,0.08)]">
                     <ProductMastersHeader
                         onImport={() => fileInputRef.current?.click()}

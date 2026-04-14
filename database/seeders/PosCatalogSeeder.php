@@ -39,7 +39,6 @@ class PosCatalogSeeder extends Seeder
             modelName: 'iPhone 15',
             masterSku: 'APPLE-IP15',
             subcategoryId: $smartphonesSubcategory->id,
-            variantName: '8GB / 256GB Black',
             sku: 'APPLE-IP15-8GB-256GB-BLACK',
             condition: ProductVariantDefinitions::CONDITION_BRAND_NEW,
             attributes: [
@@ -54,7 +53,6 @@ class PosCatalogSeeder extends Seeder
             modelName: 'Galaxy A55 5G',
             masterSku: 'SAMSUNG-A55',
             subcategoryId: $smartphonesSubcategory->id,
-            variantName: '8GB / 256GB Iceblue',
             sku: 'SAMSUNG-A55-8GB-256GB-ICEBLUE',
             condition: ProductVariantDefinitions::CONDITION_BRAND_NEW,
             attributes: [
@@ -69,7 +67,6 @@ class PosCatalogSeeder extends Seeder
             modelName: 'Nano 20W Charger',
             masterSku: 'ANKER-NANO-20W',
             subcategoryId: $mobileAccessoriesSubcategory->id,
-            variantName: 'White',
             sku: 'ANKER-NANO-20W-WHITE',
             condition: ProductVariantDefinitions::CONDITION_BRAND_NEW,
             attributes: [
@@ -83,7 +80,6 @@ class PosCatalogSeeder extends Seeder
         string $modelName,
         string $masterSku,
         int $subcategoryId,
-        string $variantName,
         string $sku,
         string $condition,
         array $attributes,
@@ -108,7 +104,7 @@ class PosCatalogSeeder extends Seeder
             ['sku' => $sku],
             [
                 'product_master_id' => $master->id,
-                'variant_name' => $variantName,
+                'model_code' => $attributes['model_code'] ?? null,
                 'condition' => $condition,
                 'color' => $attributes['color'] ?? null,
                 'ram' => $attributes['ram'] ?? null,

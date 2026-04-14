@@ -3,6 +3,7 @@
 namespace App\Features\Inventory\Support;
 
 use App\Models\InventoryItem;
+use App\Support\ProductVariantNameSql;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -86,7 +87,7 @@ class InventoryListQuery
 
         switch ($sort) {
             case 'productName':
-                $query->orderBy('product_variants.variant_name', $direction);
+                $query->orderByRaw(ProductVariantNameSql::expression().' '.$direction);
                 break;
             case 'serial_number':
                 $query->orderBy('inventory_items.serial_number', $direction);
@@ -180,7 +181,7 @@ class InventoryListQuery
 
             $query->where(function (Builder $builder) use ($like) {
                 $builder
-                    ->where('product_variants.variant_name', 'like', $like)
+                    ->whereRaw(ProductVariantNameSql::expression().' like ?', [$like])
                     ->orWhere('product_brands.name', 'like', $like)
                     ->orWhere('product_models.model_name', 'like', $like)
                     ->orWhere('inventory_items.imei', 'like', $like)
@@ -262,7 +263,7 @@ class InventoryListQuery
             DB::raw('product_brands.id as brand_id'),
             DB::raw("COALESCE(product_brands.name, '') as brand_name"),
             DB::raw("COALESCE(product_models.model_name, '') as master_model"),
-            DB::raw("COALESCE(product_variants.variant_name, '') as product_name"),
+            DB::raw("COALESCE(".ProductVariantNameSql::expression().", '') as product_name"),
             DB::raw("COALESCE(warehouses.name, 'N/A') as warehouse_name"),
             DB::raw('categories.id as category_id'),
             DB::raw("COALESCE(categories.name, '') as category_name"),
@@ -273,6 +274,8 @@ class InventoryListQuery
             DB::raw('product_variants.ram as attr_ram'),
             DB::raw('product_variants.rom as attr_rom'),
             DB::raw('product_variants.color as attr_color'),
+            DB::raw('product_variants.cpu as variant_cpu'),
+            DB::raw('product_variants.gpu as variant_gpu'),
             'platform_cpu' => $this->productMasterSpecValueSubquery(['platform_cpu', 'cpu']),
             'platform_gpu' => $this->productMasterSpecValueSubquery(['platform_gpu', 'gpu']),
         ]);

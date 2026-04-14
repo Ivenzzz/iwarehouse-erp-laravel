@@ -53,7 +53,7 @@ export default function AddQuoteDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto p-4">
         <DialogHeader>
           <DialogTitle>Add Supplier Quote - {selectedRFQ?.rfq_number}</DialogTitle>
         </DialogHeader>
@@ -175,7 +175,7 @@ export default function AddQuoteDialog({
                           <Input
                             type="number"
                             className="h-8 text-right"
-                            value={item.unit_price}
+                            value={item.unit_price ?? ""}
                             onChange={(e) => updateQuoteItemPrice(idx, "unit_price", e.target.value)}
                             placeholder="0.00"
                           />
@@ -186,9 +186,9 @@ export default function AddQuoteDialog({
                               type="number"
                               min="0"
                               max="100"
-                              step="0.01"
+                              step="1"
                               className="h-8 pr-7 text-right"
-                              value={item.discount ?? 0}
+                              value={item.discount ?? ""}
                               onChange={(e) => updateQuoteItemPrice(idx, "discount", e.target.value)}
                               placeholder="0"
                             />

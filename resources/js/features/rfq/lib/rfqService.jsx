@@ -3,8 +3,9 @@ import { format } from "date-fns";
 export const calculateQuoteItemTotal = (quantity, unitPrice, discount = 0) => {
   const qty = Number(quantity) || 0;
   const price = Number(unitPrice) || 0;
-  const discountAmount = Number(discount) || 0;
+  const discountPercent = Math.min(100, Math.max(0, Number(discount) || 0));
   const gross = qty * price;
+  const discountAmount = gross * (discountPercent / 100);
   return Math.max(0, gross - discountAmount);
 };
 

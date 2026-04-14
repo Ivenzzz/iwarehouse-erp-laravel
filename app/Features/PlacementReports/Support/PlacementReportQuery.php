@@ -6,6 +6,7 @@ use App\Features\Inventory\Support\InventoryDataTransformer;
 use App\Models\InventoryItem;
 use App\Models\ProductMaster;
 use App\Models\ProductVariant;
+use App\Support\ProductVariantNameSql;
 use App\Models\Warehouse;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -159,7 +160,7 @@ class PlacementReportQuery
         $warehouseName = Warehouse::query()->whereKey($warehouseId)->value('name') ?? 'Warehouse';
 
         if ($variantId !== null) {
-            $variantName = ProductVariant::query()->whereKey($variantId)->value('variant_name') ?? 'Variant';
+            $variantName = ProductVariant::query()->find($variantId)?->variant_name ?? 'Variant';
         } else {
             $productMaster = ProductMaster::query()->with('model.brand')->findOrFail($productMasterId);
             $variantName = trim(implode(' ', array_filter([
@@ -251,13 +252,13 @@ class PlacementReportQuery
     {
         $query = $this->inventoryBaseQuery()
             ->where('product_masters.id', $productMasterId)
-            ->groupBy('product_variants.id', 'product_variants.variant_name', 'product_variants.condition')
+            ->groupBy('product_variants.id', 'product_variants.condition', 'product_brands.name', 'product_models.model_name', 'product_variants.model_code', 'product_variants.ram', 'product_variants.rom', 'product_variants.color')
             ->selectRaw('product_variants.id as variant_id')
-            ->selectRaw("COALESCE(product_variants.variant_name, '') as variant_name")
+            ->selectRaw("COALESCE(".ProductVariantNameSql::expression().", '') as variant_name")
             ->selectRaw("COALESCE(product_variants.condition, '') as variant_condition")
             ->selectRaw('COUNT(*) as total_qty')
             ->selectRaw('COALESCE(SUM(COALESCE(inventory_items.cost_price, 0)), 0) as total_valuation')
-            ->orderBy('product_variants.variant_name')
+            ->orderByRaw(ProductVariantNameSql::expression())
             ->orderBy('product_variants.id');
 
         foreach ($this->warehouseModels() as $warehouse) {
@@ -280,14 +281,17 @@ class PlacementReportQuery
                 'product_brands.name',
                 'product_models.model_name',
                 'product_variants.id',
-                'product_variants.variant_name',
-                'product_variants.condition'
+                'product_variants.condition',
+                'product_variants.model_code',
+                'product_variants.ram',
+                'product_variants.rom',
+                'product_variants.color'
             )
             ->selectRaw('product_masters.id as product_master_id')
             ->selectRaw("COALESCE(product_brands.name, '') as brand_name")
             ->selectRaw("COALESCE(product_models.model_name, '') as model_name")
             ->selectRaw('product_variants.id as variant_id')
-            ->selectRaw("COALESCE(product_variants.variant_name, '') as variant_name")
+            ->selectRaw("COALESCE(".ProductVariantNameSql::expression().", '') as variant_name")
             ->selectRaw("COALESCE(product_variants.condition, '') as variant_condition")
             ->selectRaw('COUNT(*) as total_qty')
             ->selectRaw('COALESCE(SUM(COALESCE(inventory_items.cost_price, 0)), 0) as total_valuation')
@@ -403,7 +407,7 @@ class PlacementReportQuery
 
         $query->orderBy('product_brands.name')
             ->orderBy('product_models.model_name')
-            ->orderBy('product_variants.variant_name')
+            ->orderByRaw(ProductVariantNameSql::expression())
             ->orderBy('product_variants.id');
     }
 

@@ -73,7 +73,7 @@ class GenerateProductVariantsRequest extends FormRequest
             'rams' => $this->cleanList($validated['rams'] ?? []),
             'roms' => $this->cleanList($validated['roms'] ?? []),
             'shared_attributes' => collect($validated['shared_attributes'] ?? [])
-                ->only(ProductVariantDefinitions::sharedComputerKeys())
+                ->only([...ProductVariantDefinitions::sharedComputerKeys(), 'model_code'])
                 ->map(fn ($value) => trim((string) $value))
                 ->filter(fn ($value) => $value !== '')
                 ->all(),

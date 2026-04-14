@@ -25,6 +25,7 @@ class ProductVariantDefinitions
     {
         return [
             ['key' => 'condition', 'label' => 'Condition', 'group' => 'Core', 'data_type' => 'text', 'sort_order' => 10, 'is_computer_only' => false, 'is_dimension' => true],
+            ['key' => 'model_code', 'label' => 'Model Code', 'group' => 'Core', 'data_type' => 'text', 'sort_order' => 15, 'is_computer_only' => false, 'is_dimension' => true],
             ['key' => 'color', 'label' => 'Color', 'group' => 'Core', 'data_type' => 'text', 'sort_order' => 20, 'is_computer_only' => false, 'is_dimension' => true],
             ['key' => 'ram', 'label' => 'RAM', 'group' => 'Core', 'data_type' => 'text', 'sort_order' => 30, 'is_computer_only' => false, 'is_dimension' => true],
             ['key' => 'rom', 'label' => 'ROM', 'group' => 'Core', 'data_type' => 'text', 'sort_order' => 40, 'is_computer_only' => false, 'is_dimension' => true],

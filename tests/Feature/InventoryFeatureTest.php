@@ -256,8 +256,8 @@ class InventoryFeatureTest extends TestCase
         $variant->delete();
 
         $csv = implode("\n", [
-            'Brand,Model,Warehouse,Condition,RAM Capacity,ROM Capacity,Color,IMEI 1,Serial Number,Cost,Cash,SRP',
-            'Apple,iPhone 17,Main Warehouse,Brand New,8,256,Black,991122334455667,SN-NEW-001,10000,12000,13000',
+            'Brand,Model,Warehouse,Condition,RAM,ROM,Color,CPU,GPU,RAM Type,ROM Type,Operating System,Screen,IMEI 1,Serial Number,Cost,Cash,SRP',
+            'Apple,iPhone 17,Main Warehouse,Brand New,8,256,Black,M3,Integrated,LPDDR5,NVMe,macOS,15-inch,991122334455667,SN-NEW-001,10000,12000,13000',
         ]);
         $file = UploadedFile::fake()->createWithContent('inventory.csv', $csv);
 
@@ -284,6 +284,15 @@ class InventoryFeatureTest extends TestCase
         $createdVariant = ProductVariant::query()->first();
 
         $this->assertNotNull($createdVariant);
+        $this->assertSame('8GB', $createdVariant->ram);
+        $this->assertSame('256GB', $createdVariant->rom);
+        $this->assertSame('Black', $createdVariant->color);
+        $this->assertSame('M3', $createdVariant->cpu);
+        $this->assertSame('Integrated', $createdVariant->gpu);
+        $this->assertSame('LPDDR5', $createdVariant->ram_type);
+        $this->assertSame('NVMe', $createdVariant->rom_type);
+        $this->assertSame('macOS', $createdVariant->operating_system);
+        $this->assertSame('15-inch', $createdVariant->screen);
         $this->assertDatabaseHas('inventory_items', [
             'product_variant_id' => $createdVariant->id,
             'warehouse_id' => $warehouse->id,
@@ -295,6 +304,127 @@ class InventoryFeatureTest extends TestCase
             'actor_id' => $user->id,
         ]);
         $this->assertSame($productMaster->id, $createdVariant->product_master_id);
+    }
+
+    public function test_inventory_import_accepts_legacy_ram_and_rom_capacity_columns(): void
+    {
+        $user = User::factory()->create();
+        [$variant, $warehouse] = $this->createInventoryGraph();
+
+        $variant->delete();
+
+        $csv = implode("\n", [
+            'Brand,Model,Warehouse,Condition,RAM Capacity,ROM Capacity,Color,IMEI 1,Serial Number',
+            'Apple,iPhone 17,Main Warehouse,Brand New,16,512,Midnight,988877766655544,SN-LEGACY-001',
+        ]);
+        $file = UploadedFile::fake()->createWithContent('inventory.csv', $csv);
+
+        $validationResponse = $this->actingAs($user)
+            ->post(route('inventory.import.validate'), ['file' => $file], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->json();
+
+        $this->assertSame(1, $validationResponse['variantsCreated']);
+
+        $this->actingAs($user)
+            ->postJson(route('inventory.import'), [
+                'importToken' => $validationResponse['importToken'],
+            ])
+            ->assertOk()
+            ->assertJsonPath('created', 1);
+
+        $this->assertDatabaseHas('product_variants', [
+            'ram' => '16GB',
+            'rom' => '512GB',
+            'color' => 'Midnight',
+        ]);
+        $this->assertDatabaseHas('inventory_items', [
+            'warehouse_id' => $warehouse->id,
+            'imei' => '988877766655544',
+            'serial_number' => 'SN-LEGACY-001',
+        ]);
+    }
+
+    public function test_inventory_import_uses_full_variant_attribute_match(): void
+    {
+        $user = User::factory()->create();
+        [$existingVariant, $warehouse, $productMaster] = $this->createInventoryGraph();
+        $existingVariant->update([
+            'ram' => '8GB',
+            'rom' => '256GB',
+            'color' => 'Black',
+            'cpu' => 'Ryzen 7',
+            'gpu' => 'RTX 4060',
+            'ram_type' => 'DDR5',
+            'rom_type' => 'NVMe',
+            'operating_system' => 'Windows 11',
+            'screen' => '15.6"',
+        ]);
+
+        $csv = implode("\n", [
+            'Brand,Model,Warehouse,Condition,RAM,ROM,Color,CPU,GPU,RAM Type,ROM Type,Operating System,Screen,IMEI 1,Serial Number',
+            'Apple,iPhone 17,Main Warehouse,Brand New,8,256,Black,Ryzen 7,RTX 4060,DDR5,NVMe,Ubuntu,15.6",900000000000001,SN-FULL-ATTR-001',
+        ]);
+        $file = UploadedFile::fake()->createWithContent('inventory.csv', $csv);
+
+        $validationResponse = $this->actingAs($user)
+            ->post(route('inventory.import.validate'), ['file' => $file], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->json();
+
+        $this->assertSame(1, $validationResponse['variantsCreated']);
+
+        $this->actingAs($user)
+            ->postJson(route('inventory.import'), [
+                'importToken' => $validationResponse['importToken'],
+            ])
+            ->assertOk()
+            ->assertJsonPath('created', 1);
+
+        $this->assertDatabaseCount('product_variants', 2);
+        $this->assertDatabaseHas('product_variants', [
+            'product_master_id' => $productMaster->id,
+            'cpu' => 'Ryzen 7',
+            'gpu' => 'RTX 4060',
+            'operating_system' => 'Ubuntu',
+        ]);
+        $this->assertDatabaseHas('inventory_items', [
+            'warehouse_id' => $warehouse->id,
+            'imei' => '900000000000001',
+            'serial_number' => 'SN-FULL-ATTR-001',
+        ]);
+    }
+
+    public function test_inventory_import_supports_os_and_display_alias_headers(): void
+    {
+        $user = User::factory()->create();
+        [$variant] = $this->createInventoryGraph();
+        $variant->delete();
+
+        $csv = implode("\n", [
+            'Brand,Model,Warehouse,Condition,RAM,ROM,Color,CPU,GPU,RAM Type,ROM Type,OS,Display,IMEI 1,Serial Number',
+            'Apple,iPhone 17,Main Warehouse,Brand New,8,256,Black,Intel i7,RTX 4050,DDR5,NVMe,Windows 11,14-inch,911111111111111,SN-ALIAS-001',
+        ]);
+        $file = UploadedFile::fake()->createWithContent('inventory.csv', $csv);
+
+        $validationResponse = $this->actingAs($user)
+            ->post(route('inventory.import.validate'), ['file' => $file], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->json();
+
+        $this->assertSame(1, $validationResponse['variantsCreated']);
+
+        $this->actingAs($user)
+            ->postJson(route('inventory.import'), [
+                'importToken' => $validationResponse['importToken'],
+            ])
+            ->assertOk()
+            ->assertJsonPath('created', 1);
+
+        $this->assertDatabaseHas('product_variants', [
+            'operating_system' => 'Windows 11',
+            'screen' => '14-inch',
+        ]);
     }
 
     public function test_inventory_import_validation_detects_duplicate_identifier(): void

@@ -69,8 +69,8 @@ export default function InventoryItemDetailsDialog({
   const ramValue = item?.attrRAM || item?.purchase_file_data?.ram || item?.purchase_file_data?.RAM || "";
   const romValue = item?.attrROM || item?.purchase_file_data?.storage || item?.purchase_file_data?.Storage || item?.purchase_file_data?.rom || item?.purchase_file_data?.ROM || "";
   const colorValue = item?.attrColor || item?.purchase_file_data?.color || item?.purchase_file_data?.Color || "";
-  const cpuValue = item?.cpu || item?.platform_cpu || "";
-  const gpuValue = item?.gpu || item?.platform_gpu || "";
+  const cpuValue = item?.variant_cpu || item?.cpu || item?.platform_cpu || "";
+  const gpuValue = item?.variant_gpu || item?.gpu || item?.platform_gpu || "";
   const conditionValue = item?.variantCondition || item?.purchase_file_data?.condition || "";
   const headerTitle = [item?.productName].filter(Boolean).join(" ");
   const specLines = [

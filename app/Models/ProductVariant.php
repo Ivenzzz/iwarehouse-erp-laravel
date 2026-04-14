@@ -13,7 +13,7 @@ class ProductVariant extends Model
 
     protected $fillable = [
         'product_master_id',
-        'variant_name',
+        'model_code',
         'sku',
         'condition',
         'color',
@@ -32,9 +32,29 @@ class ProductVariant extends Model
         'is_active' => 'bool',
     ];
 
+    protected $appends = [
+        'variant_name',
+    ];
+
     public function productMaster(): BelongsTo
     {
         return $this->belongsTo(ProductMaster::class);
+    }
+
+    public function getVariantNameAttribute(): string
+    {
+        $this->loadMissing('productMaster.model.brand');
+
+        $parts = array_filter([
+            trim((string) $this->productMaster?->model?->brand?->name),
+            trim((string) $this->productMaster?->model?->model_name),
+            trim((string) $this->model_code),
+            trim((string) $this->ram),
+            trim((string) $this->rom),
+            trim((string) $this->color),
+        ]);
+
+        return implode(' ', $parts);
     }
 
     public function attributesMap(bool $includeEmpty = false): array

@@ -26,6 +26,8 @@ class InventorySchemaTest extends TestCase
         $this->assertTrue(Schema::hasTable('warehouses'));
         $this->assertTrue(Schema::hasTable('inventory_items'));
         $this->assertTrue(Schema::hasTable('inventory_item_logs'));
+        $this->assertFalse(Schema::hasColumn('product_variants', 'variant_name'));
+        $this->assertTrue(Schema::hasColumn('product_variants', 'model_code'));
     }
 
     public function test_inventory_item_can_reference_variant_warehouse_and_supplier(): void
@@ -181,9 +183,12 @@ class InventorySchemaTest extends TestCase
 
         return ProductVariant::create([
             'product_master_id' => $productMaster->id,
-            'variant_name' => 'Apple iPhone 17 8GB 256GB Black',
+            'model_code' => 'A2890',
             'sku' => 'APPLE-IPHONE17-8GB-256GB-BLACK',
             'condition' => 'Brand New',
+            'ram' => '8GB',
+            'rom' => '256GB',
+            'color' => 'Black',
             'is_active' => true,
         ]);
     }

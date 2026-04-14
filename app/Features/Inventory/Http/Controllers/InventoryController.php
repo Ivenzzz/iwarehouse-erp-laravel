@@ -21,6 +21,7 @@ use InvalidArgumentException;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class InventoryController extends Controller
 {
@@ -64,6 +65,10 @@ class InventoryController extends Controller
             return response()->json([
                 'message' => $exception->getMessage(),
             ], 422);
+        } catch (Throwable) {
+            return response()->json([
+                'message' => 'Unable to validate CSV right now. Please try again.',
+            ], 500);
         }
     }
 
@@ -80,6 +85,10 @@ class InventoryController extends Controller
             return response()->json([
                 'message' => $exception->getMessage(),
             ], 422);
+        } catch (Throwable) {
+            return response()->json([
+                'message' => 'Unable to import CSV right now. Please validate and try again.',
+            ], 500);
         }
     }
 

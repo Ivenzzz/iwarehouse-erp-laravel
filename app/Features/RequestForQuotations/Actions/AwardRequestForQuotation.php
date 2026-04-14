@@ -13,7 +13,7 @@ class AwardRequestForQuotation
     {
         return DB::transaction(function () use ($rfqId, $supplierQuoteId, $actorId): string {
             $rfq = RequestForQuotation::query()
-                ->with(['supplierQuotes.items.rfqItem'])
+                ->with(['supplierQuotes.items.rfqItem.variant'])
                 ->findOrFail($rfqId);
 
             $quote = $rfq->supplierQuotes->firstWhere('id', $supplierQuoteId);
@@ -58,13 +58,24 @@ class AwardRequestForQuotation
             ]);
 
             foreach ($quote->items as $quoteItem) {
-                DB::table('purchase_order_items')->insert([
+                $purchaseOrderItemId = (int) DB::table('purchase_order_items')->insertGetId([
                     'purchase_order_id' => $purchaseOrderId,
                     'supplier_quote_item_id' => $quoteItem->id,
                     'quantity' => $quoteItem->quoted_quantity,
                     'unit_price' => $quoteItem->unit_price,
                     'discount' => $quoteItem->discount,
                     'description' => $quoteItem->rfqItem?->description,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                $variant = $quoteItem->rfqItem?->variant;
+
+                DB::table('purchase_order_item_specs')->insert([
+                    'purchase_order_item_id' => $purchaseOrderItemId,
+                    'ram' => $variant?->ram,
+                    'rom' => $variant?->rom,
+                    'condition' => $variant?->condition,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);

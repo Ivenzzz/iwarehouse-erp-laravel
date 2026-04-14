@@ -3,6 +3,7 @@
 namespace App\Features\PriceControl\Support;
 
 use App\Models\InventoryItem;
+use App\Support\ProductVariantNameSql;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\Request;
@@ -139,7 +140,7 @@ class PriceControlQuery
                 $query
                     ->orderBy('product_brands.name', $direction)
                     ->orderBy('product_models.model_name', $direction)
-                    ->orderBy('product_variants.variant_name', $direction);
+                    ->orderByRaw(ProductVariantNameSql::expression().' '.$direction);
                 break;
         }
 
@@ -290,7 +291,7 @@ class PriceControlQuery
             DB::raw('product_masters.id as product_master_id'),
             DB::raw("COALESCE(product_brands.name, '') as brand_name"),
             DB::raw("COALESCE(product_models.model_name, '') as model_name"),
-            DB::raw("COALESCE(product_variants.variant_name, '') as variant_name"),
+            DB::raw("COALESCE(".ProductVariantNameSql::expression().", '') as variant_name"),
             DB::raw("COALESCE(warehouses.name, '') as warehouse_name"),
             DB::raw("COALESCE(categories.name, '') as category_name"),
             DB::raw("COALESCE(subcategories.name, '') as subcategory_name"),

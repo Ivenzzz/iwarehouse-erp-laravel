@@ -7,7 +7,7 @@ use App\Models\ProductMaster;
 class GeneratesProductVariantName
 {
     /**
-     * @param  array{color?: string|null, ram?: string|null, rom?: string|null}  $attributes
+     * @param  array{model_code?: string|null, color?: string|null, ram?: string|null, rom?: string|null}  $attributes
      */
     public function fromAttributes(ProductMaster $productMaster, string $condition, array $attributes): string
     {
@@ -16,6 +16,7 @@ class GeneratesProductVariantName
         $parts = array_filter([
             trim((string) $productMaster->model->brand->name),
             trim((string) $productMaster->model->model_name),
+            $this->clean($attributes['model_code'] ?? null),
             $this->clean($attributes['ram'] ?? null),
             $this->clean($attributes['rom'] ?? null),
             $this->clean($attributes['color'] ?? null),

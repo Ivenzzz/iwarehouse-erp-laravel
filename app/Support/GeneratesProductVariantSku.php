@@ -7,7 +7,7 @@ use App\Models\ProductMaster;
 class GeneratesProductVariantSku
 {
     /**
-     * @param  array{color?: string|null, ram?: string|null, rom?: string|null}  $attributes
+     * @param  array{model_code?: string|null, color?: string|null, ram?: string|null, rom?: string|null}  $attributes
      */
     public function fromAttributes(ProductMaster $productMaster, string $condition, array $attributes): string
     {
@@ -16,6 +16,7 @@ class GeneratesProductVariantSku
         $parts = [
             $this->normalize($productMaster->model->brand->name),
             $this->normalize($productMaster->model->model_name),
+            $this->normalize($attributes['model_code'] ?? null),
             $this->normalize($attributes['ram'] ?? null),
             $this->normalize($attributes['rom'] ?? null),
             $this->normalize($attributes['color'] ?? null),

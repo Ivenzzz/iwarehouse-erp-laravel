@@ -28,11 +28,11 @@
       "format": "date-time",
       "description": "Date and time DR was encoded into the system"
     },
-    "received_by": {
+    "received_by_user_id": {
       "type": "string",
       "description": "UserProfile ID of the person who received the delivery"
     },
-    "encoded_by": {
+    "encoded_by_user_id": {
       "type": "string",
       "description": "UserProfile ID of the person who encoded the DR"
     },

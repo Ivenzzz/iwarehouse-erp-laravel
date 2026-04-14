@@ -4,7 +4,6 @@ namespace App\Features\ProductMasters\Actions;
 
 use App\Models\ProductMaster;
 use App\Models\ProductVariant;
-use App\Support\GeneratesProductVariantName;
 use App\Support\GeneratesProductVariantSku;
 use Illuminate\Support\Facades\DB;
 
@@ -12,7 +11,6 @@ class GenerateProductVariants
 {
     public function __construct(
         private readonly GeneratesProductVariantSku $skuGenerator,
-        private readonly GeneratesProductVariantName $nameGenerator,
     ) {}
 
     /**
@@ -49,6 +47,7 @@ class GenerateProductVariants
                     foreach ($rams as $ram) {
                         foreach ($roms as $rom) {
                             $canonicalAttributes = [
+                                'model_code' => $payload['shared_attributes']['model_code'] ?? '',
                                 'color' => $color,
                                 'ram' => $ram,
                                 'rom' => $rom,
@@ -67,11 +66,7 @@ class GenerateProductVariants
 
                             $variant = ProductVariant::create([
                                 'product_master_id' => $productMaster->id,
-                                'variant_name' => $this->nameGenerator->fromAttributes(
-                                    $productMaster,
-                                    $condition,
-                                    $canonicalAttributes,
-                                ),
+                                'model_code' => trim((string) ($canonicalAttributes['model_code'] ?? '')) ?: null,
                                 'sku' => $sku,
                                 'condition' => $condition,
                                 ...$this->filledAttributes([

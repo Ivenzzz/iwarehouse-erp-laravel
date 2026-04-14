@@ -106,7 +106,9 @@ export default function ImportInventoryItemsDialog({ open, onOpenChange, onSucce
                 <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleFileChange} />
                 <Upload className="mx-auto mb-4 size-12 text-slate-400" />
                 <p className="text-sm text-slate-600 dark:text-slate-400">Click to select the inventory CSV</p>
-                <p className="mt-1 text-xs text-slate-500">Required columns: Brand, Model, Warehouse, Condition</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Required columns: Brand, Model, Warehouse, Condition. Variant columns supported: RAM/ROM (or RAM Capacity/ROM Capacity), Color, CPU, GPU, RAM Type, ROM Type, Operating System (or OS), Screen (or Display).
+                </p>
                 {file ? (
                   <div className="mt-4 flex items-center justify-center gap-2 text-blue-600">
                     <FileText className="size-4" />

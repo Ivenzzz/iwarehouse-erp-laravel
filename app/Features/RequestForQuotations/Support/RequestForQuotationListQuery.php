@@ -52,7 +52,12 @@ class RequestForQuotationListQuery
                 ->orWhereHas('createdBy', fn (Builder $q) => $q->where('name', 'like', $like)->orWhere('email', 'like', $like))
                 ->orWhereHas('stockRequest.requestor', fn (Builder $q) => $q->where('name', 'like', $like)->orWhere('email', 'like', $like))
                 ->orWhereHas('stockRequest.warehouse', fn (Builder $q) => $q->where('name', 'like', $like))
-                ->orWhereHas('items.variant', fn (Builder $q) => $q->where('variant_name', 'like', $like)->orWhere('sku', 'like', $like))
+                ->orWhereHas('items.variant', fn (Builder $q) => $q
+                    ->where('sku', 'like', $like)
+                    ->orWhere('model_code', 'like', $like)
+                    ->orWhere('ram', 'like', $like)
+                    ->orWhere('rom', 'like', $like)
+                    ->orWhere('color', 'like', $like))
                 ->orWhereHas('supplierQuotes.supplier', fn (Builder $q) => $q->where('legal_business_name', 'like', $like)->orWhere('trade_name', 'like', $like));
         });
     }

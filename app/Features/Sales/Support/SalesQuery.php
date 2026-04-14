@@ -201,9 +201,12 @@ class SalesQuery
                     })
                     ->orWhereHas('items.inventoryItem.productVariant', function (Builder $variantQuery) use ($like): void {
                         $variantQuery
-                            ->where('variant_name', 'like', $like)
-                            ->orWhere('sku', 'like', $like)
+                            ->where('sku', 'like', $like)
                             ->orWhere('condition', 'like', $like)
+                            ->orWhere('model_code', 'like', $like)
+                            ->orWhere('ram', 'like', $like)
+                            ->orWhere('rom', 'like', $like)
+                            ->orWhere('color', 'like', $like)
                             ->orWhereHas('productMaster.model.brand', function (Builder $brandQuery) use ($like): void {
                                 $brandQuery
                                     ->where('name', 'like', $like)

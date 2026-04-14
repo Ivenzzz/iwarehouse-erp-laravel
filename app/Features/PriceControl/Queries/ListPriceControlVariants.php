@@ -3,6 +3,7 @@
 namespace App\Features\PriceControl\Queries;
 
 use App\Features\PriceControl\Support\PriceControlQuery;
+use App\Support\ProductVariantNameSql;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -42,7 +43,7 @@ class ListPriceControlVariants
 
             $query->where(function (Builder $builder) use ($like) {
                 $builder
-                    ->where('product_variants.variant_name', 'like', $like)
+                    ->whereRaw(ProductVariantNameSql::expression().' like ?', [$like])
                     ->orWhere('product_variants.sku', 'like', $like)
                     ->orWhere('product_masters.master_sku', 'like', $like)
                     ->orWhere('product_models.model_name', 'like', $like)
@@ -80,7 +81,7 @@ class ListPriceControlVariants
             ->select([
                 DB::raw('MIN(product_variants.id) as id'),
                 'product_variants.product_master_id',
-                DB::raw('MIN(product_variants.variant_name) as variant_name'),
+                DB::raw('MIN('.ProductVariantNameSql::expression().') as variant_name'),
                 DB::raw('MIN(product_variants.sku) as sku'),
                 'product_variants.condition',
                 'product_masters.master_sku',

@@ -3,7 +3,9 @@
 namespace App\Features\Inventory\Queries;
 
 use App\Models\ProductVariant;
+use App\Support\ProductVariantNameSql;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ListInventoryVariantOptions
 {
@@ -17,13 +19,18 @@ class ListInventoryVariantOptions
 
         $variants = ProductVariant::query()
             ->with('productMaster.model.brand')
+            ->join('product_masters', 'product_masters.id', '=', 'product_variants.product_master_id')
+            ->join('product_models', 'product_models.id', '=', 'product_masters.model_id')
+            ->join('product_brands', 'product_brands.id', '=', 'product_models.brand_id')
+            ->select('product_variants.*')
+            ->selectRaw(ProductVariantNameSql::expression().' as variant_name')
             ->when($productMasterId !== null && $productMasterId !== '', function ($query) use ($productMasterId) {
                 $query->where('product_master_id', (int) $productMasterId);
             })
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($query) use ($search) {
                     $query
-                        ->where('variant_name', 'like', "%{$search}%")
+                        ->where(DB::raw(ProductVariantNameSql::expression()), 'like', "%{$search}%")
                         ->orWhere('sku', 'like', "%{$search}%")
                         ->orWhere('condition', 'like', "%{$search}%")
                         ->orWhereHas('productMaster.model', function ($query) use ($search) {
@@ -32,7 +39,7 @@ class ListInventoryVariantOptions
                         });
                 });
             })
-            ->orderBy('variant_name')
+            ->orderByRaw(ProductVariantNameSql::expression())
             ->paginate(15)
             ->through(function (ProductVariant $variant) {
                 $brandName = $variant->productMaster?->model?->brand?->name;

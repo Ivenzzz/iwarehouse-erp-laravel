@@ -20,8 +20,8 @@ const getSpecsText = (inventoryItem) => {
     mainSpecs = [specsBase, color].filter(Boolean).join(" ");
   }
 
-  const cpu = inventoryItem?.cpu || inventoryItem?.platform_cpu || "";
-  const gpu = inventoryItem?.gpu || inventoryItem?.platform_gpu || "";
+  const cpu = inventoryItem?.variant_cpu || inventoryItem?.cpu || inventoryItem?.platform_cpu || "";
+  const gpu = inventoryItem?.variant_gpu || inventoryItem?.gpu || inventoryItem?.platform_gpu || "";
   const subSpecs = cpu && gpu ? `${cpu} | ${gpu}` : cpu || gpu || "";
 
   return { mainSpecs, subSpecs };

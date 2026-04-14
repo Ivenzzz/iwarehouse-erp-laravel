@@ -12,7 +12,7 @@ class StockRequestDataTransformer
         'warehouse:id,name',
         'requestor:id,name,email',
         'items:id,stock_request_id,variant_id,quantity,reason',
-        'items.variant:id,product_master_id,variant_name,sku,condition,color,ram,rom,cpu,gpu,ram_type,rom_type,operating_system,screen',
+        'items.variant:id,product_master_id,model_code,sku,condition,color,ram,rom,cpu,gpu,ram_type,rom_type,operating_system,screen',
         'items.variant.productMaster:id,model_id',
         'items.variant.productMaster.model:id,brand_id,model_name',
         'items.variant.productMaster.model.brand:id,name',

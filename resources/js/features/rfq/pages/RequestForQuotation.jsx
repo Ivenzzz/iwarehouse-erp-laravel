@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { Head, router } from "@inertiajs/react";
 import AppShell from "@/shared/layouts/AppShell";
-import { AlertMessage } from "@/components/shared/AlertMessage";
+import { toast } from "@/shared/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RefreshCw, Plus, Merge } from "lucide-react";
@@ -66,7 +66,6 @@ export default function RequestForQuotationPage({
   const [confirmDialog, setConfirmDialog] = useState({ open: false, title: "", description: "", onConfirm: null });
   const [showConsolidateDialog, setShowConsolidateDialog] = useState(false);
   const [quoteForm, setQuoteForm] = useState(createEmptyQuoteForm());
-  const [alertDialog, setAlertDialog] = useState({ open: false, title: "", description: "" });
 
   const companyInfo = { company_name: "iWarehouse Corp." };
   const { handlePrintRFQ } = useRFQPrint({ companyInfo });
@@ -134,12 +133,12 @@ export default function RequestForQuotationPage({
       await axios.post(route("request-for-quotations.create-from-approval"), {
         stock_request_id: selectedStockRequest.id,
       });
-      setAlertDialog({ open: true, title: "Success", description: "RFQ created successfully." });
+      toast({ title: "Success", description: "RFQ created successfully." });
       setShowRFQDialog(false);
       setSelectedStockRequest(null);
       router.reload({ only: RELOAD_PROPS, preserveScroll: true, preserveState: true });
     } catch (error) {
-      setAlertDialog({ open: true, title: "Error", description: error?.response?.data?.message || "Failed to create RFQ" });
+      toast({ variant: "destructive", title: "Error", description: error?.response?.data?.message || "Failed to create RFQ" });
     } finally {
       setIsSubmitting(false);
     }
@@ -175,12 +174,12 @@ export default function RequestForQuotationPage({
     try {
       const payload = buildAddQuotePayload(selectedRFQ.id, quoteForm);
       await axios.post(route("request-for-quotations.add-supplier-quote"), payload);
-      setAlertDialog({ open: true, title: "Success", description: "Supplier quote added successfully." });
+      toast({ title: "Success", description: "Supplier quote added successfully." });
       setShowAddQuoteDialog(false);
       setQuoteForm(createEmptyQuoteForm());
       router.reload({ only: RELOAD_PROPS, preserveScroll: true, preserveState: true });
     } catch (error) {
-      setAlertDialog({ open: true, title: "Error", description: error?.response?.data?.message || "Failed to add quote" });
+      toast({ variant: "destructive", title: "Error", description: error?.response?.data?.message || "Failed to add quote" });
     } finally {
       setIsSubmitting(false);
     }
@@ -190,7 +189,7 @@ export default function RequestForQuotationPage({
     const supplierQuotes = rfq.supplier_quotes?.supplier_quotes || [];
     const winningQuote = supplierQuotes.find((q) => q.supplier_id === winningSupplierId);
     if (!winningQuote?.id) {
-      setAlertDialog({ open: true, title: "Error", description: "Cannot award RFQ: supplier quote was not found." });
+      toast({ variant: "destructive", title: "Error", description: "Cannot award RFQ: supplier quote was not found." });
       return;
     }
 
@@ -205,11 +204,11 @@ export default function RequestForQuotationPage({
             rfq_id: rfq.id,
             supplier_quote_id: winningQuote.id,
           });
-          setAlertDialog({ open: true, title: "Success", description: "RFQ awarded successfully." });
+          toast({ title: "Success", description: "RFQ awarded successfully." });
           setShowCompareDialog(false);
           router.reload({ only: RELOAD_PROPS, preserveScroll: true, preserveState: true });
         } catch (error) {
-          setAlertDialog({ open: true, title: "Error", description: error?.response?.data?.message || "Failed to award RFQ" });
+          toast({ variant: "destructive", title: "Error", description: error?.response?.data?.message || "Failed to award RFQ" });
         } finally {
           setIsSubmitting(false);
           setConfirmDialog({ open: false, title: "", description: "", onConfirm: null });
@@ -219,7 +218,7 @@ export default function RequestForQuotationPage({
   };
 
   const handleEmail = (rfq) => {
-    setAlertDialog({ open: true, title: "Email", description: `Email prepared for ${rfq.rfq_number}. Opening mail client...` });
+    toast({ title: "Email", description: `Email prepared for ${rfq.rfq_number}. Opening mail client...` });
     const subject = `Request for Quotation - ${rfq.rfq_number}`;
     const body = "Dear Supplier,%0D%0A%0D%0APlease provide a quote for the requested items.%0D%0A%0D%0AThank you.";
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
@@ -233,11 +232,11 @@ export default function RequestForQuotationPage({
       await axios.post(route("request-for-quotations.consolidate"), {
         rfq_ids: selectedIds,
       });
-      setAlertDialog({ open: true, title: "Success", description: "RFQs consolidated successfully." });
+      toast({ title: "Success", description: "RFQs consolidated successfully." });
       setShowConsolidateDialog(false);
       router.reload({ only: RELOAD_PROPS, preserveScroll: true, preserveState: true });
     } catch (error) {
-      setAlertDialog({ open: true, title: "Error", description: error?.response?.data?.message || "Failed to consolidate RFQs" });
+      toast({ variant: "destructive", title: "Error", description: error?.response?.data?.message || "Failed to consolidate RFQs" });
     } finally {
       setIsSubmitting(false);
     }
@@ -436,14 +435,6 @@ export default function RequestForQuotationPage({
           </AlertDialogContent>
         </AlertDialog>
 
-        <AlertMessage
-          open={alertDialog.open}
-          onOpenChange={(open) => {
-            if (!open) setAlertDialog({ open: false, title: "", description: "" });
-          }}
-          title={alertDialog.title}
-          description={alertDialog.description}
-        />
       </div>
     </AppShell>
   );

@@ -3,7 +3,6 @@
 namespace App\Features\ProductMasters\Actions;
 
 use App\Models\ProductVariant;
-use App\Support\GeneratesProductVariantName;
 use App\Support\GeneratesProductVariantSku;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -12,12 +11,11 @@ class SaveProductVariant
 {
     public function __construct(
         private readonly GeneratesProductVariantSku $skuGenerator,
-        private readonly GeneratesProductVariantName $nameGenerator,
     ) {}
 
     /**
      * @param  array{
-     *     variant_name: string|null,
+     *     model_code: string|null,
      *     sku: string|null,
      *     condition: string,
      *     attributes: array<string, string>
@@ -29,6 +27,7 @@ class SaveProductVariant
             $productVariant->loadMissing('productMaster.model.brand', 'productMaster.subcategory.parent');
 
             $canonicalAttributes = [
+                'model_code' => $payload['attributes']['model_code'] ?? '',
                 'color' => $payload['attributes']['color'] ?? '',
                 'ram' => $payload['attributes']['ram'] ?? '',
                 'rom' => $payload['attributes']['rom'] ?? '',
@@ -52,11 +51,6 @@ class SaveProductVariant
             }
 
             $productVariant->update([
-                'variant_name' => $this->nameGenerator->fromAttributes(
-                    $productVariant->productMaster,
-                    $payload['condition'],
-                    $canonicalAttributes,
-                ),
                 'sku' => $sku,
                 'condition' => $payload['condition'],
                 ...$this->variantColumns($payload['attributes']),
@@ -70,6 +64,7 @@ class SaveProductVariant
     private function variantColumns(array $attributes): array
     {
         return collect([
+            'model_code',
             'color',
             'ram',
             'rom',

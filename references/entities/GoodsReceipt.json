@@ -19,10 +19,6 @@
       ],
       "default": "ongoing"
     },
-    "total_amount": {
-      "type": "number",
-      "description": "Total value of all received items"
-    },
     "discrepancy_info": {
       "type": "object",
       "description": "Discrepancy summary for the entire goods receipt",
@@ -86,42 +82,15 @@
               }
             }
           },
-          "spec": {
-            "type": "object",
-            "description": "Technical specifications for this exact received item",
-            "properties": {
-              "cpu": {
-                "type": "string"
-              },
-              "gpu": {
-                "type": "string"
-              },
-              "submodel": {
-                "type": "string"
-              },
-              "ram_type": {
-                "type": "string"
-              },
-              "rom_type": {
-                "type": "string"
-              },
-              "ram_slots": {
-                "type": "string"
-              },
-              "product_type": {
-                "type": "string"
-              },
-              "country_model": {
-                "type": "string"
-              },  
-              "with_charger": {
-                "type": "boolean",
-                "default": false
-              },
-              "resolution": {
-                "type": "string"
-              }
-            }
+          "product_type": {
+            "type": "string"
+          },
+          "country_model": {
+            "type": "string"
+          },
+          "with_charger": {
+            "type": "boolean",
+            "default": false
           },
           "item_notes": {
             "type": "string"

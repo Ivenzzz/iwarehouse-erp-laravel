@@ -57,7 +57,7 @@ export function getAdminNavSections({ permissions = [] } = {}) {
                 { label: 'SR Approval', href: route('stock-request-approvals.index'), active: route().current('stock-request-approvals.*') },
                 { label: 'RFQs', href: route('request-for-quotations.index'), active: route().current('request-for-quotations.*') },
                 { label: 'Purchase Orders', href: route('purchase-orders.index'), active: route().current('purchase-orders.*') },
-                { label: 'Delivery Receipts', href: route('dashboard') },
+                { label: 'Delivery Receipts', href: route('delivery-receipts.index'), active: route().current('delivery-receipts.*') },
                 { label: 'GRNs', href: route('dashboard') },
             ],
         },

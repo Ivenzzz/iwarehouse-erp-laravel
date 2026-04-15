@@ -6,6 +6,7 @@ use App\Features\DeliveryReceipts\Support\DeliveryReceiptDataTransformer;
 use App\Features\DeliveryReceipts\Support\DeliveryReceiptListQuery;
 use App\Features\PurchaseOrders\Support\PurchaseOrderDataTransformer;
 use App\Models\DeliveryReceipt;
+use App\Models\PaymentTerm;
 use App\Models\ProductBrand;
 use App\Models\ProductMaster;
 use App\Models\PurchaseOrder;
@@ -143,6 +144,14 @@ class ListDeliveryReceiptPageData
                         'subcategory_name' => $pm->subcategory?->name,
                     ])->values()->all(),
                 'brands' => ProductBrand::query()->orderBy('name')->get(['id', 'name'])->toArray(),
+                'payment_terms' => PaymentTerm::query()
+                    ->where('is_active', true)
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                    ->map(fn (PaymentTerm $term) => [
+                        'id' => $term->id,
+                        'name' => $term->name,
+                    ])->values()->all(),
                 'current_user' => $request->user() ? [
                     'id' => $request->user()->id,
                     'full_name' => $request->user()->name,
@@ -215,3 +224,4 @@ class ListDeliveryReceiptPageData
         ];
     }
 }
+

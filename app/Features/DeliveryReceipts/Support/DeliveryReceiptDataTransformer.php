@@ -4,6 +4,7 @@ namespace App\Features\DeliveryReceipts\Support;
 
 use App\Models\DeliveryReceipt;
 use App\Models\DeliveryReceiptItem;
+use Illuminate\Support\Str;
 
 class DeliveryReceiptDataTransformer
 {
@@ -19,7 +20,7 @@ class DeliveryReceiptDataTransformer
         'upload.boxPhotos:id,delivery_receipt_upload_id,photo_url',
         'items:id,delivery_receipt_id,product_master_id,expected_quantity,actual_quantity,unit_cost,cash_price,srp_price,total_value,variance_flag,variance_notes',
         'items.spec:id,delivery_receipt_item_id,model_code,ram,rom,condition',
-        'items.productMaster:id,model_id,name',
+        'items.productMaster:id,model_id,master_sku',
         'items.productMaster.model:id,brand_id,model_name',
         'items.productMaster.model.brand:id,name',
     ];
@@ -60,13 +61,18 @@ class DeliveryReceiptDataTransformer
                 'freight_cost' => (float) ($dr->logistics?->freight_cost ?? 0),
             ],
             'uploads_json' => [
-                'vendor_dr_url' => $dr->upload?->vendor_dr_url,
-                'waybill_url' => $dr->upload?->waybill_url,
-                'freight_invoice_url' => $dr->upload?->freight_invoice_url,
-                'driver_id_url' => $dr->upload?->driver_id_url,
-                'purchase_file_url' => $dr->upload?->purchase_file_url,
+                'vendor_dr_url' => self::toPublicUrlFromRelativePath($dr->upload?->vendor_dr_url),
+                'waybill_url' => self::toPublicUrlFromRelativePath($dr->upload?->waybill_url),
+                'freight_invoice_url' => self::toPublicUrlFromRelativePath($dr->upload?->freight_invoice_url),
+                'driver_id_url' => self::toPublicUrlFromRelativePath($dr->upload?->driver_id_url),
+                'purchase_file_url' => self::toPublicUrlFromRelativePath($dr->upload?->purchase_file_url),
                 'uploads_complete' => (bool) ($dr->upload?->uploads_complete ?? false),
-                'box_photos' => $dr->upload?->boxPhotos->pluck('photo_url')->values()->all() ?? [],
+                'box_photos' => $dr->upload?->boxPhotos
+                    ?->pluck('photo_url')
+                    ->map(fn ($path) => self::toPublicUrlFromRelativePath($path))
+                    ->filter()
+                    ->values()
+                    ->all() ?? [],
             ],
             'metadata_json' => [
                 'notes' => $dr->variance_notes,
@@ -107,5 +113,30 @@ class DeliveryReceiptDataTransformer
         return $dr->supplier?->trade_name
             ?? $dr->supplier?->legal_business_name
             ?? 'Unknown Supplier';
+    }
+
+    private static function toPublicUrlFromRelativePath(?string $path): ?string
+    {
+        if (! is_string($path)) {
+            return null;
+        }
+
+        $normalized = trim($path);
+
+        if ($normalized === '') {
+            return null;
+        }
+
+        // Strict relative mode: reject full URLs, absolute paths, and protocol-like values.
+        if (
+            Str::startsWith($normalized, ['http://', 'https://', '//', '/']) ||
+            str_contains($normalized, '://')
+        ) {
+            return null;
+        }
+
+        $normalized = str_replace('\\', '/', ltrim($normalized, '/'));
+
+        return '/storage/'.$normalized;
     }
 }

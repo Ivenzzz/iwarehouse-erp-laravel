@@ -4,10 +4,20 @@ namespace App\Features\DeliveryReceipts\Actions;
 
 use App\Models\DeliveryReceipt;
 use App\Models\PurchaseOrder;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 
 class CreateDeliveryReceipt
 {
+    private function storeUpload(?UploadedFile $file, string $directory): ?string
+    {
+        if (! $file instanceof UploadedFile) {
+            return null;
+        }
+
+        return $file->store($directory, 'public');
+    }
+
     public function handle(array $payload, ?int $userId = null): DeliveryReceipt
     {
         return DB::transaction(function () use ($payload, $userId) {
@@ -51,17 +61,26 @@ class CreateDeliveryReceipt
                 'freight_cost' => $freightCost,
             ]);
 
+            $uploadDirectory = sprintf('delivery-receipts/%d', (int) $dr->id);
+
             $upload = $dr->upload()->create([
-                'vendor_dr_url' => data_get($payload, 'uploads.vendor_dr_url'),
-                'waybill_url' => data_get($payload, 'uploads.waybill_url'),
-                'freight_invoice_url' => data_get($payload, 'uploads.freight_invoice_url'),
-                'driver_id_url' => data_get($payload, 'uploads.driver_id_url'),
+                'vendor_dr_url' => $this->storeUpload(data_get($payload, 'uploads.vendor_dr_file'), $uploadDirectory),
+                'waybill_url' => $this->storeUpload(data_get($payload, 'uploads.waybill_file'), $uploadDirectory),
+                'freight_invoice_url' => $this->storeUpload(data_get($payload, 'uploads.freight_invoice_file'), $uploadDirectory),
+                'driver_id_url' => $this->storeUpload(data_get($payload, 'uploads.driver_id_file'), $uploadDirectory),
                 'purchase_file_url' => data_get($payload, 'uploads.purchase_file_url'),
                 'uploads_complete' => (bool) data_get($payload, 'uploads.uploads_complete', false),
             ]);
 
-            foreach ((array) data_get($payload, 'uploads.box_photos', []) as $photoUrl) {
-                $upload->boxPhotos()->create(['photo_url' => $photoUrl]);
+            foreach ((array) data_get($payload, 'uploads.box_photos', []) as $photoFile) {
+                if (! $photoFile instanceof UploadedFile) {
+                    continue;
+                }
+
+                $photoPath = $photoFile->store($uploadDirectory, 'public');
+                $upload->boxPhotos()->create([
+                    'photo_url' => $photoPath,
+                ]);
             }
 
             foreach ($declaredItems as $item) {

@@ -11,7 +11,7 @@ export const getLocalDatetime = () => {
 export const createInitialFormData = (mainWarehouseId = '') => ({
   po_id: '',
   vendor_dr_number: '',
-  payment_terms: '',
+  payment_term_id: '',
   reference_number_1: '', 
   reference_number_2: '', 
   receipt_date: getLocalDatetime(),
@@ -27,11 +27,11 @@ export const createInitialFormData = (mainWarehouseId = '') => ({
   box_count_received: '',
   declared_items: [],
   uploads: {
-    vendor_dr_url: '',
-    waybill_url: '',
-    freight_invoice_url: '',
+    vendor_dr_url: null,
+    waybill_url: null,
+    freight_invoice_url: null,
     box_photos: [],
-    driver_id_url: ''
+    driver_id_url: null
   },
   variance_notes: '',
   notes: ''
@@ -121,7 +121,7 @@ export const buildDRPayload = (formData, selectedPO, currentUser, selectedSuppli
     po_id: formData.po_id || "",
     po_number: selectedPO?.po_number || "",
     has_goods_receipt: false,
-    payment_terms: formData.payment_terms || selectedPO?.financials_json?.payment_terms || "",
+    payment_term_id: formData.payment_term_id || selectedPO?.financials_json?.payment_term_id || "",
     reference_number: refNum || "",
     supplier_id: selectedPO?.supplier_id || formData.supplier_id,
     supplier_name: selectedPO?.supplier_name || supplierName,

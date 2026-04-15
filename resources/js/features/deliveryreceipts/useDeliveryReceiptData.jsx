@@ -100,6 +100,7 @@ export function useDeliveryReceiptData() {
     warehouses: lookups.warehouses || [],
     suppliers: lookups.suppliers || [],
     productMasters: lookups.product_masters || [],
+    paymentTerms: lookups.payment_terms || [],
     currentUser: lookups.current_user || null,
     brands: lookups.brands || [],
     queryClient: null,
@@ -109,3 +110,4 @@ export function useDeliveryReceiptData() {
     drKpis: dr.kpis || { count: 0, pending: 0, value: 0 },
   };
 }
+

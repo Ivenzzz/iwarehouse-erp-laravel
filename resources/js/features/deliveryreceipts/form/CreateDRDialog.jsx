@@ -1,4 +1,4 @@
-import React, { useEffect, useState, Suspense, lazy } from "react";
+import React, { useEffect, useMemo, useState, Suspense, lazy } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Truck } from "lucide-react";
@@ -17,6 +17,7 @@ export default function CreateDRDialog({
   formData,
   setFormData,
   suppliers,
+  paymentTerms = [],
   selectedPO,
   selectedSupplier,
   brands,
@@ -62,6 +63,16 @@ export default function CreateDRDialog({
     return () => cancelAnimationFrame(frameId);
   }, [open]);
 
+  const estimatedValue = useMemo(() => {
+    const itemsTotal = (formData?.declared_items || []).reduce((sum, item) => {
+      const qty = parseInt(item?.actual_quantity || 0, 10) || 0;
+      const unitCost = parseFloat(item?.unit_cost || 0) || 0;
+      return sum + (qty * unitCost);
+    }, 0);
+    const freightCost = parseFloat(formData?.freight_cost || 0) || 0;
+    return itemsTotal + freightCost;
+  }, [formData?.declared_items, formData?.freight_cost]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -89,6 +100,7 @@ export default function CreateDRDialog({
             formData={formData}
             setFormData={setFormData}
             suppliers={suppliers}
+            paymentTerms={paymentTerms}
             selectedPO={selectedPO}
             selectedSupplier={selectedSupplier}
             onSupplierSelect={onSupplierSelect}
@@ -104,6 +116,7 @@ export default function CreateDRDialog({
                 formData={formData}
                 brands={brands}
                 productMasters={productMasters}
+                selectedPOId={selectedPO?.id || null}
                 productSearchOpen={productSearchOpen}
                 setProductSearchOpen={setProductSearchOpen}
                 onAddItem={onAddItem}
@@ -146,11 +159,12 @@ export default function CreateDRDialog({
             <div className="flex-1 content-center text-sm text-muted-foreground">
               Est. Value:{" "}
               <span className="font-bold text-card-foreground">
-                PHP {formData.dr_value?.toLocaleString()}
+                PHP {estimatedValue.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
 
             <Button
+              type="button"
               variant="outline"
               onClick={onCancel}
               className="
@@ -163,6 +177,7 @@ export default function CreateDRDialog({
             </Button>
 
             <Button
+              type="button"
               onClick={onSubmit}
               disabled={isSubmitting}
               className="
@@ -179,3 +194,4 @@ export default function CreateDRDialog({
     </Dialog>
   );
 }
+

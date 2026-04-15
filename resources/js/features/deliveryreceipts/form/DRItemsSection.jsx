@@ -1,20 +1,20 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, X } from "lucide-react";
+import { Loader2, Plus, X } from "lucide-react";
 
 const SEARCH_MIN_CHARS = 2;
 const SEARCH_LIMIT = 25;
-const buildSpecSummary = ({ requestedRam, requestedRom, requestedCondition }) =>
-  [requestedRam, requestedRom, requestedCondition].filter(Boolean).join(" / ");
 
 function DRItemsSection({
   formData,
   brands = [],
   productMasters,
+  selectedPOId = null,
   productSearchOpen,
   setProductSearchOpen,
   onAddItem,
@@ -24,11 +24,17 @@ function DRItemsSection({
 }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const [variantOptions, setVariantOptions] = useState([]);
+  const [searchPage, setSearchPage] = useState(1);
+  const [searchHasMore, setSearchHasMore] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm.trim());
-    }, 250);
+    }, 600);
 
     return () => clearTimeout(timeoutId);
   }, [searchTerm]);
@@ -43,33 +49,73 @@ function DRItemsSection({
     [brands]
   );
 
-  const variantOptions = useMemo(() => {
-    if (productSearchOpen["new"] !== true || debouncedSearchTerm.length < SEARCH_MIN_CHARS) return [];
-    const searchTokens = debouncedSearchTerm.toLowerCase().split(/\s+/).filter(Boolean);
-    return productMasters
-      .map((product) => {
-        const brandName = brandById.get(product.brand_id)?.name || product?.model?.brand?.name || "";
-        const productName = product.product_name || product.name || "";
-        const productModel = product.model?.model_name || product.model || productName || "Unknown Product";
-        const searchableText = [brandName, productName, productModel, product.master_sku].filter(Boolean).join(" ").toLowerCase();
-        if (!searchTokens.every((token) => searchableText.includes(token))) return null;
-        return {
-          id: `pm-${product.id}`,
-          value: searchableText,
-          label: [brandName, productModel].filter(Boolean).join(" ") || productModel,
-          subtitle: buildSpecSummary({ requestedRam: "", requestedRom: "", requestedCondition: "" }) || "No spec",
-          product_master_id: product.id,
-          product_name: productName,
-          product_model: productModel,
-          brand_name: brandName,
-          requested_ram: "",
-          requested_rom: "",
-          requested_condition: "",
-        };
-      })
-      .filter(Boolean)
-      .slice(0, SEARCH_LIMIT);
-  }, [brandById, debouncedSearchTerm, productMasters, productSearchOpen]);
+  const fetchVariantOptions = useCallback(async ({ page = 1, append = false }) => {
+    const query = debouncedSearchTerm.trim();
+    const isPopoverOpen = productSearchOpen["new"] === true;
+    if (!isPopoverOpen || query.length < SEARCH_MIN_CHARS) return;
+
+    const requestId = ++requestIdRef.current;
+    if (append) setIsLoadingMore(true);
+    else setIsSearching(true);
+
+    try {
+      const { data } = await axios.get(route("delivery-receipts.variant-options"), {
+        params: {
+          search: query,
+          page,
+          per_page: SEARCH_LIMIT,
+          mode: isManualDR ? "supplier" : "po",
+          po_id: selectedPOId || undefined,
+        },
+      });
+
+      if (requestIdRef.current !== requestId) return;
+      const fetchedOptions = Array.isArray(data?.options) ? data.options : [];
+      const hasMore = Boolean(data?.pagination?.has_more);
+      setVariantOptions((prev) => (append ? [...prev, ...fetchedOptions] : fetchedOptions));
+      setSearchPage(page);
+      setSearchHasMore(hasMore);
+    } catch {
+      if (requestIdRef.current !== requestId) return;
+      if (!append) {
+        setVariantOptions([]);
+        setSearchPage(1);
+        setSearchHasMore(false);
+      }
+    } finally {
+      if (requestIdRef.current === requestId) {
+        setIsSearching(false);
+        setIsLoadingMore(false);
+      }
+    }
+  }, [debouncedSearchTerm, isManualDR, productSearchOpen, selectedPOId]);
+
+  useEffect(() => {
+    if (productSearchOpen["new"] !== true) {
+      setVariantOptions([]);
+      setSearchPage(1);
+      setSearchHasMore(false);
+      setIsSearching(false);
+      setIsLoadingMore(false);
+      return;
+    }
+
+    if (debouncedSearchTerm.length < SEARCH_MIN_CHARS) {
+      setVariantOptions([]);
+      setSearchPage(1);
+      setSearchHasMore(false);
+      setIsSearching(false);
+      setIsLoadingMore(false);
+      return;
+    }
+
+    fetchVariantOptions({ page: 1, append: false });
+  }, [debouncedSearchTerm, fetchVariantOptions, productSearchOpen]);
+
+  const handleLoadMore = useCallback(() => {
+    if (isSearching || isLoadingMore || !searchHasMore) return;
+    fetchVariantOptions({ page: searchPage + 1, append: true });
+  }, [fetchVariantOptions, isLoadingMore, isSearching, searchHasMore, searchPage]);
 
   return (
     <div className="space-y-4 rounded-lg border border-border bg-card p-4 text-card-foreground">
@@ -84,6 +130,9 @@ function DRItemsSection({
               if (!open) {
                 setSearchTerm("");
                 setDebouncedSearchTerm("");
+                setVariantOptions([]);
+                setSearchPage(1);
+                setSearchHasMore(false);
               }
             }}
           >
@@ -102,14 +151,20 @@ function DRItemsSection({
               className="w-[500px] border border-border bg-popover p-0 text-popover-foreground"
               onOpenAutoFocus={(e) => e.preventDefault()}
             >
-              <Command className="bg-popover text-popover-foreground">
+              <Command shouldFilter={false} className="bg-popover text-popover-foreground p-2">
                 <CommandInput
-                  placeholder="Search product, RAM, ROM, or condition..."
+                  placeholder="Search product, model code, condition, RAM, ROM, or color..."
                   value={searchTerm}
                   onValueChange={setSearchTerm}
                   className="placeholder:text-muted-foreground"
                 />
-                <CommandEmpty className="text-muted-foreground">
+                {isSearching && (
+                  <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Searching...
+                  </div>
+                )}
+                <CommandEmpty className="text-muted-foreground p-2">
                   {debouncedSearchTerm.length < SEARCH_MIN_CHARS
                     ? `Type at least ${SEARCH_MIN_CHARS} characters to search.`
                     : "No variant found."}
@@ -130,11 +185,35 @@ function DRItemsSection({
                     >
                       <div className="flex flex-col">
                         <span className="font-medium text-popover-foreground">{variant.label}</span>
-                        <span className="text-xs text-muted-foreground">{variant.subtitle}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {variant.subtitle}
+                          {typeof variant.color_count === "number" && variant.color_count > 0 ? ` | ${variant.color_count} colors` : ""}
+                        </span>
                       </div>
                     </CommandItem>
                   ))}
                 </CommandGroup>
+                {variantOptions.length > 0 && searchHasMore && (
+                  <div className="border-t border-border px-2 pb-1 pt-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="w-full"
+                      onClick={handleLoadMore}
+                      disabled={isLoadingMore || isSearching}
+                    >
+                      {isLoadingMore ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        "Load more"
+                      )}
+                    </Button>
+                  </div>
+                )}
               </Command>
             </PopoverContent>
           </Popover>

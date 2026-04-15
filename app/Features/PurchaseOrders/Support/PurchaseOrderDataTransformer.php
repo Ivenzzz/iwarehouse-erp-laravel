@@ -60,6 +60,7 @@ class PurchaseOrderDataTransformer
                 'subtotal' => $subtotal,
                 'shipping_amount' => $shippingAmount,
                 'total_amount' => $subtotal + $shippingAmount,
+                'payment_term_id' => $po->payment_term_id,
                 'payment_terms' => $po->paymentTerm?->name ?? $po->selectedSupplierQuote?->payment_terms,
             ],
             'items_json' => [

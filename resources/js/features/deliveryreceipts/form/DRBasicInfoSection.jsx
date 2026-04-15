@@ -7,20 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import { getSupplierDisplayName } from "../hooks/useDeliveryReceiptRelations";
 
-const PAYMENT_TERM_OPTIONS = [
-  "NET 7",
-  "NET 15",
-  "NET 30",
-  "NET 45",
-  "NET 60",
-  "NET 90",
-];
-
 function DRBasicInfoSection({
   mode = "supplier",
   formData,
   setFormData,
   suppliers,
+  paymentTerms = [],
   selectedPO,
   selectedSupplier,
   onSupplierSelect,
@@ -201,16 +193,16 @@ function DRBasicInfoSection({
           <div className="pt-2">
             <Label className="text-xs text-muted-foreground">Payment Terms (Optional)</Label>
             <Select
-              value={formData.payment_terms || ""}
-              onValueChange={(value) => setFormData((prev) => ({ ...prev, payment_terms: value }))}
+              value={formData.payment_term_id ? String(formData.payment_term_id) : ""}
+              onValueChange={(value) => setFormData((prev) => ({ ...prev, payment_term_id: value }))}
             >
               <SelectTrigger className="border-input bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-ring">
                 <SelectValue placeholder="Select payment terms..." />
               </SelectTrigger>
               <SelectContent>
-                {PAYMENT_TERM_OPTIONS.map((option) => (
-                  <SelectItem key={option} value={option}>
-                    {option}
+                {paymentTerms.map((term) => (
+                  <SelectItem key={term.id} value={String(term.id)}>
+                    {term.name}
                   </SelectItem>
                 ))}
               </SelectContent>

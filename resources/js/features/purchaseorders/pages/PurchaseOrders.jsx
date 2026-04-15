@@ -48,6 +48,16 @@ const getPaymentBadgeClass = (hasPaid) =>
 
 const getPaymentBadgeLabel = (hasPaid) => (hasPaid ? "Paid" : "Unpaid");
 
+const hasDeliveryReceiptFlag = (value) => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value === 1;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return normalized === "1" || normalized === "true" || normalized === "yes";
+  }
+  return false;
+};
+
 const normalizeSpecPart = (value) => String(value || "").trim().toLowerCase();
 
 const buildRequestItemKey = (productMasterId, spec) =>
@@ -1023,6 +1033,11 @@ export default function PurchaseOrderManagement({
                             <Badge className={`${getStatusColor(po.status)} border`} variant="outline">
                               {getStatusLabel(po.status)}
                             </Badge>
+                            {hasDeliveryReceiptFlag(po.has_delivery_receipt) && (
+                              <Badge className="border-success/20 bg-success/10 text-success border" variant="outline">
+                                Arrived
+                              </Badge>
+                            )}
                             <Badge className={`${getPaymentBadgeClass(isPaid)} border`} variant="outline">
                               {getPaymentBadgeLabel(isPaid)}
                             </Badge>

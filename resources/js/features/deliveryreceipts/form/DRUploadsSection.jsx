@@ -149,13 +149,13 @@ export default function DRUploadsSection({
                 <div className="mt-3 space-y-2">
                   {upload.key === "box_photos" ? (
                     <div className="space-y-1">
-                      {formData.uploads[upload.key].map((url, idx) => (
+                      {formData.uploads[upload.key].map((entry, idx) => (
                         <div
                           key={idx}
                           className="flex items-center justify-between rounded border border-border bg-muted p-2"
                         >
                           <span className="flex-1 truncate text-xs text-foreground">
-                            Photo {idx + 1}
+                            {entry?.file_name || `Photo ${idx + 1}`}
                           </span>
                           <Button
                             type="button"
@@ -172,7 +172,7 @@ export default function DRUploadsSection({
                   ) : (
                     <div className="flex items-center justify-between rounded border border-border bg-muted p-2">
                       <span className="flex-1 truncate text-xs text-foreground">
-                        File uploaded
+                        {formData.uploads[upload.key]?.file_name || "File uploaded"}
                       </span>
                       <Button
                         type="button"
@@ -239,7 +239,7 @@ export default function DRUploadsSection({
 
               {isUploaded && (
                 <div className="mt-2 flex items-center justify-between rounded border border-success/20 bg-success/10 p-2">
-                  <span className="text-xs text-success">File uploaded</span>
+                  <span className="text-xs text-success">{formData.uploads[upload.key]?.file_name || "File uploaded"}</span>
                   <Button
                     type="button"
                     variant="ghost"

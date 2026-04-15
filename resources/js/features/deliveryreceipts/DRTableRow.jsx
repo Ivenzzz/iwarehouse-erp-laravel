@@ -1,7 +1,7 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Image as ImageIcon, Activity } from "lucide-react";
+import { Eye, Activity } from "lucide-react";
 import { format } from "date-fns";
 
 const getStatusTone = (status) => {
@@ -19,7 +19,7 @@ const getStatusTone = (status) => {
   }
 };
 
-function DRTableRow({ dr, onViewDetails, onViewPhotos, onViewHistory }) {
+function DRTableRow({ dr, onViewDetails, onViewHistory }) {
   const receiptDate = new Date(dr.date_received || dr.receipt_date || dr.created_date);
   const declared = dr.declared_items_json || {};
   const itemsList = declared.items || dr.declared_items || [];
@@ -28,7 +28,6 @@ function DRTableRow({ dr, onViewDetails, onViewPhotos, onViewHistory }) {
     0
   );
   const totalLandedCost = declared.total_landed_cost || dr.total_landed_cost || 0;
-  const hasUploads = (dr.uploads_json || dr.uploads)?.box_photos?.length > 0;
   const encodedByValue = dr.encoded_by || dr.metadata_json?.encoded_by || dr.created_by;
   const encodedByUser = encodedByValue?.includes?.("@") ? encodedByValue.split("@")[0] : encodedByValue;
   const isDirectImport = !dr.po_id;
@@ -98,17 +97,6 @@ function DRTableRow({ dr, onViewDetails, onViewPhotos, onViewHistory }) {
           >
             <Eye className="mr-1.5 h-3.5 w-3.5" /> View
           </Button>
-          {hasUploads && (
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => onViewPhotos(dr)}
-              className="h-8 w-8 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              title="View Photos"
-            >
-              <ImageIcon className="h-4 w-4" />
-            </Button>
-          )}
           <Button
             size="icon"
             variant="ghost"

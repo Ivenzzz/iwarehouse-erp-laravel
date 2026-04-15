@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback, lazy, Suspense, useEffect } from "react";
 import { Head } from "@inertiajs/react";
+import AppShell from "@/shared/layouts/AppShell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription,
@@ -50,6 +51,7 @@ export default function DeliveryReceipts() {
     warehouses,
     suppliers,
     productMasters,
+    paymentTerms,
     currentUser,
     brands,
     refreshData,
@@ -123,6 +125,14 @@ export default function DeliveryReceipts() {
     setShowPhotoViewerDialog(true);
   }, [historyHook.extractPhotosFromDR]);
 
+  const handleOpenUploadsFromDetails = useCallback((files, startIndex = 0) => {
+    if (!Array.isArray(files) || files.length === 0) return;
+    const safeIndex = Math.max(0, Math.min(files.length - 1, startIndex));
+    setSelectedPhotos(files);
+    setCurrentPhotoIndex(safeIndex);
+    setShowPhotoViewerDialog(true);
+  }, []);
+
   const handleViewHistory = useCallback(async (dr) => {
     setSelectedDR(dr);
     setHistoryChain([]);
@@ -152,161 +162,166 @@ export default function DeliveryReceipts() {
   const handleCancelCreate = useCallback(() => setShowCreateDialog(false), []);
 
   return (
-    <div className="min-h-screen space-y-6 bg-background p-6 text-foreground">
+    <AppShell title="Delivery Receipts">
       <Head title="Delivery Receipts" />
-      <Tabs value={activeMainTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="mb-6 grid w-[400px] grid-cols-2 border border-border bg-muted text-muted-foreground">
-          <TabsTrigger
-            value="confirmed_pos"
-            className="border border-transparent text-muted-foreground data-[state=active]:border-border data-[state=active]:bg-background data-[state=active]:text-foreground"
-          >
-            Incoming POs
-          </TabsTrigger>
-          <TabsTrigger
-            value="all_drs"
-            className="border border-transparent text-muted-foreground data-[state=active]:border-border data-[state=active]:bg-background data-[state=active]:text-foreground"
-          >
-            Receipt History
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="confirmed_pos">
-          <POsReadyForDR
-            purchaseOrders={purchaseOrders}
-            purchaseOrdersTotal={purchaseOrdersTotal}
-            currentPage={incomingPOPage}
-            pageSize={incomingPOPageSize}
-            hasMorePages={hasMoreIncomingPOs}
-            isFetchingMore={isFetchingIncomingPOs}
-            searchValue={incomingPOSearch}
-            filterTime={incomingPOTimeFilter}
-            filterWarehouse={incomingPOWarehouseFilter}
-            onSearchChange={setIncomingPOSearch}
-            onFilterTimeChange={setIncomingPOTimeFilter}
-            onFilterWarehouseChange={setIncomingPOWarehouseFilter}
-            onPageChange={setIncomingPOPage}
-            productMasters={productMasters}
-            warehouses={warehouses}
-            onSelectPO={handleReceiveFromPO}
-            onManualCreate={handleManualCreate}
-            onRefresh={refreshData}
-            metrics={incomingKpis}
-          />
-        </TabsContent>
-
-        <TabsContent value="all_drs">
-          <DRTable
-            deliveryReceipts={deliveryReceipts}
-            deliveryReceiptsTotal={deliveryReceiptsTotal}
-            currentPage={drPage}
-            pageSize={drPageSize}
-            hasMorePages={hasMoreDeliveryReceipts}
-            searchValue={drSearch}
-            statusFilter={drStatusFilter}
-            onSearchChange={setDRSearch}
-            onStatusFilterChange={setDRStatusFilter}
-            onPageChange={setDRPage}
-            onViewDetails={handleViewDetails}
-            onViewPhotos={handleViewPhotos}
-            onViewHistory={handleViewHistory}
-            metrics={drKpis}
-          />
-        </TabsContent>
-      </Tabs>
-
-      {/* Lazy dialogs - only load JS when opened */}
-      {showCreateDialog && (
-        <Suspense fallback={null}>
-          <CreateDRDialog
-            open={showCreateDialog}
-            onOpenChange={handleCloseCreateDialog}
-            mode={createMode}
-            formData={formHook.formData}
-            setFormData={formHook.setFormData}
-            suppliers={suppliers}
-            selectedPO={formHook.selectedPO}
-            selectedSupplier={formHook.selectedSupplier}
-            brands={brands}
-            productMasters={productMasters}
-            uploadProgress={formHook.uploadProgress}
-            dragStates={formHook.dragStates}
-            uploadedCount={formHook.uploadedCount}
-            allRequiredUploaded={formHook.allRequiredUploaded}
-            productSearchOpen={formHook.productSearchOpen}
-            setProductSearchOpen={formHook.setProductSearchOpen}
-            isSubmitting={formHook.isSubmitting}
-            onSupplierSelect={formHook.handleSupplierSelect}
-            onAddItem={formHook.handleAddItem}
-            onItemChange={formHook.handleItemChange}
-            onRemoveItem={formHook.handleRemoveItem}
-            onDragEnter={formHook.handleDragEnter}
-            onDragLeave={formHook.handleDragLeave}
-            onDragOver={formHook.handleDragOver}
-            onDrop={formHook.handleDrop}
-            onFileUpload={formHook.handleFileUpload}
-            onRemoveUpload={formHook.handleRemoveUpload}
-            onStartCamera={cameraHook.handleStartCamera}
-            onSubmit={handleSubmitDR}
-            onCancel={handleCancelCreate}
-          />
-        </Suspense>
-      )}
-
-      {cameraHook.showCameraDialog && (
-        <Suspense fallback={null}>
-          <CameraDialog
-            open={cameraHook.showCameraDialog}
-            videoRef={cameraHook.videoRef}
-            onCapture={cameraHook.handleCapturePhoto}
-            onClose={cameraHook.handleStopCamera}
-          />
-        </Suspense>
-      )}
-
-      <PhotoViewerDialog
-        open={showPhotoViewerDialog}
-        onOpenChange={setShowPhotoViewerDialog}
-        selectedPhotos={selectedPhotos}
-        currentPhotoIndex={currentPhotoIndex}
-        setCurrentPhotoIndex={setCurrentPhotoIndex}
-      />
-
-      <DRDetailsDialog
-        open={showDetailsDialog}
-        onOpenChange={setShowDetailsDialog}
-        selectedDR={selectedDR}
-        productMasters={productMasters}
-      />
-
-      <HistoryDialog
-        open={showHistoryDialog}
-        onOpenChange={setShowHistoryDialog}
-        selectedDR={selectedDR}
-        historyChain={historyChain}
-        isLoading={historyLoading}
-      />
-
-      <AlertDialog
-        open={formHook.alertDialog.open}
-        onOpenChange={(open) => formHook.setAlertDialog((prev) => ({ ...prev, open }))}
-      >
-        <AlertDialogContent className="border border-border bg-card text-card-foreground">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-card-foreground">{formHook.alertDialog.title}</AlertDialogTitle>
-            <AlertDialogDescription className="text-muted-foreground">
-              {formHook.alertDialog.description}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction
-              onClick={() => formHook.setAlertDialog((prev) => ({ ...prev, open: false }))}
-              className="border border-primary/20 bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring"
+      <div className="space-y-6 text-foreground">
+        <Tabs value={activeMainTab} onValueChange={handleTabChange} className="w-full">
+          <TabsList className="mb-6 grid w-[400px] grid-cols-2 border border-border bg-muted text-muted-foreground">
+            <TabsTrigger
+              value="confirmed_pos"
+              className="border border-transparent text-muted-foreground data-[state=active]:border-border data-[state=active]:bg-background data-[state=active]:text-foreground"
             >
-              OK
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+              Incoming POs
+            </TabsTrigger>
+            <TabsTrigger
+              value="all_drs"
+              className="border border-transparent text-muted-foreground data-[state=active]:border-border data-[state=active]:bg-background data-[state=active]:text-foreground"
+            >
+              Receipt History
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="confirmed_pos">
+            <POsReadyForDR
+              purchaseOrders={purchaseOrders}
+              purchaseOrdersTotal={purchaseOrdersTotal}
+              currentPage={incomingPOPage}
+              pageSize={incomingPOPageSize}
+              hasMorePages={hasMoreIncomingPOs}
+              isFetchingMore={isFetchingIncomingPOs}
+              searchValue={incomingPOSearch}
+              filterTime={incomingPOTimeFilter}
+              filterWarehouse={incomingPOWarehouseFilter}
+              onSearchChange={setIncomingPOSearch}
+              onFilterTimeChange={setIncomingPOTimeFilter}
+              onFilterWarehouseChange={setIncomingPOWarehouseFilter}
+              onPageChange={setIncomingPOPage}
+              productMasters={productMasters}
+              warehouses={warehouses}
+              onSelectPO={handleReceiveFromPO}
+              onManualCreate={handleManualCreate}
+              onRefresh={refreshData}
+              metrics={incomingKpis}
+            />
+          </TabsContent>
+
+          <TabsContent value="all_drs">
+            <DRTable
+              deliveryReceipts={deliveryReceipts}
+              deliveryReceiptsTotal={deliveryReceiptsTotal}
+              currentPage={drPage}
+              pageSize={drPageSize}
+              hasMorePages={hasMoreDeliveryReceipts}
+              searchValue={drSearch}
+              statusFilter={drStatusFilter}
+              onSearchChange={setDRSearch}
+              onStatusFilterChange={setDRStatusFilter}
+              onPageChange={setDRPage}
+              onViewDetails={handleViewDetails}
+              onViewPhotos={handleViewPhotos}
+              onViewHistory={handleViewHistory}
+              metrics={drKpis}
+            />
+          </TabsContent>
+        </Tabs>
+
+        {/* Lazy dialogs - only load JS when opened */}
+        {showCreateDialog && (
+          <Suspense fallback={null}>
+            <CreateDRDialog
+              open={showCreateDialog}
+              onOpenChange={handleCloseCreateDialog}
+              mode={createMode}
+              formData={formHook.formData}
+              setFormData={formHook.setFormData}
+              suppliers={suppliers}
+              paymentTerms={paymentTerms}
+              selectedPO={formHook.selectedPO}
+              selectedSupplier={formHook.selectedSupplier}
+              brands={brands}
+              productMasters={productMasters}
+              uploadProgress={formHook.uploadProgress}
+              dragStates={formHook.dragStates}
+              uploadedCount={formHook.uploadedCount}
+              allRequiredUploaded={formHook.allRequiredUploaded}
+              productSearchOpen={formHook.productSearchOpen}
+              setProductSearchOpen={formHook.setProductSearchOpen}
+              isSubmitting={formHook.isSubmitting}
+              onSupplierSelect={formHook.handleSupplierSelect}
+              onAddItem={formHook.handleAddItem}
+              onItemChange={formHook.handleItemChange}
+              onRemoveItem={formHook.handleRemoveItem}
+              onDragEnter={formHook.handleDragEnter}
+              onDragLeave={formHook.handleDragLeave}
+              onDragOver={formHook.handleDragOver}
+              onDrop={formHook.handleDrop}
+              onFileUpload={formHook.handleFileUpload}
+              onRemoveUpload={formHook.handleRemoveUpload}
+              onStartCamera={cameraHook.handleStartCamera}
+              onSubmit={handleSubmitDR}
+              onCancel={handleCancelCreate}
+            />
+          </Suspense>
+        )}
+
+        {cameraHook.showCameraDialog && (
+          <Suspense fallback={null}>
+            <CameraDialog
+              open={cameraHook.showCameraDialog}
+              videoRef={cameraHook.videoRef}
+              onCapture={cameraHook.handleCapturePhoto}
+              onClose={cameraHook.handleStopCamera}
+            />
+          </Suspense>
+        )}
+
+        <PhotoViewerDialog
+          open={showPhotoViewerDialog}
+          onOpenChange={setShowPhotoViewerDialog}
+          selectedPhotos={selectedPhotos}
+          currentPhotoIndex={currentPhotoIndex}
+          setCurrentPhotoIndex={setCurrentPhotoIndex}
+        />
+
+        <DRDetailsDialog
+          open={showDetailsDialog}
+          onOpenChange={setShowDetailsDialog}
+          selectedDR={selectedDR}
+          productMasters={productMasters}
+          onOpenUploadViewer={handleOpenUploadsFromDetails}
+        />
+
+        <HistoryDialog
+          open={showHistoryDialog}
+          onOpenChange={setShowHistoryDialog}
+          selectedDR={selectedDR}
+          historyChain={historyChain}
+          isLoading={historyLoading}
+        />
+
+        <AlertDialog
+          open={formHook.alertDialog.open}
+          onOpenChange={(open) => formHook.setAlertDialog((prev) => ({ ...prev, open }))}
+        >
+          <AlertDialogContent className="border border-border bg-card text-card-foreground">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-card-foreground">{formHook.alertDialog.title}</AlertDialogTitle>
+              <AlertDialogDescription className="text-muted-foreground">
+                {formHook.alertDialog.description}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction
+                onClick={() => formHook.setAlertDialog((prev) => ({ ...prev, open: false }))}
+                className="border border-primary/20 bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                OK
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </AppShell>
   );
 }
+

@@ -6,11 +6,13 @@ use App\Features\DeliveryReceipts\Actions\CreateDeliveryReceipt;
 use App\Features\DeliveryReceipts\Actions\ExportDeliveryReceiptsCsv;
 use App\Features\DeliveryReceipts\Actions\GetDeliveryReceiptHistoryChain;
 use App\Features\DeliveryReceipts\Queries\ListDeliveryReceiptPageData;
+use App\Features\DeliveryReceipts\Queries\ListDeliveryReceiptVariantOptions;
 use App\Features\DeliveryReceipts\Support\DeliveryReceiptDataTransformer;
 use App\Http\Controllers\Controller;
 use App\Models\DeliveryReceipt;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -22,7 +24,7 @@ class DeliveryReceiptController extends Controller
         return Inertia::render('DeliveryReceipts', $query($request));
     }
 
-    public function store(Request $request, CreateDeliveryReceipt $action): JsonResponse
+    public function store(Request $request, CreateDeliveryReceipt $action): JsonResponse|RedirectResponse
     {
         $validated = $request->validate([
             'po_id' => ['nullable', 'integer', 'exists:purchase_orders,id'],
@@ -44,14 +46,14 @@ class DeliveryReceiptController extends Controller
             'summary.box_count_received' => ['nullable', 'integer', 'min:0'],
             'summary.variance_notes' => ['nullable', 'string'],
             'uploads' => ['required', 'array'],
-            'uploads.vendor_dr_url' => ['nullable', 'string', 'max:500'],
-            'uploads.waybill_url' => ['nullable', 'string', 'max:500'],
-            'uploads.freight_invoice_url' => ['nullable', 'string', 'max:500'],
-            'uploads.driver_id_url' => ['nullable', 'string', 'max:500'],
+            'uploads.vendor_dr_file' => ['nullable', 'file', 'max:10240', 'mimes:pdf,jpg,jpeg,png,webp'],
+            'uploads.waybill_file' => ['nullable', 'file', 'max:10240', 'mimes:pdf,jpg,jpeg,png,webp'],
+            'uploads.freight_invoice_file' => ['nullable', 'file', 'max:10240', 'mimes:pdf,jpg,jpeg,png,webp'],
+            'uploads.driver_id_file' => ['nullable', 'file', 'max:10240', 'mimes:pdf,jpg,jpeg,png,webp'],
             'uploads.purchase_file_url' => ['nullable', 'string', 'max:500'],
             'uploads.uploads_complete' => ['nullable', 'boolean'],
             'uploads.box_photos' => ['nullable', 'array'],
-            'uploads.box_photos.*' => ['string', 'max:500'],
+            'uploads.box_photos.*' => ['file', 'image', 'max:10240'],
             'declared_items' => ['required', 'array', 'min:1'],
             'declared_items.*.product_master_id' => ['required', 'integer', 'exists:product_masters,id'],
             'declared_items.*.expected_quantity' => ['nullable', 'integer', 'min:0'],
@@ -71,10 +73,18 @@ class DeliveryReceiptController extends Controller
         $dr = $action->handle($validated, $request->user()?->id);
         $dr->load(DeliveryReceiptDataTransformer::RELATIONS);
 
-        return response()->json([
+        $responsePayload = [
             'ok' => true,
             'delivery_receipt' => DeliveryReceiptDataTransformer::transform($dr),
-        ]);
+        ];
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json($responsePayload);
+        }
+
+        return redirect()
+            ->route('delivery-receipts.index')
+            ->with('success', sprintf('Delivery Receipt %s created successfully.', (string) $dr->dr_number));
     }
 
     public function export(Request $request, ExportDeliveryReceiptsCsv $action): StreamedResponse
@@ -87,5 +97,10 @@ class DeliveryReceiptController extends Controller
         return response()->json([
             'history' => $action->handle($deliveryReceipt),
         ]);
+    }
+
+    public function variantOptions(Request $request, ListDeliveryReceiptVariantOptions $listDeliveryReceiptVariantOptions): JsonResponse
+    {
+        return response()->json($listDeliveryReceiptVariantOptions($request));
     }
 }

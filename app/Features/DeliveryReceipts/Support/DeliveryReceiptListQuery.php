@@ -70,30 +70,6 @@ class DeliveryReceiptListQuery
             ->where('purchase_orders.status', 'approved')
             ->where('purchase_orders.has_delivery_receipt', false);
 
-        if ($warehouseFilter !== 'all') {
-            // No destination warehouse on purchase_orders; keep query stable and permissive.
-            $query->whereRaw('1 = 1');
-        }
-
-        if ($timeFilter === 'overdue') {
-            $query->whereDate('purchase_orders.expected_delivery_date', '<', now()->toDateString());
-        } elseif ($timeFilter === 'this_week') {
-            $query->whereBetween('purchase_orders.expected_delivery_date', [
-                now()->startOfWeek()->toDateString(),
-                now()->endOfWeek()->toDateString(),
-            ]);
-        }
-
-        if ($search !== '') {
-            $like = '%'.$search.'%';
-            $query->where(function (Builder $inner) use ($like) {
-                $inner
-                    ->where('purchase_orders.po_number', 'like', $like)
-                    ->orWhere('suppliers.legal_business_name', 'like', $like)
-                    ->orWhere('suppliers.trade_name', 'like', $like);
-            });
-        }
-
         return $query->orderBy(self::PO_SORTABLE_COLUMNS[$sort], $direction);
     }
 }

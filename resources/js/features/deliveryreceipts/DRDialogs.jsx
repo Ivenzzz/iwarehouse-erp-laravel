@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,7 +37,7 @@ const getDeclaredItemProductLabel = (item, productMasters = []) => {
   };
 };
 
-export function DRDetailsDialog({ open, onOpenChange, selectedDR, productMasters = [] }) {
+export function DRDetailsDialog({ open, onOpenChange, selectedDR, productMasters = [], onOpenUploadViewer }) {
   if (!selectedDR) return null;
 
   // Extract data with fallbacks
@@ -56,6 +56,32 @@ export function DRDetailsDialog({ open, onOpenChange, selectedDR, productMasters
   const freightCost = logistics.freight_cost || selectedDR.freight_cost || 0;
   // Calculate total landed cost on the fly
   const totalLandedCost = drValue + freightCost;
+  const uploads = selectedDR.uploads_json || {};
+  const uploadFiles = useMemo(() => {
+    const boxPhotos = (uploads.box_photos || [])
+      .filter((url) => typeof url === "string" && url.trim() !== "")
+      .map((url) => ({ url, type: "image", label: "Box Photo" }));
+
+    const classifyUpload = (url, label) => {
+      if (typeof url !== "string" || url.trim() === "") return null;
+      const cleanUrl = url.trim();
+      const ext = cleanUrl.split(".").pop()?.toLowerCase() || "";
+      return {
+        url: cleanUrl,
+        type: ext === "pdf" ? "pdf" : "image",
+        label,
+      };
+    };
+
+    const orderedDocs = [
+      classifyUpload(uploads.vendor_dr_url, "Vendor DR/Invoice"),
+      classifyUpload(uploads.waybill_url, "Waybill/POD"),
+      classifyUpload(uploads.freight_invoice_url, "Freight Invoice"),
+      classifyUpload(uploads.driver_id_url, "Driver ID"),
+    ].filter(Boolean);
+
+    return [...boxPhotos, ...orderedDocs];
+  }, [uploads.box_photos, uploads.driver_id_url, uploads.freight_invoice_url, uploads.vendor_dr_url, uploads.waybill_url]);
 
   // Helper for Status Badge Colors (dark palette)
   const getStatusColor = (status) => {
@@ -354,6 +380,46 @@ export function DRDetailsDialog({ open, onOpenChange, selectedDR, productMasters
               </div>
             </div>
           </div>
+
+          <div>
+            <div className="mb-4 flex items-center gap-2">
+              <FileText className="h-4 w-4 text-cyan-300" />
+              <h4 className="font-bold text-slate-100">Documents &amp; Photos</h4>
+            </div>
+
+            {uploadFiles.length > 0 ? (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                {uploadFiles.map((file, index) => (
+                  <button
+                    key={`${file.url}-${index}`}
+                    type="button"
+                    onClick={() => onOpenUploadViewer?.(uploadFiles, index)}
+                    className="group overflow-hidden rounded-lg border border-slate-800 bg-slate-950 text-left transition hover:border-cyan-400/40 hover:bg-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60"
+                  >
+                    <div className="flex h-28 items-center justify-center bg-slate-900">
+                      {file.type === "pdf" ? (
+                        <FileText className="h-10 w-10 text-slate-500 group-hover:text-cyan-300" />
+                      ) : (
+                        <img
+                          src={file.url}
+                          alt={file.label}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                          }}
+                        />
+                      )}
+                    </div>
+                    <div className="truncate px-2 py-1.5 text-xs text-slate-300">{file.label}</div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-slate-800 bg-slate-950 p-4 text-sm text-slate-400">
+                No uploaded documents or photos.
+              </div>
+            )}
+          </div>
         </div>
 
         <DialogFooter className="p-4 border-t border-slate-800 bg-slate-950/60">
@@ -378,7 +444,7 @@ export function PhotoViewerDialog({ open, onOpenChange, selectedPhotos, currentP
   // ... (Keep existing implementation) ...
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col bg-slate-900 border border-slate-800 text-slate-100">
+      <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden flex flex-col bg-slate-900 border border-slate-800 text-slate-100 p-4">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-slate-100">View Documents &amp; Photos</DialogTitle>
         </DialogHeader>

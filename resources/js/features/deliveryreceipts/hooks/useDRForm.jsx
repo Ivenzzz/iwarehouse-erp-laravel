@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { router } from "@inertiajs/react";
+import axios from "axios";
 import {
   createInitialFormData,
   checkAllRequiredUploaded,
@@ -89,6 +89,7 @@ export function useDRForm({
       setFormData((prev) => ({
         ...prev,
         po_id: "",
+        payment_term_id: "",
         supplier_id: "",
         declared_items: [],
         route_origin: "",
@@ -127,6 +128,9 @@ export function useDRForm({
     setFormData((prev) => ({
       ...prev,
       po_id: po.id,
+      payment_term_id: po.payment_term_id
+        ? String(po.payment_term_id)
+        : (po.financials_json?.payment_term_id ? String(po.financials_json.payment_term_id) : ""),
       supplier_id: po.supplier_id || "",
       declared_items: items,
       route_origin: po.supplier?.legal_tax_compliance?.registered_address || "",
@@ -155,6 +159,7 @@ export function useDRForm({
       brand_name: selectedVariant?.brand_name || productMaster?.brand_name || "",
       category_name: productMaster?.category_name || "",
       subcategory_name: productMaster?.subcategory_name || "",
+      model_code: selectedVariant?.model_code || getVariantAttributeValue(selectedVariant, ["model_code", "Model Code", "modelCode"]),
       requested_ram: selectedVariant?.requested_ram || getVariantAttributeValue(selectedVariant, ["RAM", "ram"]),
       requested_rom: selectedVariant?.requested_rom || getVariantAttributeValue(selectedVariant, ["ROM", "rom", "Storage", "storage"]),
       requested_condition: selectedVariant?.requested_condition || selectedVariant?.condition || "",
@@ -166,11 +171,11 @@ export function useDRForm({
       srp_price: "",
       total_value: 0,
       variance_flag: false,
-      variance_notes: "Additional item",
-      is_extra: true,
+      variance_notes: formData.po_id ? "Additional item" : "",
+      is_extra: Boolean(formData.po_id),
     };
     setFormData((prev) => ({ ...prev, declared_items: [...prev.declared_items, newItem] }));
-  }, [productMasterById]);
+  }, [formData.po_id, productMasterById]);
 
   const handleItemChange = useCallback((index, field, value) => {
     setFormData((prev) => {
@@ -194,13 +199,29 @@ export function useDRForm({
     if (!file) return;
     try {
       setUploadProgress((prev) => ({ ...prev, [uploadType]: 0 }));
-      const fileUrl = URL.createObjectURL(file);
+      const fileRecord = {
+        file,
+        preview_url: URL.createObjectURL(file),
+        file_name: file.name || null,
+      };
       setUploadProgress((prev) => ({ ...prev, [uploadType]: 100 }));
 
       if (uploadType === "box_photos") {
-        setFormData((prev) => ({ ...prev, uploads: { ...prev.uploads, box_photos: [...(prev.uploads.box_photos || []), fileUrl] } }));
+        setFormData((prev) => ({
+          ...prev,
+          uploads: {
+            ...prev.uploads,
+            box_photos: [...(prev.uploads.box_photos || []), fileRecord],
+          },
+        }));
       } else {
-        setFormData((prev) => ({ ...prev, uploads: { ...prev.uploads, [uploadType]: fileUrl } }));
+        setFormData((prev) => ({
+          ...prev,
+          uploads: {
+            ...prev.uploads,
+            [uploadType]: fileRecord,
+          },
+        }));
       }
     } catch {
       setAlertDialog({ open: true, title: "Upload Error", description: "File upload failed." });
@@ -250,7 +271,7 @@ export function useDRForm({
     if (uploadType === "box_photos" && index !== null) {
       setFormData((prev) => ({ ...prev, uploads: { ...prev.uploads, box_photos: prev.uploads.box_photos.filter((_, i) => i !== index) } }));
     } else {
-      setFormData((prev) => ({ ...prev, uploads: { ...prev.uploads, [uploadType]: "" } }));
+      setFormData((prev) => ({ ...prev, uploads: { ...prev.uploads, [uploadType]: null } }));
     }
   }, []);
 
@@ -268,69 +289,72 @@ export function useDRForm({
       return false;
     }
 
-    const payload = {
-      po_id: formData.po_id || null,
-      supplier_id: Number(formData.supplier_id),
-      dr_number: formData.vendor_dr_number,
-      reference_number: [formData.reference_number_1, formData.reference_number_2].filter(Boolean).join(" / ") || null,
-      date_received: formData.receipt_date,
-      logistics: {
-        logistics_company: formData.logistics_company || null,
-        waybill_number: formData.waybill_number || null,
-        driver_name: formData.driver_name || null,
-        driver_contact: formData.driver_contact || null,
-        origin: formData.route_origin || null,
-        destination: formData.destination || null,
-        freight_cost: parseFloat(formData.freight_cost || 0) || 0,
-      },
-      summary: {
-        box_count_declared: parseInt(formData.box_count_declared || 0, 10) || 0,
-        box_count_received: parseInt(formData.box_count_received || 0, 10) || 0,
-        variance_notes: formData.variance_notes || null,
-      },
-      uploads: {
-        vendor_dr_url: formData.uploads?.vendor_dr_url || null,
-        waybill_url: formData.uploads?.waybill_url || null,
-        freight_invoice_url: formData.uploads?.freight_invoice_url || null,
-        driver_id_url: formData.uploads?.driver_id_url || null,
-        purchase_file_url: null,
-        uploads_complete: allRequiredUploaded,
-        box_photos: formData.uploads?.box_photos || [],
-      },
-      declared_items: formData.declared_items.map((item) => ({
-        product_master_id: Number(item.product_master_id),
-        expected_quantity: parseInt(item.declared_quantity || 0, 10) || 0,
-        actual_quantity: parseInt(item.actual_quantity || 0, 10) || 0,
-        unit_cost: parseFloat(item.unit_cost || 0) || 0,
-        cash_price: parseFloat(item.cash_price || 0) || 0,
-        srp_price: parseFloat(item.srp_price || 0) || 0,
-        variance_notes: item.variance_notes || null,
-        product_spec: {
-          model_code: item.model_code || null,
-          ram: item.requested_ram || null,
-          rom: item.requested_rom || null,
-          condition: item.requested_condition || null,
-        },
-      })),
-    };
+    const payload = new FormData();
+    if (formData.po_id) {
+      payload.append("po_id", String(formData.po_id));
+    }
+    payload.append("supplier_id", String(Number(formData.supplier_id)));
+    if (formData.payment_term_id) {
+      payload.append("payment_term_id", String(Number(formData.payment_term_id)));
+    }
+    payload.append("dr_number", formData.vendor_dr_number);
+    payload.append("reference_number", [formData.reference_number_1, formData.reference_number_2].filter(Boolean).join(" / ") || "");
+    payload.append("date_received", formData.receipt_date);
+    payload.append("logistics[logistics_company]", formData.logistics_company || "");
+    payload.append("logistics[waybill_number]", formData.waybill_number || "");
+    payload.append("logistics[driver_name]", formData.driver_name || "");
+    payload.append("logistics[driver_contact]", formData.driver_contact || "");
+    payload.append("logistics[origin]", formData.route_origin || "");
+    payload.append("logistics[destination]", formData.destination || "");
+    payload.append("logistics[freight_cost]", String(parseFloat(formData.freight_cost || 0) || 0));
+    payload.append("summary[box_count_declared]", String(parseInt(formData.box_count_declared || 0, 10) || 0));
+    payload.append("summary[box_count_received]", String(parseInt(formData.box_count_received || 0, 10) || 0));
+    payload.append("summary[variance_notes]", formData.variance_notes || "");
+    payload.append("uploads[uploads_complete]", allRequiredUploaded ? "1" : "0");
+    payload.append("uploads[purchase_file_url]", "");
 
-    return new Promise((resolve) => {
-      setIsSubmitting(true);
-      router.post(route("delivery-receipts.store"), payload, {
-        preserveScroll: true,
-        onSuccess: () => {
-          setAlertDialog({ open: true, title: "Success", description: `Delivery Receipt ${payload.dr_number} created successfully.` });
-          setIsSubmitting(false);
-          resolve(true);
-        },
-        onError: (errors) => {
-          const firstError = Object.values(errors || {})[0];
-          setAlertDialog({ open: true, title: "Error", description: firstError || "Failed to create Delivery Receipt." });
-          setIsSubmitting(false);
-          resolve(false);
-        },
-      });
+    if (formData.uploads?.vendor_dr_url?.file) payload.append("uploads[vendor_dr_file]", formData.uploads.vendor_dr_url.file);
+    if (formData.uploads?.waybill_url?.file) payload.append("uploads[waybill_file]", formData.uploads.waybill_url.file);
+    if (formData.uploads?.freight_invoice_url?.file) payload.append("uploads[freight_invoice_file]", formData.uploads.freight_invoice_url.file);
+    if (formData.uploads?.driver_id_url?.file) payload.append("uploads[driver_id_file]", formData.uploads.driver_id_url.file);
+
+    (formData.uploads?.box_photos || []).forEach((entry) => {
+      if (entry?.file) {
+        payload.append("uploads[box_photos][]", entry.file);
+      }
     });
+
+    formData.declared_items.forEach((item, index) => {
+      payload.append(`declared_items[${index}][product_master_id]`, String(Number(item.product_master_id)));
+      payload.append(`declared_items[${index}][expected_quantity]`, String(parseInt(item.declared_quantity || 0, 10) || 0));
+      payload.append(`declared_items[${index}][actual_quantity]`, String(parseInt(item.actual_quantity || 0, 10) || 0));
+      payload.append(`declared_items[${index}][unit_cost]`, String(parseFloat(item.unit_cost || 0) || 0));
+      payload.append(`declared_items[${index}][cash_price]`, String(parseFloat(item.cash_price || 0) || 0));
+      payload.append(`declared_items[${index}][srp_price]`, String(parseFloat(item.srp_price || 0) || 0));
+      payload.append(`declared_items[${index}][variance_notes]`, item.variance_notes || "");
+      payload.append(`declared_items[${index}][product_spec][model_code]`, item.model_code || "");
+      payload.append(`declared_items[${index}][product_spec][ram]`, item.requested_ram || "");
+      payload.append(`declared_items[${index}][product_spec][rom]`, item.requested_rom || "");
+      payload.append(`declared_items[${index}][product_spec][condition]`, item.requested_condition || "");
+    });
+
+    setIsSubmitting(true);
+    try {
+      await axios.post(route("delivery-receipts.store"), payload, {
+        headers: { "Content-Type": "multipart/form-data", Accept: "application/json" },
+      });
+      setAlertDialog({ open: true, title: "Success", description: `Delivery Receipt ${formData.vendor_dr_number} created successfully.` });
+      return true;
+    } catch (error) {
+      const firstError = error?.response?.data?.errors
+        ? Object.values(error.response.data.errors || {})[0]
+        : null;
+      const message = Array.isArray(firstError) ? firstError[0] : firstError;
+      setAlertDialog({ open: true, title: "Error", description: message || "Failed to create Delivery Receipt." });
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
   }, [allRequiredUploaded, formData]);
 
   return {

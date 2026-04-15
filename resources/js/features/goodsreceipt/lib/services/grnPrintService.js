@@ -58,7 +58,7 @@ const getPrintRows = (grnItem, variant) => {
   }));
 };
 
-export const printGRN = ({ grn, dr, supplier, warehouse, po, companyInfo, productMasters, variants }) => {
+export const printGRN = ({ grn, companyInfo }) => {
   const printWindow = window.open("", "_blank");
 
   if (!printWindow) {
@@ -68,9 +68,10 @@ export const printGRN = ({ grn, dr, supplier, warehouse, po, companyInfo, produc
 
   const groupedItems = {};
   (grn.items || []).forEach((item) => {
-    const variant = variants.find((vr) => vr.id === item.variant_id);
-    const pm = productMasters.find((p) => p.id === item.product_master_id || p.id === variant?.product_master_id);
-    const productName = `${pm?.brand || ""} ${variant?.variant_name || pm?.name || ""}`.trim() || "Unknown Product";
+    const productName =
+      [item.brand_name, item.model_name, item.variant_name].filter(Boolean).join(" ").trim() ||
+      item.product_name ||
+      "Unknown Product";
 
     if (!groupedItems[productName]) {
       groupedItems[productName] = {
@@ -79,7 +80,7 @@ export const printGRN = ({ grn, dr, supplier, warehouse, po, companyInfo, produc
       };
     }
 
-    groupedItems[productName].items.push(...getPrintRows(item, variant));
+    groupedItems[productName].items.push(...getPrintRows(item, item));
   });
 
   const groupedItemsArray = Object.values(groupedItems);
@@ -87,10 +88,6 @@ export const printGRN = ({ grn, dr, supplier, warehouse, po, companyInfo, produc
 
   const htmlContent = generateGRNPrintHTML({
     grn,
-    dr,
-    supplier,
-    warehouse,
-    po,
     companyInfo,
     groupedItemsArray,
     totalItemsCount,
@@ -106,9 +103,9 @@ export const printGRN = ({ grn, dr, supplier, warehouse, po, companyInfo, produc
   }
 };
 
-const generateGRNPrintHTML = ({ grn, dr, supplier, warehouse, po, companyInfo, groupedItemsArray, totalItemsCount }) => {
+const generateGRNPrintHTML = ({ grn, companyInfo, groupedItemsArray, totalItemsCount }) => {
   const grnNumber = getGRNNumber(grn);
-  const deliveryNoteNumber = dr?.dr_number || dr?.vendor_dr_number || grn.delivery_info?.delivery_note_number || "";
+  const deliveryNoteNumber = grn.receipt_info?.dr_number || "";
   const receiptDate = getGRNDate(grn);
   const receivedBy = getEncodedBy(grn);
   const checkedBy = receivedBy;
@@ -191,14 +188,14 @@ const generateGRNPrintHTML = ({ grn, dr, supplier, warehouse, po, companyInfo, g
       <div class="info-grid">
         <div class="info-column">
             <h3>Supplier Information</h3>
-            <div class="info-row"><span class="info-label">Supplier:</span><span class="info-value">${supplier?.master_profile?.trade_name || supplier?.CompanyName || "N/A"}</span></div>
-            <div class="info-row"><span class="info-label">PO Number:</span><span class="info-value">${po?.po_number || "N/A"}</span></div>
+            <div class="info-row"><span class="info-label">Supplier:</span><span class="info-value">${grn.receipt_info?.supplier_name || "N/A"}</span></div>
+            <div class="info-row"><span class="info-label">PO Number:</span><span class="info-value">${grn.receipt_info?.po_number || "N/A"}</span></div>
             <div class="info-row"><span class="info-label">Invoice Ref:</span><span class="info-value">${deliveryNoteNumber || "N/A"}</span></div>
         </div>
         <div class="info-column">
             <h3>Receipt Details</h3>
             <div class="info-row"><span class="info-label">Received Date:</span><span class="info-value">${receiptDate ? format(new Date(receiptDate), "MMMM dd, yyyy") : "N/A"}</span></div>
-            <div class="info-row"><span class="info-label">Warehouse:</span><span class="info-value">${warehouse?.name || "N/A"}</span></div>
+            <div class="info-row"><span class="info-label">Warehouse:</span><span class="info-value">${grn.parties?.warehouse_name || "N/A"}</span></div>
             <div class="info-row"><span class="info-label">Received By:</span><span class="info-value">${receivedBy || "N/A"}</span></div>
             <div class="info-row"><span class="info-label">Status:</span><span class="info-value" style="text-transform:uppercase;">${status}</span></div>
         </div>
@@ -287,7 +284,7 @@ const generateItemsRows = (groupedItemsArray) => {
   }).join("");
 };
 
-export const printBarcodes = ({ grn, variants, productMasters, brands, categories }) => {
+export const printBarcodes = ({ grn }) => {
   if (!grn.items || grn.items.length === 0) {
     alert("No items to print barcodes for.");
     return;
@@ -296,10 +293,9 @@ export const printBarcodes = ({ grn, variants, productMasters, brands, categorie
   const printWindow = window.open("", "_blank");
 
   const barcodeHTML = grn.items.flatMap((grnItem) => {
-    const variant = variants.find((v) => v.id === grnItem.variant_id);
-    const pm = productMasters.find((p) => p.id === grnItem.product_master_id || p.id === variant?.product_master_id);
-    const brand = pm ? brands.find((b) => b.id === pm.brand_id) : null;
-    const category = pm ? categories.find((c) => c.id === pm.category_id) : null;
+    const brandName = grnItem.brand_name || "";
+    const modelName = grnItem.model_name || grnItem.product_name || "";
+    const categoryName = grnItem.category_name || "";
     const serialNumbers = grnItem.identifiers
       ? [{
           imei1: grnItem.identifiers?.imei1 || "",
@@ -315,14 +311,14 @@ export const printBarcodes = ({ grn, variants, productMasters, brands, categorie
     return serialNumbers.map((sn) => {
       const srp = sn.srp || costing.srp || 0;
       const cashPrice = sn.cash_price || costing.cash_price || 0;
-      const warrantyDesc = sn.warranty || pm?.warranty_description || "No Warranty";
-      const productCondition = variant?.condition || "Brand New";
-      const variantAttrs = variant?.attributes || {};
+      const warrantyDesc = sn.warranty || grnItem.warranty || "No Warranty";
+      const productCondition = grnItem.condition || "Brand New";
+      const variantAttrs = {};
       const ram = variantAttrs.ram || variantAttrs.RAM || "";
       const storage = variantAttrs.storage || variantAttrs.Storage || variantAttrs.rom || variantAttrs.ROM || "";
-      const modelName = pm?.model ? String(pm.model).toLowerCase() : "";
-      const categoryNameLower = category?.name ? String(category.name).toLowerCase() : "";
-      const isIphone = modelName.includes("iphone") || categoryNameLower.includes("iphone");
+      const modelNameLower = String(modelName).toLowerCase();
+      const categoryNameLower = String(categoryName).toLowerCase();
+      const isIphone = modelNameLower.includes("iphone") || categoryNameLower.includes("iphone");
       const color = variantAttrs.color || variantAttrs.Color || "";
 
       let ramRomText = "";
@@ -336,12 +332,11 @@ export const printBarcodes = ({ grn, variants, productMasters, brands, categorie
         ramRomText = [specsBase, color].filter(Boolean).join(" ");
       }
 
-      const fixedSpecs = pm?.fixed_specifications || {};
+      const fixedSpecs = grnItem.spec || {};
       const cpu = fixedSpecs.cpu || "";
       const gpu = fixedSpecs.gpu || "";
       let cpuGpuText = "";
-      const categoryName = category?.name?.toLowerCase() || "";
-      const shouldShowCpuGpu = categoryName.includes("laptop") || categoryName.includes("desktop");
+      const shouldShowCpuGpu = categoryNameLower.includes("laptop") || categoryNameLower.includes("desktop");
       if (shouldShowCpuGpu) {
         if (cpu && gpu) cpuGpuText = `${cpu} | ${gpu}`;
         else if (cpu) cpuGpuText = cpu;
@@ -356,7 +351,7 @@ export const printBarcodes = ({ grn, variants, productMasters, brands, categorie
       return `
         <div class="barcode-item">
             <div class="barcode-header">
-              <strong>${brand?.name ? String(brand.name).toUpperCase() : ""} ${pm?.model ? String(pm.model).toUpperCase() : ""}</strong>
+              <strong>${String(brandName).toUpperCase()} ${String(modelName).toUpperCase()}</strong>
             </div>
             ${ramRomText ? `<div class="barcode-specs">${ramRomText}</div>` : ""}
             ${cpuGpuText ? `<div class="barcode-specs">${cpuGpuText}</div>` : ""}

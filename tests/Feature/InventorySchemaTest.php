@@ -8,7 +8,6 @@ use App\Models\ProductBrand;
 use App\Models\ProductCategory;
 use App\Models\ProductMaster;
 use App\Models\ProductVariant;
-use App\Models\Supplier;
 use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Database\QueryException;
@@ -30,23 +29,17 @@ class InventorySchemaTest extends TestCase
         $this->assertTrue(Schema::hasColumn('product_variants', 'model_code'));
     }
 
-    public function test_inventory_item_can_reference_variant_warehouse_and_supplier(): void
+    public function test_inventory_item_can_reference_variant_and_warehouse(): void
     {
         $variant = $this->createProductVariant();
         $warehouse = Warehouse::create([
             'name' => 'Central Hub',
             'warehouse_type' => 'main_warehouse',
         ]);
-        $supplier = Supplier::create([
-            'supplier_code' => 'S001',
-            'legal_business_name' => 'Acme Corporation',
-            'status' => 'Active',
-        ]);
 
         $item = InventoryItem::create([
             'product_variant_id' => $variant->id,
             'warehouse_id' => $warehouse->id,
-            'supplier_id' => $supplier->id,
             'imei' => '123456789012345',
             'serial_number' => 'SN-0001',
             'status' => 'active',
@@ -60,11 +53,29 @@ class InventorySchemaTest extends TestCase
             'id' => $item->id,
             'product_variant_id' => $variant->id,
             'warehouse_id' => $warehouse->id,
-            'supplier_id' => $supplier->id,
             'imei' => '123456789012345',
             'serial_number' => 'SN-0001',
             'status' => 'active',
         ]);
+    }
+
+    public function test_deprecated_inventory_item_columns_are_absent(): void
+    {
+        foreach ([
+            'supplier_id',
+            'cpu',
+            'gpu',
+            'submodel',
+            'ram_type',
+            'rom_type',
+            'ram_slots',
+            'country_model',
+            'resolution',
+            'purchase_reference',
+            'purchase_file_data',
+        ] as $column) {
+            $this->assertFalse(Schema::hasColumn('inventory_items', $column));
+        }
     }
 
     public function test_duplicate_imei_and_serial_number_are_rejected(): void

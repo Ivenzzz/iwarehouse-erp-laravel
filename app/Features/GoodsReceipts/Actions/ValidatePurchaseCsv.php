@@ -64,7 +64,9 @@ class ValidatePurchaseCsv
             $validatedRows[] = [
                 'rowIndex' => $i + 1,
                 'product_master_id' => $master->id,
+                'product_name' => $master->product_name,
                 'variant_id' => $variant->id,
+                'variant_name' => $variant->variant_name,
                 'condition' => $variant->condition,
                 'model_code' => $row['Model Code'] ?? null,
                 'serial_number' => $row['Serial Number'] ?? null,

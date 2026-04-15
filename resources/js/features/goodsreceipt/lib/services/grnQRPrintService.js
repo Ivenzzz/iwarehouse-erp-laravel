@@ -111,7 +111,7 @@ const getSpecsText = (pm, category, subcategory, variantAttrs) => {
 // MAIN ORCHESTRATION (delegates to global service)
 // ==========================================
 
-export const printQRStickers = async ({ grn, variants, productMasters, brands, categories, subcategories = [] }) => {
+export const printQRStickers = async ({ grn }) => {
   if (!grn.items?.length) {
     alert("No items to print QR stickers for.");
     return;
@@ -132,20 +132,23 @@ export const printQRStickers = async ({ grn, variants, productMasters, brands, c
       : grnItem.serials || grnItem.serial_numbers || [];
     if (!serialNumbers.length) continue;
 
-    const variant = variants.find((v) => v.id === grnItem.variant_id);
-    const pm = productMasters.find((p) => p.id === grnItem.product_master_id || p.id === variant?.product_master_id);
-    const brand = pm ? brands.find((b) => b.id === pm.brand_id) : null;
-    const category = pm ? categories.find((c) => c.id === pm.category_id) : null;
-    const subcategory = pm ? subcategories.find((entry) => entry.id === pm.subcategory_id) : null;
+    const pm = {
+      model: grnItem.model_name || grnItem.product_name || "",
+      brand_name: grnItem.brand_name || "",
+      fixed_specifications: grnItem.spec || {},
+      warranty_description: grnItem.warranty || "",
+    };
+    const category = { name: grnItem.category_name || "" };
+    const subcategory = { name: grnItem.subcategory_name || "" };
 
     for (const sn of serialNumbers) {
       const identifier = sn.imei1 || sn.imei2 || sn.serial_number;
       if (!identifier) continue;
 
-      const variantAttrs = variant?.attributes || {};
+      const variantAttrs = {};
       const enrichedProductMaster = {
         ...pm,
-        brand_name: brand?.name || "",
+        brand_name: pm.brand_name || "",
       };
       const { mainSpecs, subSpecs, headerLine, specLines } = getSpecsText(
         enrichedProductMaster,
@@ -153,17 +156,17 @@ export const printQRStickers = async ({ grn, variants, productMasters, brands, c
         subcategory,
         variantAttrs
       );
-      const color = getAttributeValue(variantAttrs, ["Color", "color"]);
+      const color = grnItem.color || getAttributeValue(variantAttrs, ["Color", "color"]);
       const combinedSpecLine = [mainSpecs, color].filter(Boolean).join(" ");
 
       stickerItems.push({
-        brand: brand?.name?.toUpperCase() || "",
+        brand: (pm?.brand_name || "").toUpperCase(),
         model: pm?.model?.toUpperCase() || "",
         headerLine: headerLine || undefined,
         specLines: specLines?.length ? specLines : undefined,
         specLine: combinedSpecLine,
         subSpecLine: subSpecs,
-        condition: variant?.condition || "Brand New",
+        condition: grnItem.condition || "Brand New",
         warrantyLines: (sn.warranty || pm?.warranty_description || "No Warranty").split(",").map(w => w.trim()).filter(Boolean),
         cashPrice: sn.cash_price || grnItem.costing?.cash_price || 0,
         srp: sn.srp || grnItem.costing?.srp || 0,

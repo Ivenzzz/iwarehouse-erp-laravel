@@ -50,3 +50,18 @@ export async function executeDirectPurchaseImport({ formData, validatedRows, mai
   };
 }
 
+export async function fetchGoodsReceiptCatalog(drId) {
+  const response = await axios.get(route("goods-receipts.catalog"), {
+    params: { dr_id: drId },
+  });
+
+  return {
+    productMasters: response.data?.product_masters || [],
+    variants: response.data?.variants || [],
+  };
+}
+
+export async function fetchGoodsReceiptDetail(goodsReceiptId) {
+  const response = await axios.get(route("goods-receipts.show", goodsReceiptId));
+  return response.data?.goods_receipt || null;
+}

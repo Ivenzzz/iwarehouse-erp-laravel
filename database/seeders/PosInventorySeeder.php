@@ -109,7 +109,6 @@ class PosInventorySeeder extends Seeder
                 'warranty' => $warranty,
                 'encoded_at' => now()->subDays($daysAgo),
                 'grn_number' => 'GRN-POS-'.$warehouseId,
-                'purchase_reference' => 'PO-POS-'.$serialNumber,
             ],
         );
     }

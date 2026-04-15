@@ -20,7 +20,6 @@ export default function GoodsReceipt() {
   const { data, addPurchase, encoding, actions, constants, dialogs } = useGoodsReceiptPage();
   const {
     deliveryReceipts,
-    allDeliveryReceipts,
     loadingDRs,
     fetchNextPendingPage,
     hasNextPendingPage,
@@ -28,8 +27,6 @@ export default function GoodsReceipt() {
     productMasters,
     variants,
     suppliers,
-    warehouses,
-    pos,
     kpis,
     allGRNs,
     loadingGRNs,
@@ -136,9 +133,6 @@ export default function GoodsReceipt() {
             <TabsContent value="delivery-receipts" className="p-6 m-0 animate-in fade-in-50 duration-300">
               <DRTable
                 deliveryReceipts={deliveryReceipts}
-                suppliers={suppliers}
-                pos={pos}
-                productMasters={productMasters}
                 loadingDRs={loadingDRs}
                 hasNextPage={hasNextPendingPage}
                 isFetchingNextPage={isFetchingNextPendingPage}
@@ -151,12 +145,6 @@ export default function GoodsReceipt() {
               <GRNTable
                 allGRNs={allGRNs}
                 loadingGRNs={loadingGRNs}
-                deliveryReceipts={allDeliveryReceipts}
-                pos={pos}
-                suppliers={suppliers}
-                warehouses={warehouses}
-                productMasters={productMasters}
-                variants={variants}
                 onViewDetails={actions.handleViewDetails}
                 onPrintGRN={actions.handlePrintGRN}
                 onPrintBarcodes={actions.handlePrintBarcodes}
@@ -194,12 +182,6 @@ export default function GoodsReceipt() {
         open={dialogs.showDetailsDialog}
         onOpenChange={dialogs.setShowDetailsDialog}
         selectedGRN={dialogs.selectedGRN}
-        deliveryReceipts={allDeliveryReceipts}
-        pos={pos}
-        suppliers={suppliers}
-        warehouses={warehouses}
-        productMasters={productMasters}
-        variants={variants}
       />
 
       <GRNAlertDialog

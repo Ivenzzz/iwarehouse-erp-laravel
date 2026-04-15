@@ -6,6 +6,7 @@ import { useGRNEncoding } from "./useGRNEncoding";
 import { buildGRNData, buildSubmitDeclaredItemsList, getGRNWarehouse } from "../utils/grnTransforms";
 import { printBarcodes, printGRN } from "@/features/goodsreceipt/lib/services/grnPrintService";
 import { printQRStickers } from "@/features/goodsreceipt/lib/services/grnQRPrintService";
+import { fetchGoodsReceiptDetail } from "../services/goodsReceiptService";
 import { markDeliveryReceiptComplete, validateDuplicates } from "../services/goodsReceiptService";
 
 export function useGoodsReceiptPage() {
@@ -27,14 +28,42 @@ export function useGoodsReceiptPage() {
   const encoding = useGRNEncoding({
     selectedDR,
     showEncodingDialog,
-    productMasters: data.productMasters,
     variants: data.variants,
   });
 
-  const handleSelectDR = (dr) => {
-    setSelectedDR(dr);
-    encoding.resetEncodingState();
-    setShowEncodingDialog(true);
+  const [isPreparingEncoding, setIsPreparingEncoding] = useState(false);
+  const [isLoadingGrnDetail, setIsLoadingGrnDetail] = useState(false);
+
+  const handleSelectDR = async (dr) => {
+    if (!dr?.id) return;
+
+    try {
+      setIsPreparingEncoding(true);
+      await data.loadCatalogForDR(dr.id);
+      setSelectedDR(dr);
+      encoding.resetEncodingState();
+      setShowEncodingDialog(true);
+    } catch (error) {
+      setAlertDialog({
+        open: true,
+        title: "Catalog Load Error",
+        description: `Failed to load product catalog for encoding: ${error?.response?.data?.message || error.message}`,
+      });
+    } finally {
+      setIsPreparingEncoding(false);
+    }
+  };
+
+  const fetchGrnDetailOrThrow = async (grn) => {
+    if (!grn?.id) throw new Error("Invalid goods receipt record.");
+    setIsLoadingGrnDetail(true);
+    try {
+      const detail = await fetchGoodsReceiptDetail(grn.id);
+      if (!detail) throw new Error("No goods receipt detail returned by server.");
+      return detail;
+    } finally {
+      setIsLoadingGrnDetail(false);
+    }
   };
 
   const handleSubmitGRN = async () => {
@@ -101,8 +130,6 @@ export function useGoodsReceiptPage() {
           assignedWarehouse,
           variants: data.variants,
           productMasters: data.productMasters,
-          categories: data.categories,
-          subcategories: data.subcategories,
         })
       );
 
@@ -121,6 +148,7 @@ export function useGoodsReceiptPage() {
       setShowEncodingDialog(false);
       setSelectedDR(null);
       encoding.resetEncodingState();
+      data.clearCatalog();
     } catch (error) {
       setLoadingModal({ open: false, currentStep: 0 });
       setAlertDialog({
@@ -136,42 +164,70 @@ export function useGoodsReceiptPage() {
       handleSelectDR,
       handleSubmitGRN,
       refreshPage: data.refreshPage,
-      handleViewDetails: (grn) => {
-        setSelectedGRN(grn);
-        setShowDetailsDialog(true);
+      handleViewDetails: async (grn) => {
+        try {
+          const detail = await fetchGrnDetailOrThrow(grn);
+          setSelectedGRN(detail);
+          setShowDetailsDialog(true);
+        } catch (error) {
+          setAlertDialog({
+            open: true,
+            title: "Details Error",
+            description: error?.response?.data?.message || error.message || "Failed to load goods receipt details.",
+          });
+        }
       },
-      handlePrintGRN: (grn, dr, supplier, warehouse, po) =>
-        printGRN({
-          grn,
-          dr,
-          supplier,
-          warehouse,
-          po,
-          companyInfo: data.companyInfo,
-          productMasters: data.productMasters,
-          variants: data.variants,
-          brands: data.brands,
-        }),
-      handlePrintBarcodes: (grn) =>
-        printBarcodes({
-          grn,
-          variants: data.variants,
-          productMasters: data.productMasters,
-          brands: data.brands,
-          categories: data.categories,
-        }),
-      handlePrintQRStickers: (grn) =>
-        printQRStickers({
-          grn,
-          variants: data.variants,
-          productMasters: data.productMasters,
-          brands: data.brands,
-          categories: data.categories,
-          subcategories: data.subcategories,
-        }),
+      handlePrintGRN: async (grn) => {
+        try {
+          const detail = await fetchGrnDetailOrThrow(grn);
+          printGRN({
+            grn: detail,
+            companyInfo: data.companyInfo,
+          });
+        } catch (error) {
+          setAlertDialog({
+            open: true,
+            title: "Print Error",
+            description: error?.response?.data?.message || error.message || "Failed to load goods receipt for printing.",
+          });
+        }
+      },
+      handlePrintBarcodes: async (grn) => {
+        try {
+          const detail = await fetchGrnDetailOrThrow(grn);
+          printBarcodes({ grn: detail });
+        } catch (error) {
+          setAlertDialog({
+            open: true,
+            title: "Print Error",
+            description: error?.response?.data?.message || error.message || "Failed to load goods receipt for barcode printing.",
+          });
+        }
+      },
+      handlePrintQRStickers: async (grn) => {
+        try {
+          const detail = await fetchGrnDetailOrThrow(grn);
+          await printQRStickers({ grn: detail });
+        } catch (error) {
+          setAlertDialog({
+            open: true,
+            title: "Print Error",
+            description: error?.response?.data?.message || error.message || "Failed to load goods receipt for QR sticker printing.",
+          });
+        }
+      },
     }),
     [data, encoding.declaredItemsList, encoding.encodedItems]
   );
+
+  const handleEncodingDialogOpenChange = (open) => {
+    setShowEncodingDialog(open);
+    if (!open) {
+      setSelectedDR(null);
+      data.clearCatalog();
+      encoding.resetEncodingState();
+    }
+  };
 
   return {
     data,
@@ -181,11 +237,13 @@ export function useGoodsReceiptPage() {
     constants: { GRN_STEPS },
     dialogs: {
       showEncodingDialog,
-      setShowEncodingDialog,
+      setShowEncodingDialog: handleEncodingDialogOpenChange,
       selectedDR,
       showDetailsDialog,
       setShowDetailsDialog,
       selectedGRN,
+      isPreparingEncoding,
+      isLoadingGrnDetail,
       alertDialog,
       setAlertDialog,
       toast,
@@ -194,4 +252,3 @@ export function useGoodsReceiptPage() {
     },
   };
 }
-

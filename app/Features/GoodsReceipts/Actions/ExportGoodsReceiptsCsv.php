@@ -29,7 +29,7 @@ class ExportGoodsReceiptsCsv
 
         $rows = $this->listQuery
             ->goodsReceipts($search, $supplier, $sort, $direction)
-            ->with(GoodsReceiptDataTransformer::$RELATIONS)
+            ->with(GoodsReceiptDataTransformer::$DETAIL_RELATIONS)
             ->get(['goods_receipts.*']);
 
         return response()->streamDownload(function () use ($rows): void {
@@ -37,7 +37,7 @@ class ExportGoodsReceiptsCsv
             fputcsv($out, ['GRN Number', 'DR Number', 'Supplier', 'Status', 'Item Count', 'Total Cost', 'Created At']);
 
             foreach ($rows as $grn) {
-                $data = GoodsReceiptDataTransformer::transformReceipt($grn);
+                $data = GoodsReceiptDataTransformer::transformReceiptDetail($grn);
                 fputcsv($out, [
                     $data['grn_number'],
                     data_get($data, 'receipt_info.dr_number', ''),

@@ -5,11 +5,6 @@ namespace App\Features\GoodsReceipts\Queries;
 use App\Features\GoodsReceipts\Support\GoodsReceiptDataTransformer;
 use App\Features\GoodsReceipts\Support\GoodsReceiptListQuery;
 use App\Models\CompanyInfo;
-use App\Models\ProductBrand;
-use App\Models\ProductCategory;
-use App\Models\ProductMaster;
-use App\Models\ProductVariant;
-use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Models\Warehouse;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -51,13 +46,23 @@ class ListGoodsReceiptPageData
 
         $pendingDrPaginator = $this->listQuery
             ->pendingDeliveryReceipts($drSearch, $drSort, $drDirection)
-            ->with(['supplier.contact', 'purchaseOrder', 'items.spec', 'logistics'])
+            ->with([
+                'supplier:id,supplier_code,legal_business_name,trade_name',
+                'supplier.contact:id,supplier_id,email,mobile',
+                'purchaseOrder:id,po_number',
+                'items:id,delivery_receipt_id,product_master_id,expected_quantity,actual_quantity,unit_cost,cash_price,srp_price',
+                'items.spec:id,delivery_receipt_item_id,model_code,ram,rom,condition',
+                'items.productMaster:id,model_id,master_sku,subcategory_id',
+                'items.productMaster.model:id,brand_id,model_name',
+                'items.productMaster.model.brand:id,name',
+                'logistics:id,delivery_receipt_id,logistics_company,waybill_number,destination',
+            ])
             ->paginate($drPerPage, ['*'], 'dr_page')
             ->withQueryString();
 
         $grnPaginator = $this->listQuery
             ->goodsReceipts($grnSearch, $grnSupplier, $grnSort, $grnDirection)
-            ->with(GoodsReceiptDataTransformer::$RELATIONS)
+            ->with(GoodsReceiptDataTransformer::$DETAIL_RELATIONS)
             ->paginate($grnPerPage, ['goods_receipts.*'], 'grn_page')
             ->withQueryString();
 
@@ -76,7 +81,7 @@ class ListGoodsReceiptPageData
                 ],
                 'goods_receipts' => [
                     'data' => $grnPaginator->getCollection()
-                        ->map(fn ($grn) => GoodsReceiptDataTransformer::transformReceipt($grn))
+                        ->map(fn ($grn) => GoodsReceiptDataTransformer::transformReceiptSummary($grn))
                         ->values()->all(),
                     'pagination' => $this->pagination($grnPaginator),
                     'filters' => [
@@ -121,36 +126,6 @@ class ListGoodsReceiptPageData
                     'warehouse_type' => $w->warehouse_type,
                     'parent_warehouse_id' => null,
                 ])->values()->all(),
-            'pos' => PurchaseOrder::query()->orderByDesc('id')->limit(500)->get(['id', 'po_number'])->values()->all(),
-            'product_masters' => ProductMaster::query()->with(['model:id,brand_id,model_name', 'model.brand:id,name', 'subcategory:id,name'])
-                ->orderByDesc('id')->get()
-                ->map(fn (ProductMaster $pm) => [
-                    'id' => $pm->id,
-                    'master_sku' => $pm->master_sku,
-                    'name' => $pm->product_name,
-                    'model' => $pm->model?->model_name,
-                    'brand_id' => $pm->model?->brand_id,
-                    'brand_name' => $pm->model?->brand?->name,
-                    'subcategory_id' => $pm->subcategory?->id,
-                    'subcategory_name' => $pm->subcategory?->name,
-                ])->values()->all(),
-            'variants' => ProductVariant::query()->with('productMaster.model.brand')->orderByDesc('id')->limit(20000)->get()
-                ->map(fn (ProductVariant $variant) => [
-                    'id' => $variant->id,
-                    'product_master_id' => $variant->product_master_id,
-                    'variant_name' => $variant->variant_name,
-                    'condition' => $variant->condition,
-                    'model_code' => $variant->model_code,
-                    'ram' => $variant->ram,
-                    'rom' => $variant->rom,
-                    'cpu' => $variant->cpu,
-                    'gpu' => $variant->gpu,
-                    'ram_type' => $variant->ram_type,
-                    'rom_type' => $variant->rom_type,
-                ])->values()->all(),
-            'brands' => ProductBrand::query()->orderBy('name')->get(['id', 'name'])->values()->all(),
-            'categories' => ProductCategory::query()->whereNull('parent_category_id')->orderBy('name')->get(['id', 'name'])->values()->all(),
-            'subcategories' => ProductCategory::query()->whereNotNull('parent_category_id')->orderBy('name')->get(['id', 'name', 'parent_category_id'])->values()->all(),
             'company_info' => CompanyInfo::query()->first(),
         ];
     }

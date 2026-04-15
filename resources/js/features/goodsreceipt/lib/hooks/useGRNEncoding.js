@@ -49,6 +49,7 @@ const buildDeclaredItemKey = (item) => [
 
 const buildRowKey = (declaredItemKey, variantId = "unallocated") =>
   `${declaredItemKey}::${variantId || "unallocated"}`;
+const getTargetQuantity = (item) => Number(item?.expected_quantity ?? item?.actual_quantity ?? 0);
 
 const getMatchingVariantsForDeclaredItem = (item, variants = []) =>
   variants
@@ -99,7 +100,7 @@ const sanitizeAllocation = (allocation = {}, matchingVariants = []) => {
   return nextAllocation;
 };
 
-export function useGRNEncoding({ selectedDR, showEncodingDialog, productMasters, variants }) {
+export function useGRNEncoding({ selectedDR, showEncodingDialog, variants }) {
   const [selectedDeclaredItemKey, setSelectedDeclaredItemKey] = useState(null);
   const [encodedItems, setEncodedItems] = useState([]);
   const [colorAllocations, setColorAllocations] = useState({});
@@ -137,20 +138,21 @@ export function useGRNEncoding({ selectedDR, showEncodingDialog, productMasters,
 
     rawDeclaredItems.forEach((item) => {
       const declaredItemKey = buildDeclaredItemKey(item);
-      const quantity = item.expected_quantity || item.actual_quantity || 0;
+      const quantity = getTargetQuantity(item);
 
       if (!aggregated.has(declaredItemKey)) {
-        const productMaster = productMasters.find((entry) => idEquals(entry.id, item.product_master_id));
         aggregated.set(declaredItemKey, {
           ...item,
           product_master_id: normalizeId(item.product_master_id),
           declared_item_key: declaredItemKey,
-          product_name: productMaster?.name || item.product_name || "Unknown Product",
+          product_name: item.product_name || "Unknown Product",
+          expected_quantity: quantity,
           declared_quantity: quantity,
           condition: item.product_spec?.condition || "",
         });
       } else {
         const existing = aggregated.get(declaredItemKey);
+        existing.expected_quantity += quantity;
         existing.declared_quantity += quantity;
       }
     });
@@ -199,6 +201,7 @@ export function useGRNEncoding({ selectedDR, showEncodingDialog, productMasters,
             variant_name: variant.variant_name || buildSpecLabel(item, item.product_name),
             variant_sku: variant.variant_sku || "",
             resolved_color: getVariantColor(variant),
+            expected_quantity: allocatedQty,
             declared_quantity: allocatedQty,
             encoded_count: encodedCountsByDeclaredKey.get(`${item.declared_item_key}::${normalizedVariantId}`) || 0,
             matching_variants: matchingVariants,
@@ -230,7 +233,7 @@ export function useGRNEncoding({ selectedDR, showEncodingDialog, productMasters,
     });
 
     return rows;
-  }, [selectedDR, productMasters, variants, colorAllocations, encodedItems, encodedCountsByDeclaredKey]);
+  }, [selectedDR, variants, colorAllocations, encodedItems, encodedCountsByDeclaredKey]);
 
   const selectedDeclaredItem = useMemo(
     () => declaredItemsList.find((item) => item.row_key === selectedDeclaredItemKey) || null,

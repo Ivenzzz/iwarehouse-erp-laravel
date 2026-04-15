@@ -44,7 +44,6 @@ class PosSalesHistorySeeder extends Seeder
                 'warranty' => '7 days replacement, 1 year service warranty',
                 'encoded_at' => now()->subDays(20),
                 'grn_number' => 'GRN-POS-HISTORY',
-                'purchase_reference' => 'PO-HISTORY-IPHONE',
             ],
         );
 
@@ -61,7 +60,6 @@ class PosSalesHistorySeeder extends Seeder
                 'warranty' => '30 days service warranty',
                 'encoded_at' => now()->subDays(20),
                 'grn_number' => 'GRN-POS-HISTORY',
-                'purchase_reference' => 'PO-HISTORY-CHARGER',
             ],
         );
 

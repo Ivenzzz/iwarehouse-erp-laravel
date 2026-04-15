@@ -30,18 +30,13 @@ const getStatusColor = (status) => {
 
 const formatCurrency = (value) => `P${(Number(value) || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`;
 
-const getGRNNumber = (grn) => grn.grn_number || grn.receipt_info?.grn_number || "";
-const getGRNStatus = (grn) => grn.status || grn.status_info?.status || "draft";
-const getGRNDate = (grn, dr) =>
-  dr?.date_encoded ||
-  grn.parties?.encoded_date ||
-  grn.created_date ||
-  grn.receipt_info?.receipt_date ||
-  "";
-const getGRNTotalAmount = (grn) => grn.total_amount ?? grn.financial_info?.total_amount ?? 0;
+const getGRNNumber = (grn) => grn.grn_number || "";
+const getGRNStatus = (grn) => grn.status || "draft";
+const getGRNDate = (grn) => grn.encoded_date || grn.created_date || "";
+const getGRNTotalAmount = (grn) => grn.total_amount ?? 0;
 const getEncodedBy = (grn) => {
-  if (grn.received_by || grn.checked_by || grn.parties?.received_by || grn.parties?.checked_by) {
-    return grn.received_by || grn.checked_by || grn.parties?.received_by || grn.parties?.checked_by;
+  if (grn.encoded_by) {
+    return grn.encoded_by;
   }
 
   const noteMatch = grn.notes?.match(/completed by (.+?) on/i);
@@ -49,46 +44,7 @@ const getEncodedBy = (grn) => {
 };
 
 const countTotalItems = (grn) => {
-  if (!Array.isArray(grn.items)) return 0;
-
-  return grn.items.reduce((total, item) => {
-    if (item.identifiers || item.pricing || item.spec) {
-      return total + 1;
-    }
-
-    const serials = item.serials || item.serial_numbers || [];
-    return total + (serials.length || item.quantities?.quantity_received || 0);
-  }, 0);
-};
-
-const getProductName = (item, productMasters, variants) => {
-  const variant = variants.find((vr) => vr.id === item.variant_id);
-  const pm =
-    productMasters.find((p) => p.id === item.product_master_id) ||
-    productMasters.find((p) => p.id === variant?.product_master_id);
-
-  const brandName = pm?.brand || "";
-  const modelName = pm?.model || pm?.name || "";
-  const variantName = variant?.variant_name || "";
-
-  return `${brandName} ${modelName} ${variantName}`.trim() || variantName || modelName || "Unknown Product";
-};
-
-const getItemSummary = (grn, productMasters, variants) => {
-  if (!Array.isArray(grn.items)) return [];
-
-  const summary = {};
-
-  grn.items.forEach((item) => {
-    const name = getProductName(item, productMasters, variants);
-    const qty = item.identifiers || item.pricing || item.spec
-      ? 1
-      : item.quantities?.quantity_received || (item.serials ? item.serials.length : 0) || 0;
-
-    summary[name] = (summary[name] || 0) + qty;
-  });
-
-  return Object.entries(summary).map(([name, count]) => `${count}x ${name}`);
+  return Number(grn.item_count || 0);
 };
 
 const formatLocalTime = (dateStr) => {
@@ -111,12 +67,6 @@ const formatLocalTime = (dateStr) => {
 export default function GRNTable({
   allGRNs,
   loadingGRNs,
-  deliveryReceipts,
-  pos,
-  suppliers,
-  warehouses,
-  productMasters,
-  variants,
   onViewDetails,
   onPrintGRN,
   onPrintBarcodes,
@@ -129,41 +79,30 @@ export default function GRNTable({
   const [supplierFilter, setSupplierFilter] = useState("all");
 
   const uniqueSuppliers = useMemo(() => {
-    const supplierIds = [
-      ...new Set(
-        allGRNs.map((grn) => {
-          const dr = deliveryReceipts.find((receipt) => receipt.id === (grn.dr_id || grn.receipt_info?.dr_id));
-          return dr?.supplier_id || grn.parties?.supplier_id || grn.supplier_id;
-        }).filter(Boolean)
-      ),
-    ];
-
-    return supplierIds.map((id) => suppliers.find((s) => s.id === id)).filter(Boolean);
-  }, [allGRNs, deliveryReceipts, suppliers]);
+    const map = new Map();
+    allGRNs.forEach((grn) => {
+      if (!grn.supplier_id) return;
+      map.set(grn.supplier_id, grn.supplier_name || "Unknown Supplier");
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [allGRNs]);
 
   const filteredGRNs = useMemo(() => {
     return allGRNs.filter((grn) => {
-      const dr = deliveryReceipts.find((receipt) => receipt.id === (grn.dr_id || grn.receipt_info?.dr_id));
       const grnNumber = getGRNNumber(grn);
-      const supplierId = dr?.supplier_id || grn.parties?.supplier_id || grn.supplier_id;
-      const supplier = suppliers.find((s) => s.id === supplierId);
-
-      const supplierName =
-        supplier?.master_profile?.trade_name ||
-        supplier?.master_profile?.legal_business_name ||
-        supplier?.CompanyName ||
-        "";
+      const supplierId = grn.supplier_id;
+      const supplierName = grn.supplier_name || "";
 
       const matchesSearch =
         !searchQuery ||
         grnNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
         supplierName.toLowerCase().includes(searchQuery.toLowerCase());
 
-      const matchesSupplier = supplierFilter === "all" || supplierId === supplierFilter;
+      const matchesSupplier = supplierFilter === "all" || String(supplierId) === String(supplierFilter);
 
       return matchesSearch && matchesSupplier;
     });
-  }, [allGRNs, deliveryReceipts, searchQuery, supplierFilter, suppliers]);
+  }, [allGRNs, searchQuery, supplierFilter]);
 
   if (loadingGRNs) {
     return (
@@ -198,7 +137,7 @@ export default function GRNTable({
                 value={supplier.id}
                 className="focus:bg-accent"
               >
-                {supplier.master_profile?.trade_name || supplier.CompanyName || "Unknown"}
+                {supplier.name || "Unknown"}
               </SelectItem>
             ))}
           </SelectContent>
@@ -257,27 +196,17 @@ export default function GRNTable({
 
             <tbody className="divide-y divide-border">
               {filteredGRNs.map((grn) => {
-                const dr = deliveryReceipts.find((receipt) => receipt.id === (grn.dr_id || grn.receipt_info?.dr_id));
-                const po = pos.find((p) => p.id === (dr?.po_id || grn.receipt_info?.po_id || grn.po_id));
-                const supplierId = dr?.supplier_id || grn.parties?.supplier_id || grn.supplier_id;
-                const supplier = suppliers.find((s) => s.id === supplierId);
-                const warehouse = warehouses.find((w) => w.id === dr?.destination_warehouse_id);
-
-                const rawDate = getGRNDate(grn, dr);
+                const rawDate = getGRNDate(grn);
                 const { date: displayDate, time: displayTime } = formatLocalTime(rawDate);
                 const status = getGRNStatus(grn);
                 const grnNumber = getGRNNumber(grn);
                 const totalCost = getGRNTotalAmount(grn);
                 const itemCount = countTotalItems(grn);
 
-                const supplierName =
-                  supplier?.master_profile?.trade_name ||
-                  supplier?.master_profile?.legal_business_name ||
-                  supplier?.CompanyName ||
-                  "Unknown Supplier";
+                const supplierName = grn.supplier_name || "Unknown Supplier";
 
                 const encodedBy = getEncodedBy(grn);
-                const itemSummaryList = getItemSummary(grn, productMasters, variants);
+                const itemSummaryList = (grn.item_summary || []).map((entry) => `${entry.count}x ${entry.name}`);
 
                 return (
                   <tr key={grn.id} className="hover:bg-accent/40 transition-colors">
@@ -393,7 +322,7 @@ export default function GRNTable({
                           hover:bg-accent
                           focus-visible:ring-2 focus-visible:ring-ring
                         "
-                          onClick={() => onPrintGRN(grn, dr, supplier, warehouse, po)}
+                          onClick={() => onPrintGRN(grn)}
                           title="Print GRN"
                         >
                           <Printer className="w-4 h-4" />

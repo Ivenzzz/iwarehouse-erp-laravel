@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { router, usePage } from "@inertiajs/react";
-import { createGoodsReceipt } from "../services/goodsReceiptService";
+import { createGoodsReceipt, fetchGoodsReceiptCatalog } from "../services/goodsReceiptService";
 
 function getSearchParams() {
   return new URLSearchParams(window.location.search);
@@ -19,6 +19,9 @@ export function useGRNData() {
   const [createPending, setCreatePending] = useState(false);
   const [isFetchingPending, setIsFetchingPending] = useState(false);
   const [isFetchingGrn, setIsFetchingGrn] = useState(false);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState("");
+  const [catalog, setCatalog] = useState({ drId: null, productMasters: [], variants: [] });
 
   const pending = pageData.pending_delivery_receipts || {};
   const grns = pageData.goods_receipts || {};
@@ -100,6 +103,32 @@ export function useGRNData() {
     [deliveryReceipts]
   );
 
+  const loadCatalogForDR = useCallback(async (drId) => {
+    if (!drId) return { productMasters: [], variants: [] };
+    if (catalog.drId === drId && (catalog.productMasters.length > 0 || catalog.variants.length > 0)) {
+      return { productMasters: catalog.productMasters, variants: catalog.variants };
+    }
+
+    try {
+      setCatalogLoading(true);
+      setCatalogError("");
+      const nextCatalog = await fetchGoodsReceiptCatalog(drId);
+      setCatalog({ drId, productMasters: nextCatalog.productMasters, variants: nextCatalog.variants });
+      return nextCatalog;
+    } catch (error) {
+      const message = error?.response?.data?.message || error?.message || "Failed to load catalog data.";
+      setCatalogError(message);
+      throw error;
+    } finally {
+      setCatalogLoading(false);
+    }
+  }, [catalog.drId, catalog.productMasters, catalog.variants]);
+
+  const clearCatalog = useCallback(() => {
+    setCatalog({ drId: null, productMasters: [], variants: [] });
+    setCatalogError("");
+  }, []);
+
   return {
     currentUser: lookups.current_user || null,
     deliveryReceipts,
@@ -109,14 +138,14 @@ export function useGRNData() {
     hasNextPendingPage: (pendingPagination.page || 1) < (pendingPagination.last_page || 1),
     isFetchingNextPendingPage: isFetchingPending,
     loadingGRNs: false,
-    productMasters: lookups.product_masters || [],
-    variants: lookups.variants || [],
+    productMasters: catalog.productMasters,
+    variants: catalog.variants,
+    catalogLoading,
+    catalogError,
+    loadCatalogForDR,
+    clearCatalog,
     suppliers: lookups.suppliers || [],
     warehouses: lookups.warehouses || [],
-    brands: lookups.brands || [],
-    categories: lookups.categories || [],
-    subcategories: lookups.subcategories || [],
-    pos: lookups.pos || [],
     companyInfo: lookups.company_info || null,
     createGRNMutation,
     mainWarehouse,
@@ -131,4 +160,3 @@ export function useGRNData() {
     refreshPage,
   };
 }
-

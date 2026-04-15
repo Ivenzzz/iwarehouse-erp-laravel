@@ -39,6 +39,15 @@ class InventoryFeatureTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Inventory')
                 ->has('inventory.data', 1)
+                ->missing('inventory.data.0.supplier_id')
+                ->missing('inventory.data.0.submodel')
+                ->missing('inventory.data.0.ram_type')
+                ->missing('inventory.data.0.rom_type')
+                ->missing('inventory.data.0.ram_slots')
+                ->missing('inventory.data.0.country_model')
+                ->missing('inventory.data.0.resolution')
+                ->missing('inventory.data.0.purchase')
+                ->missing('inventory.data.0.purchase_file_data')
                 ->where('filters.search', '')
                 ->where('filters.location', 'all')
                 ->where('filters.sort', 'encoded_date')
@@ -233,6 +242,7 @@ class InventoryFeatureTest extends TestCase
         $this->assertStringContainsString('APPLE-002', $content);
         $this->assertStringNotContainsString('APPLE-001', $content);
         $this->assertStringContainsString('Branch Warehouse', $content);
+        $this->assertStringNotContainsString('Purchase Reference', $content);
     }
 
     public function test_inventory_import_validation_rejects_missing_required_columns(): void
@@ -256,8 +266,8 @@ class InventoryFeatureTest extends TestCase
         $variant->delete();
 
         $csv = implode("\n", [
-            'Brand,Model,Warehouse,Condition,RAM,ROM,Color,CPU,GPU,RAM Type,ROM Type,Operating System,Screen,IMEI 1,Serial Number,Cost,Cash,SRP',
-            'Apple,iPhone 17,Main Warehouse,Brand New,8,256,Black,M3,Integrated,LPDDR5,NVMe,macOS,15-inch,991122334455667,SN-NEW-001,10000,12000,13000',
+            'Brand,Model,Warehouse,Condition,RAM,ROM,Color,CPU,GPU,RAM Type,ROM Type,Submodel,RAM Slot,Country Model,Resolution,Purchase,Operating System,Screen,IMEI 1,Serial Number,Cost,Cash,SRP',
+            'Apple,iPhone 17,Main Warehouse,Brand New,8,256,Black,M3,Integrated,LPDDR5,NVMe,Pro,2x,PH,1179x2556,PO-123,macOS,15-inch,991122334455667,SN-NEW-001,10000,12000,13000',
         ]);
         $file = UploadedFile::fake()->createWithContent('inventory.csv', $csv);
 

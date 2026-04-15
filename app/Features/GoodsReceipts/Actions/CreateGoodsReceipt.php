@@ -65,7 +65,6 @@ class CreateGoodsReceipt
                 InventoryItem::query()->create([
                     'product_variant_id' => $item['variant_id'],
                     'warehouse_id' => (int) ($validated['warehouse_id'] ?? 0),
-                    'supplier_id' => (int) ($deliveryReceipt->supplier_id ?? 0),
                     'imei' => data_get($item, 'identifiers.imei1'),
                     'imei2' => data_get($item, 'identifiers.imei2'),
                     'serial_number' => data_get($item, 'identifiers.serial_number'),
@@ -75,25 +74,10 @@ class CreateGoodsReceipt
                     'srp_price' => data_get($item, 'pricing.srp', 0),
                     'package' => $item['package'] ?? null,
                     'warranty' => $item['warranty'] ?? null,
-                    'cpu' => data_get($item, 'spec.cpu'),
-                    'gpu' => data_get($item, 'spec.gpu'),
-                    'submodel' => data_get($item, 'spec.submodel'),
-                    'ram_type' => data_get($item, 'spec.ram_type'),
-                    'rom_type' => data_get($item, 'spec.rom_type'),
-                    'ram_slots' => data_get($item, 'spec.ram_slots'),
                     'product_type' => data_get($item, 'spec.product_type'),
-                    'country_model' => data_get($item, 'spec.country_model'),
                     'with_charger' => (bool) data_get($item, 'spec.with_charger', false),
-                    'resolution' => data_get($item, 'spec.resolution'),
                     'encoded_at' => now(),
                     'grn_number' => $validated['grn_number'],
-                    'purchase_reference' => $deliveryReceipt->dr_number,
-                    'purchase_file_data' => [
-                        'source' => 'goods_receipt',
-                        'goods_receipt_id' => $grn->id,
-                        'delivery_receipt_id' => $deliveryReceipt->id,
-                        'user_id' => $userId,
-                    ],
                 ]);
             }
 

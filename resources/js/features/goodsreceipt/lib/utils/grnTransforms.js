@@ -20,6 +20,7 @@ const EXTRA_ATTRIBUTE_FIELDS = [
 ];
 
 const isPresent = (value) => value !== undefined && value !== null && value !== "";
+const getTargetQuantity = (item) => Number(item?.expected_quantity ?? item?.actual_quantity ?? 0);
 
 export const getEncodedItemIdentifiers = (item) => ({
   imei1: item.identifiers?.imei1 || item.imei1 || "",
@@ -46,30 +47,12 @@ export const getEncodedItemSpec = (item) => ({
   resolution: item.spec?.resolution || item.resolution || "",
 });
 
-const findCategoryById = (categoryId, categories = []) => {
-  if (!categoryId) return null;
-  return categories.find(
-    (category) => category.id === categoryId || category.product_category_id === categoryId
-  ) || null;
-};
-
-const findSubcategoryById = (subcategoryId, subcategories = []) => {
-  if (!subcategoryId) return null;
-  return subcategories.find(
-    (subcategory) => subcategory.id === subcategoryId || subcategory.product_subcategory_id === subcategoryId
-  ) || null;
-};
-
 export const getProductReferenceData = (
   item,
   variant = {},
   productMaster = {},
-  declaredItem = {},
-  { categories = [], subcategories = [] } = {}
+  declaredItem = {}
 ) => {
-  const category = findCategoryById(productMaster.category_id, categories);
-  const subcategory = findSubcategoryById(productMaster.subcategory_id, subcategories);
-
   return {
     product_master_id: variant.product_master_id || item.product_master_id || "",
     variant_id: item.variant_id || "",
@@ -77,8 +60,8 @@ export const getProductReferenceData = (
     variant_name: variant.variant_name || declaredItem.variant_name || item.variant_name || "",
     condition: variant.condition || item.condition || declaredItem.condition || item.product_spec?.condition || declaredItem.product_spec?.condition || "",
     master_sku: variant.master_sku || productMaster.master_sku || declaredItem.master_sku || item.master_sku || "",
-    category_name: productMaster.category_name || category?.name || variant.category_name || declaredItem.category_name || item.category_name || "",
-    subcategory_name: productMaster.subcategory_name || subcategory?.name || variant.subcategory_name || declaredItem.subcategory_name || item.subcategory_name || "",
+    category_name: productMaster.category_name || variant.category_name || declaredItem.category_name || item.category_name || "",
+    subcategory_name: productMaster.subcategory_name || variant.subcategory_name || declaredItem.subcategory_name || item.subcategory_name || "",
     brand: productMaster.brand_name || variant.brand_name || declaredItem.brand || declaredItem.brand_name || item.brand || item.brand_name || "",
     model: productMaster.model || variant.model || declaredItem.model || item.model || productMaster.name || declaredItem.product_name || "",
   };
@@ -133,7 +116,8 @@ export const buildDeclaredItemsFromDeliveryReceipt = (deliveryReceipt) =>
   (deliveryReceipt?.declared_items_json?.items || []).map((item) => ({
     ...item,
     declared_item_key: item.declared_item_key || buildDeclaredItemKey(item),
-    declared_quantity: item.declared_quantity || item.expected_quantity || item.actual_quantity || 0,
+    expected_quantity: getTargetQuantity(item),
+    declared_quantity: getTargetQuantity(item),
     condition: item.condition || item.product_spec?.condition || "",
   }));
 
@@ -207,8 +191,6 @@ export const buildGRNData = ({
   assignedWarehouse,
   variants = [],
   productMasters = [],
-  categories = [],
-  subcategories = [],
 }) => {
   const variantMap = new Map(variants.map((v) => [v.id, v]));
   const pmMap = new Map(productMasters.map((pm) => [pm.id, pm]));
@@ -218,10 +200,7 @@ export const buildGRNData = ({
     const variant = variantMap.get(item.variant_id) || {};
     const pm = pmMap.get(item.product_master_id || variant.product_master_id) || {};
     const declaredItem = findDeclaredItemForEncodedItem(item, declaredItemsList);
-    const referenceData = getProductReferenceData(item, variant, pm, declaredItem, {
-      categories,
-      subcategories,
-    });
+    const referenceData = getProductReferenceData(item, variant, pm, declaredItem);
 
     return {
       variant_id: referenceData.variant_id,

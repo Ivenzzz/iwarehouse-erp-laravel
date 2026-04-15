@@ -80,7 +80,6 @@ class ExportInventoryCsv
                 'Color',
                 'Category',
                 'GRN Number',
-                'Purchase Reference',
                 'Encoded Date',
                 'Created Date',
             ]);
@@ -107,7 +106,6 @@ class ExportInventoryCsv
                     $item['attrColor'],
                     $item['categoryName'] ?? '',
                     $item['grn_number'],
-                    $item['purchase'],
                     $item['encoded_date'],
                     $item['created_date'],
                 ]);

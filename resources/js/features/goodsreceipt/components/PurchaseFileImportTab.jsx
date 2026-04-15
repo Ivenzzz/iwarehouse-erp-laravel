@@ -10,14 +10,9 @@ import {
   Loader2,
   FileSpreadsheet,
 } from "lucide-react";
-import {
-  parsePurchaseCSV,
-  validatePurchaseFileRows
-} from "@/features/goodsreceipt/lib/utils/purchaseFileUtils";
+import { validateCSVOnServer } from "@/features/goodsreceipt/lib/services/goodsReceiptService";
 
 export default function PurchaseFileImportTab({
-  productMasters,
-  variants,
   declaredItemsList,
   onImportReady,
 }) {
@@ -39,28 +34,27 @@ export default function PurchaseFileImportTab({
       setIsValidating(true);
 
       const reader = new FileReader();
-      reader.onload = (event) => {
-        const csvText = event.target.result;
-        const { rows, error } = parsePurchaseCSV(csvText);
+      reader.onload = async (event) => {
+        const csvText = String(event.target.result || "");
 
-        if (error) {
-          setParseErrors(error);
+        try {
+          const result = await validateCSVOnServer(csvText);
+          const vRows = result?.validatedRows || [];
+          const errors = result?.errors || [];
+          setValidatedRows(vRows);
+          setValidationErrors(errors);
+          setParseErrors(null);
+        } catch (error) {
+          setValidatedRows([]);
+          setValidationErrors([]);
+          setParseErrors(error?.response?.data?.message || error.message || "Failed to validate CSV on server.");
+        } finally {
           setIsValidating(false);
-          return;
         }
-
-        const { validatedRows: vRows, errors } = validatePurchaseFileRows(
-          rows,
-          productMasters,
-          variants
-        );
-        setValidatedRows(vRows);
-        setValidationErrors(errors);
-        setIsValidating(false);
       };
       reader.readAsText(selectedFile);
     },
-    [productMasters, variants]
+    []
   );
 
   const handleImport = useCallback(() => {

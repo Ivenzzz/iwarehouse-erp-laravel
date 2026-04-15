@@ -66,12 +66,12 @@ export default function InventoryItemDetailsDialog({
   }, [item?.id, open]);
 
   const identifier = item?.imei1 || item?.imei2 || item?.serial_number || "";
-  const ramValue = item?.attrRAM || item?.purchase_file_data?.ram || item?.purchase_file_data?.RAM || "";
-  const romValue = item?.attrROM || item?.purchase_file_data?.storage || item?.purchase_file_data?.Storage || item?.purchase_file_data?.rom || item?.purchase_file_data?.ROM || "";
-  const colorValue = item?.attrColor || item?.purchase_file_data?.color || item?.purchase_file_data?.Color || "";
+  const ramValue = item?.attrRAM || "";
+  const romValue = item?.attrROM || "";
+  const colorValue = item?.attrColor || "";
   const cpuValue = item?.variant_cpu || item?.cpu || item?.platform_cpu || "";
   const gpuValue = item?.variant_gpu || item?.gpu || item?.platform_gpu || "";
-  const conditionValue = item?.variantCondition || item?.purchase_file_data?.condition || "";
+  const conditionValue = item?.variantCondition || "";
   const headerTitle = [item?.productName].filter(Boolean).join(" ");
   const specLines = [
     [ramValue, romValue].filter(Boolean).join("/"),
@@ -149,10 +149,6 @@ export default function InventoryItemDetailsDialog({
                       <LabelValue label="Color" value={colorValue} />
                       <LabelValue label="CPU" value={cpuValue} />
                       <LabelValue label="GPU" value={gpuValue} />
-                      <LabelValue label="RAM Type" value={item.ram_type || item.purchase_file_data?.ram_type} />
-                      <LabelValue label="ROM Type" value={item.rom_type || item.purchase_file_data?.rom_type} />
-                      <LabelValue label="RAM Slots" value={item.ram_slots || item.purchase_file_data?.ram_slots} />
-                      <LabelValue label="Resolution" value={item.resolution || item.purchase_file_data?.resolution} />
                       <LabelValue label="Warranty" value={item.warranty_description} />
                     </div>
                   </div>
@@ -166,7 +162,6 @@ export default function InventoryItemDetailsDialog({
                       <LabelValue label="Cash Price" value={formatCurrency(item.cash_price)} />
                       <LabelValue label="SRP" value={formatCurrency(item.srp)} />
                       <LabelValue label="GRN Number" value={item.grn_number} />
-                      <LabelValue label="Purchase Reference" value={item.purchase} />
                       <LabelValue label="Encoded Date" value={formatDateTime(item.encoded_date)} />
                       <LabelValue label="Created Date" value={formatDateTime(item.created_date)} />
                     </div>

@@ -67,35 +67,21 @@ const getConditionLabel = (condition) => {
 const formatCurrency = (value) => `P${(Number(value) || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`;
 
 const getGRNNumber = (grn) => grn.grn_number || grn.receipt_info?.grn_number;
-const getGRNStatus = (grn) => grn.status || grn.status_info?.status || "draft";
-const getGRNDate = (grn, dr) =>
-  dr?.date_encoded ||
-  grn.parties?.encoded_date ||
-  grn.created_date ||
-  grn.receipt_info?.receipt_date;
-const getGRNTotalAmount = (grn) => grn.total_amount ?? grn.financial_info?.total_amount ?? 0;
+const getGRNStatus = (grn) => grn.status || "draft";
+const getGRNDate = (grn) => grn.parties?.encoded_date || grn.created_date;
+const getGRNTotalAmount = (grn) => grn.total_amount ?? 0;
 const getEncodedBy = (grn) => {
-  const directValue = grn.received_by || grn.parties?.received_by;
+  const directValue = grn.encoded_by || grn.received_by || grn.parties?.received_by;
   if (directValue) return directValue;
 
   const noteMatch = grn.notes?.match(/completed by (.+?) on/i);
   return noteMatch?.[1] || "N/A";
 };
 
-const getProductName = (item, productMasters, variants) => {
-  const variant = variants.find((v) => v.id === item.variant_id);
-  const pm =
-    productMasters.find((p) => p.id === item.product_master_id) ||
-    productMasters.find((p) => p.id === variant?.product_master_id);
-
-  return `${variant?.variant_name || pm?.name || "Unknown"}`.trim();
-};
-
-const flattenItems = (grn, productMasters, variants) => {
+const flattenItems = (grn) => {
   return (grn.items || []).flatMap((item) => {
-    const variant = variants.find((v) => v.id === item.variant_id);
-    const productName = getProductName(item, productMasters, variants);
-    const variantCondition = item.condition || variant?.condition || "Brand New";
+    const productName = [item.brand_name, item.model_name, item.variant_name].filter(Boolean).join(" ").trim() || item.product_name || "Unknown";
+    const variantCondition = item.condition || "Brand New";
 
     if (item.identifiers || item.pricing || item.spec) {
       const identifiers = item.identifiers || {};
@@ -120,11 +106,7 @@ const flattenItems = (grn, productMasters, variants) => {
       ];
     }
 
-    const packageInfo =
-      variant?.attributes?.package ||
-      item.package ||
-      item.batch_info?.package ||
-      "N/A";
+    const packageInfo = item.package || item.batch_info?.package || "N/A";
 
     const serials = item.serials || item.serial_numbers || [];
     const qtyReceived =
@@ -183,35 +165,16 @@ export default function GRNDetailsDialog({
   open,
   onOpenChange,
   selectedGRN,
-  deliveryReceipts,
-  pos,
-  suppliers,
-  warehouses,
-  productMasters,
-  variants,
 }) {
   if (!selectedGRN) return null;
 
-  const dr = deliveryReceipts.find((receipt) => receipt.id === (selectedGRN.dr_id || selectedGRN.receipt_info?.dr_id));
-  const supplierId = dr?.supplier_id || selectedGRN.parties?.supplier_id || selectedGRN.supplier_id;
-  const warehouseId = dr?.destination_warehouse_id || selectedGRN.parties?.warehouse_id || selectedGRN.warehouse_id;
-  const poId = dr?.po_id || selectedGRN.receipt_info?.po_id || selectedGRN.po_id;
-
-  const supplier = suppliers.find((s) => s.id === supplierId);
-  const warehouse = warehouses.find((w) => w.id === warehouseId);
-  const po = pos.find((p) => p.id === poId);
-
   const status = getGRNStatus(selectedGRN);
   const totalCost = getGRNTotalAmount(selectedGRN);
-  const encodedDate = getGRNDate(selectedGRN, dr);
+  const encodedDate = getGRNDate(selectedGRN);
   const receivedBy = getEncodedBy(selectedGRN);
   const grnNumber = getGRNNumber(selectedGRN);
 
-  const supplierName =
-    supplier?.master_profile?.trade_name ||
-    supplier?.master_profile?.legal_business_name ||
-    supplier?.CompanyName ||
-    "Unknown Supplier";
+  const supplierName = selectedGRN.receipt_info?.supplier_name || "Unknown Supplier";
 
   const boxDeclared =
     selectedGRN.declared_items_json?.box_count_declared ??
@@ -222,7 +185,7 @@ export default function GRNDetailsDialog({
     selectedGRN.receipt_info?.box_count_received ??
     1;
 
-  const flattenedItems = flattenItems(selectedGRN, productMasters, variants);
+  const flattenedItems = flattenItems(selectedGRN);
   const discrepancyInfo = selectedGRN.discrepancy_info || {};
   const notes = selectedGRN.notes || selectedGRN.metadata_json?.notes || selectedGRN.metadata?.notes || "";
 
@@ -258,7 +221,7 @@ export default function GRNDetailsDialog({
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs font-medium uppercase text-slate-400">PO Number</p>
-                  <p className="text-base font-semibold text-white/90">{po?.po_number || "N/A"}</p>
+                  <p className="text-base font-semibold text-white/90">{selectedGRN.receipt_info?.po_number || "N/A"}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs font-medium uppercase text-slate-400">Supplier</p>
@@ -273,7 +236,7 @@ export default function GRNDetailsDialog({
                   <p className="text-xs font-medium uppercase text-slate-400">Warehouse</p>
                   <p className="text-base font-semibold text-white/90 flex items-center gap-1">
                     <MapPin className="w-4 h-4 text-blue-400" />
-                    {warehouse?.name || "N/A"}
+                    {selectedGRN.parties?.warehouse_name || "N/A"}
                   </p>
                 </div>
                 <div className="space-y-1">
@@ -308,7 +271,7 @@ export default function GRNDetailsDialog({
                   <p className="text-xs font-medium uppercase text-slate-400">Vendor DR / Ref</p>
                   <p className="text-base font-semibold text-white/90 flex items-center gap-1">
                     <FileText className="w-4 h-4 text-sky-400" />
-                    {dr?.dr_number || dr?.vendor_dr_number || "-"} / {dr?.reference_number || "-"}
+                    {selectedGRN.receipt_info?.dr_number || "-"} / -
                   </p>
                 </div>
               </div>

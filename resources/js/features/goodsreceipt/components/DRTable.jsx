@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -19,8 +19,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 const ROW_HEIGHT = 232;
 const normalizeSpecValue = (value) => String(value || "").trim().toLowerCase();
 
-const getProductLabel = (item, productMasters = []) => {
-  const productMaster = productMasters.find((entry) => entry.id === item.product_master_id);
+const getProductLabel = (item) => {
   const spec = [
     item.product_spec?.ram,
     item.product_spec?.rom,
@@ -28,12 +27,12 @@ const getProductLabel = (item, productMasters = []) => {
   ].filter(Boolean).join(" / ");
 
   return {
-    name: productMaster?.name || productMaster?.model || "Unknown Product",
+    name: item.product_name || "Unknown Product",
     spec,
   };
 };
 
-function PendingDRRow({ dr, supplier, po, productMasters, onSelectDR, style }) {
+function PendingDRRow({ dr, onSelectDR, style }) {
   const logistics = dr.logistics_json || {};
   const courier = logistics.logistics_company || "In-house Logistics";
   const tracking = logistics.waybill_number || "-";
@@ -44,13 +43,9 @@ function PendingDRRow({ dr, supplier, po, productMasters, onSelectDR, style }) {
   const boxCount = declaredInfo.box_count_received || declaredInfo.box_count_declared || 1;
   const totalQty = items.reduce((sum, item) => sum + (item.expected_quantity || item.actual_quantity || 0), 0);
   const distinctProducts = items.length;
-  const firstItemDisplay = items[0] ? getProductLabel(items[0], productMasters) : { name: "Unknown Product", spec: "" };
+  const firstItemDisplay = items[0] ? getProductLabel(items[0]) : { name: "Unknown Product", spec: "" };
 
-  const supplierName =
-    supplier?.master_profile?.trade_name ||
-    supplier?.master_profile?.legal_business_name ||
-    supplier?.name ||
-    "Unknown Supplier";
+  const supplierName = dr.supplier_name || "Unknown Supplier";
 
   return (
     <div
@@ -83,10 +78,10 @@ function PendingDRRow({ dr, supplier, po, productMasters, onSelectDR, style }) {
               </div>
             </div>
 
-            {po && (
+            {dr.po_number && (
               <div className="mt-1">
                 <Badge variant="secondary" className="border border-border bg-muted text-[10px] text-muted-foreground hover:bg-accent">
-                  PO: {po.po_number}
+                  PO: {dr.po_number}
                 </Badge>
               </div>
             )}
@@ -130,7 +125,7 @@ function PendingDRRow({ dr, supplier, po, productMasters, onSelectDR, style }) {
                   {supplierName}
                 </p>
                 <p className="font-mono text-[10px] text-muted-foreground">
-                  {supplier?.supplier_code ? `Code: ${supplier.supplier_code}` : `ID: ${supplier?.id?.slice(0, 8) || "-"}`}
+                  {dr.supplier_code ? `Code: ${dr.supplier_code}` : `ID: ${dr.supplier_id || "-"}`}
                 </p>
               </div>
             </div>
@@ -173,7 +168,7 @@ function PendingDRRow({ dr, supplier, po, productMasters, onSelectDR, style }) {
                     {items.slice(0, 5).map((item, idx) => (
                       <li key={idx} className="text-slate-100">
                         {(() => {
-                          const display = getProductLabel(item, productMasters);
+                          const display = getProductLabel(item);
                           return (
                             <>
                               <span className="text-muted-foreground">{item.expected_quantity || item.actual_quantity || 0}x</span>{" "}
@@ -209,9 +204,6 @@ function PendingDRRow({ dr, supplier, po, productMasters, onSelectDR, style }) {
 
 export default function DRTable({
   deliveryReceipts,
-  suppliers,
-  pos,
-  productMasters = [],
   loadingDRs,
   hasNextPage,
   isFetchingNextPage,
@@ -219,8 +211,6 @@ export default function DRTable({
   onSelectDR,
 }) {
   const parentRef = useRef(null);
-  const supplierMap = useMemo(() => new Map(suppliers.map((supplier) => [supplier.id, supplier])), [suppliers]);
-  const poMap = useMemo(() => new Map((pos || []).map((po) => [po.id, po])), [pos]);
 
   const rowVirtualizer = useVirtualizer({
     count: deliveryReceipts.length,
@@ -274,9 +264,6 @@ export default function DRTable({
                       <PendingDRRow
                         key={dr.id}
                         dr={dr}
-                        supplier={supplierMap.get(dr.supplier_id)}
-                        po={poMap.get(dr.po_id)}
-                        productMasters={productMasters}
                         onSelectDR={onSelectDR}
                         style={{
                           transform: `translateY(${virtualRow.start}px)`,

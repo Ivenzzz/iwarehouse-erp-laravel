@@ -15,7 +15,6 @@ class InventoryItem extends Model
     protected $fillable = [
         'product_variant_id',
         'warehouse_id',
-        'supplier_id',
         'imei',
         'imei2',
         'serial_number',
@@ -25,20 +24,10 @@ class InventoryItem extends Model
         'srp_price',
         'package',
         'warranty',
-        'cpu',
-        'gpu',
-        'submodel',
-        'ram_type',
-        'rom_type',
-        'ram_slots',
         'product_type',
-        'country_model',
         'with_charger',
-        'resolution',
         'encoded_at',
         'grn_number',
-        'purchase_reference',
-        'purchase_file_data',
     ];
 
     protected $casts = [
@@ -47,7 +36,6 @@ class InventoryItem extends Model
         'srp_price' => 'decimal:2',
         'with_charger' => 'bool',
         'encoded_at' => 'datetime',
-        'purchase_file_data' => 'array',
     ];
 
     public function productVariant(): BelongsTo
@@ -58,11 +46,6 @@ class InventoryItem extends Model
     public function warehouse(): BelongsTo
     {
         return $this->belongsTo(Warehouse::class);
-    }
-
-    public function supplier(): BelongsTo
-    {
-        return $this->belongsTo(Supplier::class);
     }
 
     public function logs(): HasMany
@@ -93,11 +76,6 @@ class InventoryItem extends Model
     protected function srp(): Attribute
     {
         return Attribute::get(fn () => $this->srp_price);
-    }
-
-    protected function purchase(): Attribute
-    {
-        return Attribute::get(fn () => $this->purchase_reference);
     }
 
     protected function createdDate(): Attribute

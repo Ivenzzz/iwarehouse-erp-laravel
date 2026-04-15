@@ -9,9 +9,12 @@ use App\Features\GoodsReceipts\Actions\ResolvePurchaseBrandConflicts;
 use App\Features\GoodsReceipts\Actions\StoreGoodsReceiptUpload;
 use App\Features\GoodsReceipts\Actions\ValidateGoodsReceiptDuplicates;
 use App\Features\GoodsReceipts\Actions\ValidatePurchaseCsv;
+use App\Features\GoodsReceipts\Queries\GetGoodsReceiptCatalog;
+use App\Features\GoodsReceipts\Queries\GetGoodsReceiptDetail;
 use App\Features\GoodsReceipts\Queries\ListGoodsReceiptPageData;
 use App\Http\Controllers\Controller;
 use App\Models\DeliveryReceipt;
+use App\Models\GoodsReceipt;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,6 +32,16 @@ class GoodsReceiptController extends Controller
     public function data(Request $request, ListGoodsReceiptPageData $query): JsonResponse
     {
         return response()->json($query($request)['goods_receipt_page']);
+    }
+
+    public function catalog(Request $request, GetGoodsReceiptCatalog $query): JsonResponse
+    {
+        return response()->json($query($request));
+    }
+
+    public function show(GoodsReceipt $goodsReceipt, GetGoodsReceiptDetail $query): JsonResponse
+    {
+        return response()->json($query($goodsReceipt));
     }
 
     public function store(Request $request, CreateGoodsReceipt $action): JsonResponse|RedirectResponse

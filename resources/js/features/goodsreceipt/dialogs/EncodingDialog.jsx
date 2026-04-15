@@ -36,16 +36,11 @@ const inferColorFromVariantName = (variantName) => {
   return parts[parts.length - 1];
 };
 
-const getDeclaredItemDisplayTitle = (item, productMasters = []) => {
+const getDeclaredItemDisplayTitle = (item) => {
   if (!item) return "Unknown Product";
-  if (!item.allocation_required) return item.variant_name || item.product_name || "Unknown Product";
+  if (!item.allocation_required) return item.product_label || item.variant_name || item.product_name || "Unknown Product";
 
-  const productMaster = productMasters.find((entry) => idEquals(entry.id, item.product_master_id));
-  const productLabel =
-    productMaster?.name ||
-    productMaster?.model ||
-    item.product_name ||
-    "Unknown Product";
+  const productLabel = item.product_name || "Unknown Product";
   const specLabel = [
     item.product_spec?.ram,
     item.product_spec?.rom,
@@ -55,22 +50,10 @@ const getDeclaredItemDisplayTitle = (item, productMasters = []) => {
   return [productLabel, specLabel].filter(Boolean).join(" ").trim() || "Unknown Product";
 };
 
-const getUnallocatedProductText = (item, productMasters = []) => {
+const getUnallocatedProductText = (item) => {
   if (!item) return "Unknown Product";
-
-  const productMaster = productMasters.find((entry) => idEquals(entry.id, item.product_master_id));
-  const resolvedBrand =
-    productMaster?.brand_id?.name ||
-    productMaster?.brand_id?.ProductBrand?.name ||
-    productMaster?.brand ||
-    item.brand ||
-    "";
-  const model =
-    item.model ||
-    productMaster?.model ||
-    productMaster?.name ||
-    item.product_name ||
-    "Unknown Product";
+  const resolvedBrand = item.brand_name || item.brand || "";
+  const model = item.model || item.model_name || item.product_name || "Unknown Product";
 
   return [resolvedBrand, model].filter(Boolean).join(" ").trim() || "Unknown Product";
 };
@@ -431,8 +414,8 @@ export default function EncodingDialog({
                 const itemEncodedCount = item.encoded_count || 0;
                 const pct = itemTarget > 0 ? Math.min(100, Math.round((itemEncodedCount / itemTarget) * 100)) : 0;
                 const isSelected = selectedDeclaredItem?.row_key === item.row_key;
-                const itemDisplayTitle = getDeclaredItemDisplayTitle(item, productMasters);
-                const unallocatedProductText = getUnallocatedProductText(item, productMasters);
+                const itemDisplayTitle = getDeclaredItemDisplayTitle(item);
+                const unallocatedProductText = getUnallocatedProductText(item);
                 const unallocatedSpecs = [
                   item.product_spec?.ram,
                   item.product_spec?.rom,
@@ -653,7 +636,7 @@ export default function EncodingDialog({
               <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <div className="min-w-0">
                   <h2 className="text-xl font-bold text-foreground">
-                    {selectedDeclaredItem ? getDeclaredItemDisplayTitle(selectedDeclaredItem, productMasters) : "Import File"}
+                    {selectedDeclaredItem ? getDeclaredItemDisplayTitle(selectedDeclaredItem) : "Import File"}
                   </h2>
                   <div className="text-xs text-muted-foreground mt-2 flex flex-wrap items-center gap-2">
                     {selectedDeclaredItem ? (
@@ -1112,7 +1095,6 @@ export default function EncodingDialog({
                             <div className="text-center">Del</div>
                           </div>
                         {currentScannedItems.map((scan, idx) => {
-                          const variant = variants?.find(v => idEquals(v.id, scan.variant_id));
                           return (
                             <div
                               key={idx}
@@ -1125,8 +1107,8 @@ export default function EncodingDialog({
 
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2">
-                                  <p className="text-foreground font-medium truncate" title={variant?.variant_name || '-'}>
-                                    {variant?.variant_name || '-'}
+                                  <p className="text-foreground font-medium truncate" title={scan.variant_name || scan.product_label || "-"}>
+                                    {scan.variant_name || scan.product_label || "-"}
                                   </p>
                                   {idx === 0 && (
                                     <Badge variant="outline" className="border-primary/20 text-primary bg-primary/10">
@@ -1180,8 +1162,6 @@ export default function EncodingDialog({
               {/* VIEW: PURCHASE FILE UPLOAD — covers ALL declared items */}
               {activeTab === "purchasefile" && (
                 <PurchaseFileImportTab
-                  productMasters={productMasters || []}
-                  variants={variants || []}
                   declaredItemsList={declaredItemsList}
                   onImportReady={handlePurchaseFileAddToEncoded}
                 />

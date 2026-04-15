@@ -39,15 +39,14 @@ class InventoryDataTransformer
         $productMaster = $variant?->productMaster;
         $warehouse = $item->warehouse;
         $attributes = self::variantAttributes($variant);
-        $resolvedCpu = self::nullableString($variant?->cpu) ?? self::nullableString($item->cpu);
-        $resolvedGpu = self::nullableString($variant?->gpu) ?? self::nullableString($item->gpu);
+        $resolvedCpu = self::nullableString($variant?->cpu);
+        $resolvedGpu = self::nullableString($variant?->gpu);
 
         return [
             'id' => $item->id,
             'product_master_id' => $productMaster?->id,
             'variant_id' => $variant?->id,
             'warehouse_id' => $warehouse?->id,
-            'supplier_id' => $item->supplier_id,
             'imei1' => $item->imei,
             'imei2' => $item->imei2,
             'serial_number' => $item->serial_number,
@@ -59,17 +58,9 @@ class InventoryDataTransformer
             'warranty_description' => $item->warranty,
             'cpu' => $resolvedCpu,
             'gpu' => $resolvedGpu,
-            'submodel' => $item->submodel,
-            'ram_type' => $item->ram_type,
-            'rom_type' => $item->rom_type,
-            'ram_slots' => $item->ram_slots,
             'product_type' => $item->product_type,
-            'country_model' => $item->country_model,
             'with_charger' => (bool) $item->with_charger,
-            'resolution' => $item->resolution,
             'grn_number' => $item->grn_number,
-            'purchase' => $item->purchase_reference,
-            'purchase_file_data' => $item->purchase_file_data ?? [],
             'created_date' => optional($item->created_at)?->toDateTimeString(),
             'encoded_date' => optional($item->encoded_at ?? $item->created_at)?->toDateTimeString(),
             'updated_at' => optional($item->updated_at)?->toDateTimeString(),
@@ -97,15 +88,14 @@ class InventoryDataTransformer
 
     public static function transformInventoryListItem(InventoryItem $item): array
     {
-        $resolvedCpu = self::nullableString($item->getAttribute('variant_cpu')) ?? self::nullableString($item->cpu);
-        $resolvedGpu = self::nullableString($item->getAttribute('variant_gpu')) ?? self::nullableString($item->gpu);
+        $resolvedCpu = self::nullableString($item->getAttribute('variant_cpu'));
+        $resolvedGpu = self::nullableString($item->getAttribute('variant_gpu'));
 
         return [
             'id' => $item->id,
             'product_master_id' => self::nullableInt($item->getAttribute('product_master_id')),
             'variant_id' => self::nullableInt($item->product_variant_id),
             'warehouse_id' => self::nullableInt($item->warehouse_id),
-            'supplier_id' => self::nullableInt($item->supplier_id),
             'imei1' => $item->imei,
             'imei2' => $item->imei2,
             'serial_number' => $item->serial_number,
@@ -119,17 +109,9 @@ class InventoryDataTransformer
             'gpu' => $resolvedGpu,
             'platform_cpu' => self::nullableString($item->getAttribute('platform_cpu')),
             'platform_gpu' => self::nullableString($item->getAttribute('platform_gpu')),
-            'submodel' => $item->submodel,
-            'ram_type' => $item->ram_type,
-            'rom_type' => $item->rom_type,
-            'ram_slots' => $item->ram_slots,
             'product_type' => $item->product_type,
-            'country_model' => $item->country_model,
             'with_charger' => (bool) $item->with_charger,
-            'resolution' => $item->resolution,
             'grn_number' => $item->grn_number,
-            'purchase' => $item->purchase_reference,
-            'purchase_file_data' => $item->purchase_file_data ?? [],
             'created_date' => optional($item->created_at)?->toDateTimeString(),
             'encoded_date' => optional($item->encoded_at ?? $item->created_at)?->toDateTimeString(),
             'updated_at' => optional($item->updated_at)?->toDateTimeString(),

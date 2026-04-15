@@ -195,8 +195,6 @@ class InventoryListQuery
                     ->orWhere('product_variants.rom', 'like', $like)
                     ->orWhere('product_variants.cpu', 'like', $like)
                     ->orWhere('product_variants.gpu', 'like', $like)
-                    ->orWhere('inventory_items.cpu', 'like', $like)
-                    ->orWhere('inventory_items.gpu', 'like', $like)
                     ->orWhere('inventory_items.grn_number', 'like', $like);
             });
         }

@@ -151,8 +151,9 @@ export default function DeliveryReceipts() {
     if (success) {
       setShowCreateDialog(false);
       formHook.resetForm();
+      refreshData();
     }
-  }, [formHook.handleCreateDR, formHook.resetForm]);
+  }, [formHook.handleCreateDR, formHook.resetForm, refreshData]);
 
   const handleCloseCreateDialog = useCallback((open) => {
     if (!open) formHook.resetForm();

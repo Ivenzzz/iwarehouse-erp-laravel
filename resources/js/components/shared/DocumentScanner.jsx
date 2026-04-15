@@ -2,7 +2,7 @@ import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Camera, Upload, RotateCw, Check, X } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import axios from "axios";
 
 export default function DocumentScanner({
   onFileCapture,
@@ -19,6 +19,17 @@ export default function DocumentScanner({
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  const uploadFileToServer = async (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const { data } = await axios.post(route("goods-receipts.upload"), formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    return data?.file_url || "";
+  };
 
   const startCamera = async () => {
     if (!enableCamera) return;
@@ -79,8 +90,8 @@ export default function DocumentScanner({
       if (onLocalFileCapture) {
         onLocalFileCapture(file, capturedImage.url);
       } else {
-        const { file_url } = await base44.integrations.Core.UploadFile({ file });
-        onFileCapture(file_url);
+        const fileUrl = await uploadFileToServer(file);
+        onFileCapture(fileUrl);
       }
       handleClose();
     } catch (error) {
@@ -101,8 +112,8 @@ export default function DocumentScanner({
         const previewUrl = URL.createObjectURL(file);
         onLocalFileCapture(file, previewUrl);
       } else {
-        const { file_url } = await base44.integrations.Core.UploadFile({ file });
-        onFileCapture(file_url);
+        const fileUrl = await uploadFileToServer(file);
+        onFileCapture(fileUrl);
       }
       handleClose();
     } catch (error) {

@@ -79,4 +79,9 @@ class DeliveryReceipt extends Model
     {
         return $this->hasMany(DeliveryReceiptItem::class)->orderBy('id');
     }
+
+    public function goodsReceipt(): HasOne
+    {
+        return $this->hasOne(GoodsReceipt::class);
+    }
 }

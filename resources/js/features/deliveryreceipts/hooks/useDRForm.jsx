@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import axios from "axios";
+import { toast } from "@/shared/hooks/use-toast";
 import {
   createInitialFormData,
   checkAllRequiredUploaded,
@@ -343,7 +344,10 @@ export function useDRForm({
       await axios.post(route("delivery-receipts.store"), payload, {
         headers: { "Content-Type": "multipart/form-data", Accept: "application/json" },
       });
-      setAlertDialog({ open: true, title: "Success", description: `Delivery Receipt ${formData.vendor_dr_number} created successfully.` });
+      toast({
+        title: "Success",
+        description: `Delivery Receipt ${formData.vendor_dr_number} created successfully.`,
+      });
       return true;
     } catch (error) {
       const firstError = error?.response?.data?.errors

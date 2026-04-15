@@ -21,6 +21,8 @@ class CreateDeliveryReceipt
     public function handle(array $payload, ?int $userId = null): DeliveryReceipt
     {
         return DB::transaction(function () use ($payload, $userId) {
+            $poId = isset($payload['po_id']) && $payload['po_id'] !== '' ? (int) $payload['po_id'] : null;
+            $isPoLinked = $poId !== null;
             $declaredItems = $payload['declared_items'] ?? [];
             $computedDrValue = collect($declaredItems)->sum(function (array $item) {
                 $qty = (int) ($item['actual_quantity'] ?? 0);
@@ -28,13 +30,15 @@ class CreateDeliveryReceipt
                 return $qty * $unitCost;
             });
             $freightCost = (float) data_get($payload, 'logistics.freight_cost', 0);
-            $hasVariance = collect($declaredItems)->contains(function (array $item) {
-                return (int) ($item['expected_quantity'] ?? $item['declared_quantity'] ?? 0) !== (int) ($item['actual_quantity'] ?? 0);
-            });
+            $hasVariance = $isPoLinked
+                ? collect($declaredItems)->contains(function (array $item) {
+                    return (int) ($item['expected_quantity'] ?? $item['declared_quantity'] ?? 0) !== (int) ($item['actual_quantity'] ?? 0);
+                })
+                : false;
 
             $dr = DeliveryReceipt::query()->create([
                 'supplier_id' => (int) $payload['supplier_id'],
-                'po_id' => $payload['po_id'] ? (int) $payload['po_id'] : null,
+                'po_id' => $poId,
                 'dr_number' => (string) $payload['dr_number'],
                 'reference_number' => $payload['reference_number'] ?? null,
                 'date_received' => $payload['date_received'],
@@ -84,8 +88,10 @@ class CreateDeliveryReceipt
             }
 
             foreach ($declaredItems as $item) {
-                $expectedQuantity = (int) ($item['expected_quantity'] ?? $item['declared_quantity'] ?? 0);
                 $actualQuantity = (int) ($item['actual_quantity'] ?? 0);
+                $expectedQuantity = $isPoLinked
+                    ? (int) ($item['expected_quantity'] ?? $item['declared_quantity'] ?? 0)
+                    : $actualQuantity;
                 $unitCost = (float) ($item['unit_cost'] ?? 0);
                 $drItem = $dr->items()->create([
                     'product_master_id' => (int) $item['product_master_id'],
@@ -95,7 +101,7 @@ class CreateDeliveryReceipt
                     'cash_price' => $item['cash_price'] ?? null,
                     'srp_price' => $item['srp_price'] ?? null,
                     'total_value' => $actualQuantity * $unitCost,
-                    'variance_flag' => $expectedQuantity !== $actualQuantity,
+                    'variance_flag' => $isPoLinked ? ($expectedQuantity !== $actualQuantity) : false,
                     'variance_notes' => $item['variance_notes'] ?? null,
                 ]);
 
@@ -107,8 +113,8 @@ class CreateDeliveryReceipt
                 ]);
             }
 
-            if (!empty($payload['po_id'])) {
-                PurchaseOrder::query()->whereKey((int) $payload['po_id'])->update(['has_delivery_receipt' => true]);
+            if ($poId !== null) {
+                PurchaseOrder::query()->whereKey($poId)->update(['has_delivery_receipt' => true]);
             }
 
             return $dr;

@@ -1,55 +1,57 @@
 import * as React from "react"
 import { cva } from "class-variance-authority";
-import { Slot } from "radix-ui"
+import { Slot } from "@radix-ui/react-slot";
 
 import { cn } from "@/shared/lib/utils"
 
 const badgeVariants = cva(
-  "group/badge inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-none border border-transparent text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:shrink-0",
+  "group/badge inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border text-[11px] font-bold whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
   {
     variants: {
       variant: {
+        // Uses your --primary variable
         primary:
-          "bg-primary text-primary-foreground hover:bg-primary/90",
+          "bg-primary/15 text-primary border-primary/20 hover:bg-primary/25",
 
+        // Uses your --secondary variable
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+          "bg-secondary/50 text-secondary-foreground border-border hover:bg-secondary",
 
+        // Uses your --muted variable
         muted:
-          "bg-muted text-muted-foreground hover:bg-muted/80",
+          "bg-muted text-muted-foreground border-border hover:bg-muted",
 
+        // Uses your --success variable (Green)
         success:
-          "bg-success/10 text-success border border-success/30 hover:bg-success/20",
+          "bg-success/15 text-success border-success/25 hover:bg-success/25 hover:border-success/40",
 
+        // Uses your --info variable (Blue/Sky)
         info:
-          "bg-info/10 text-info border border-info/30 hover:bg-info/20",
+          "bg-info/15 text-info border-info/25 hover:bg-info/25 hover:border-info/40",
 
-        danger:
-          "bg-destructive/10 text-destructive border border-destructive/30 hover:bg-destructive/20",
+        // Uses your --warning variable (Yellow/Orange)
+        warning:
+          "bg-warning/15 text-warning border-warning/25 hover:bg-warning/25 hover:border-warning/40",
 
+        // Uses your --destructive variable (Red)
         destructive:
-          "bg-destructive/10 text-destructive border border-destructive/30 hover:bg-destructive/20",
+          "bg-destructive/15 text-destructive border-destructive/25 hover:bg-destructive/25 hover:border-destructive/40",
 
         outline:
           "border-border text-foreground hover:bg-muted",
 
         ghost:
-          "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
-
-        link:
-          "text-primary underline-offset-4 hover:underline",
+          "border-transparent text-muted-foreground hover:bg-muted",
       },
 
-      // ✅ NEW SIZE VARIANTS
       size: {
-        xs: "h-5 px-1.5 text-[10px] [&>svg]:size-3",
-        sm: "h-6 px-2 text-xs [&>svg]:size-3",
-        default: "h-7 px-2.5 text-xs [&>svg]:size-3.5",
-        lg: "h-8 px-3 text-sm [&>svg]:size-4",
+        xs: "h-4.5 px-1.5 text-[10px] [&>svg]:size-3",
+        sm: "h-5 px-2 text-[10px] [&>svg]:size-3",
+        default: "h-6 px-2.5 text-[11px] [&>svg]:size-3.5",
+        lg: "h-7 px-3 text-xs [&>svg]:size-4",
       },
     },
 
-    // ✅ DEFAULTS
     defaultVariants: {
       variant: "primary",
       size: "default",
@@ -59,17 +61,17 @@ const badgeVariants = cva(
 
 function Badge({
   className,
-  variant = "default",
+  variant,
+  size,
   asChild = false,
   ...props
 }) {
-  const Comp = asChild ? Slot.Root : "span"
+  const Comp = asChild ? Slot : "span"
 
   return (
     <Comp
       data-slot="badge"
-      data-variant={variant}
-      className={cn(badgeVariants({ variant }), className)}
+      className={cn(badgeVariants({ variant, size }), className)}
       {...props} />
   );
 }

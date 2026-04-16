@@ -5,8 +5,36 @@ import { XIcon } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/components/ui/button";
 
+/**
+ * 💡 These keyframes ensure the animation works regardless of Tailwind plugins.
+ * Radix waits for these animations to complete before unmounting.
+ */
+const animationStyles = `
+  @keyframes dialog-overlay-show {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes dialog-overlay-hide {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+  @keyframes dialog-content-show {
+    from { opacity: 0; transform: translate(-50%, -48%) scale(0.96); }
+    to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  }
+  @keyframes dialog-content-hide {
+    from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    to { opacity: 0; transform: translate(-50%, -48%) scale(0.96); }
+  }
+`;
+
 function Dialog(props) {
-  return <DialogPrimitive.Root {...props} />;
+  return (
+    <>
+      <style>{animationStyles}</style>
+      <DialogPrimitive.Root {...props} />
+    </>
+  );
 }
 
 function DialogTrigger(props) {
@@ -26,12 +54,9 @@ const DialogOverlay = React.forwardRef(function DialogOverlay(
       ref={ref}
       className={cn(
         "fixed inset-0 z-50 bg-black/40 backdrop-blur-sm",
-
-        // ✅ fade animation
-        "transition-opacity duration-200 ease-out",
-        "data-[state=open]:opacity-100",
-        "data-[state=closed]:opacity-0",
-
+        // ✅ Apply the keyframes based on Radix state
+        "data-[state=open]:animate-[dialog-overlay-show_200ms_ease-out]",
+        "data-[state=closed]:animate-[dialog-overlay-hide_200ms_ease-in]",
         className
       )}
       {...props}
@@ -53,14 +78,12 @@ const DialogContent = React.forwardRef(function DialogContent(
           "fixed left-1/2 top-1/2 z-50",
           "w-[calc(100%-2rem)] max-w-2xl max-h-[calc(100vh-2rem)]",
           "-translate-x-1/2 -translate-y-1/2",
-
           "flex flex-col overflow-hidden",
           "border border-border bg-background shadow-xl p-1",
 
-          // ✅ smooth fade + scale
-          "transition-[opacity,transform] duration-200 ease-out",
-          "data-[state=open]:opacity-100 data-[state=open]:scale-100",
-          "data-[state=closed]:opacity-0 data-[state=closed]:scale-95",
+          // ✅ Apply the keyframes based on Radix state
+          "data-[state=open]:animate-[dialog-content-show_200ms_ease-out]",
+          "data-[state=closed]:animate-[dialog-content-hide_200ms_ease-in]",
 
           className
         )}
@@ -73,9 +96,9 @@ const DialogContent = React.forwardRef(function DialogContent(
             <Button
               variant="ghost"
               size="icon-sm"
-              className="absolute right-3 top-3"
+              className="absolute right-3 top-3 opacity-70 transition-opacity hover:opacity-100"
             >
-              <XIcon />
+              <XIcon className="size-4" />
               <span className="sr-only">Close</span>
             </Button>
           </DialogPrimitive.Close>

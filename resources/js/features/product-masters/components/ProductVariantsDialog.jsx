@@ -12,6 +12,7 @@ import {
 import axios from 'axios';
 import { ArrowLeft, ArrowRight, Pencil, Search, Trash2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { Badge } from '@/shared/components/ui/badge';
 
 export default function ProductVariantsDialog({
     open,
@@ -99,14 +100,14 @@ export default function ProductVariantsDialog({
     return (
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-5xl">
+                <DialogContent className="max-w-5xl bg-background border-border">
                     <DialogHeader>
-                        <DialogTitle>
+                        <DialogTitle className="text-foreground">
                             {productMaster
                                 ? `${productMaster.product_name} Variants`
                                 : 'Variants'}
                         </DialogTitle>
-                        <DialogDescription>
+                        <DialogDescription className="text-muted-foreground">
                             Search, review, edit, and remove generated variants.
                         </DialogDescription>
                     </DialogHeader>
@@ -121,7 +122,7 @@ export default function ProductVariantsDialog({
                                 className="flex flex-1 gap-2"
                             >
                                 <div className="relative flex-1">
-                                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                                     <input
                                         type="search"
                                         value={search}
@@ -129,7 +130,7 @@ export default function ProductVariantsDialog({
                                             setSearch(event.target.value)
                                         }
                                         placeholder="Search variant SKU, name, or attribute..."
-                                        className="h-9 w-full border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                                        className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:ring-2 focus:ring-ring/30 focus:border-ring"
                                     />
                                 </div>
                                 <Button type="submit" variant="outline">
@@ -138,7 +139,7 @@ export default function ProductVariantsDialog({
                                 {search && (
                                     <Button
                                         type="button"
-                                        variant="outline"
+                                        variant="ghost"
                                         onClick={() => {
                                             setSearch('');
                                             loadVariants(1, '');
@@ -160,34 +161,21 @@ export default function ProductVariantsDialog({
 
                         <InputError message={error} />
 
-                        <div className="overflow-x-auto border border-slate-200">
-                            <table className="min-w-full text-sm">
-                                <thead className="bg-slate-50 text-slate-700">
-                                    <tr className="border-b border-slate-200">
-                                        <th className="px-4 py-3 text-left font-semibold">
-                                            SKU
-                                        </th>
-                                        <th className="px-4 py-3 text-left font-semibold">
-                                            Variant
-                                        </th>
-                                        <th className="px-4 py-3 text-left font-semibold">
-                                            Condition
-                                        </th>
-                                        <th className="px-4 py-3 text-left font-semibold">
-                                            Attributes
-                                        </th>
-                                        <th className="px-4 py-3 text-right font-semibold">
-                                            Actions
-                                        </th>
+                        <div className="overflow-x-auto rounded-md border border-border">
+                            <table className="min-w-full text-xs">
+                                <thead className="bg-muted/50 text-muted-foreground">
+                                    <tr className="border-b border-border">
+                                        <th className="px-4 py-3 text-left font-semibold">SKU</th>
+                                        <th className="px-4 py-3 text-left font-semibold">Variant</th>
+                                        <th className="px-4 py-3 text-left font-semibold">Condition</th>
+                                        <th className="px-4 py-3 text-left font-semibold">Attributes</th>
+                                        <th className="px-4 py-3 text-right font-semibold">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white">
+                                <tbody className="bg-background">
                                     {loading ? (
                                         <tr>
-                                            <td
-                                                colSpan={5}
-                                                className="px-4 py-8 text-center text-slate-500"
-                                            >
+                                            <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
                                                 Loading variants...
                                             </td>
                                         </tr>
@@ -195,58 +183,62 @@ export default function ProductVariantsDialog({
                                         variants.map((variant) => (
                                             <tr
                                                 key={variant.id}
-                                                className="border-b border-slate-200 align-top"
+                                                className="border-b border-border align-top transition-colors hover:bg-muted/30"
                                             >
-                                                <td className="px-4 py-4 font-semibold text-slate-800">
+                                                <td className="px-4 py-4 font-semibold text-foreground">
                                                     {variant.sku}
                                                 </td>
-                                                <td className="px-4 py-4 text-slate-800">
+                                                <td className="px-4 py-4 text-foreground">
                                                     {variant.variant_name}
                                                 </td>
-                                                <td className="px-4 py-4 text-slate-700">
-                                                    {variant.condition}
+                                                <td className="px-4 py-4">
+                                                    <Badge
+                                                        variant={variant.condition === 'Brand New' ? 'success' : 'warning'}
+                                                        size="sm"
+                                                        className="capitalize"
+                                                    >
+                                                        {variant.condition}
+                                                    </Badge>
                                                 </td>
                                                 <td className="px-4 py-4">
-                                                    <div className="flex flex-wrap gap-2">
+                                                    {/* Changed flex-wrap to flex-col to stack them */}
+                                                    <div className="flex flex-col gap-1.5 items-start">
                                                         {variant.tags.map((tag) => (
-                                                            <span
+                                                            <Badge
                                                                 key={`${variant.id}-${tag.key}`}
-                                                                className="inline-flex items-center gap-1 border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700"
+                                                                variant="info" // Using the premium semantic info badge
+                                                                size="xs"      // Smaller size fits better in a vertical stack
                                                             >
-                                                                <span className="font-medium">
+                                                                <span className="opacity-70 font-medium">
                                                                     {tag.label}:
                                                                 </span>
-                                                                {tag.value}
-                                                            </span>
+                                                                <span>{tag.value}</span>
+                                                            </Badge>
                                                         ))}
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-4">
-                                                    <div className="flex justify-end gap-2">
+                                                    <div className="flex justify-end gap-1">
                                                         <Button
                                                             type="button"
-                                                            variant="outline"
-                                                            size="sm"
+                                                            variant="ghost"
+                                                            size="icon-sm"
                                                             onClick={() => {
-                                                                setEditingVariant(
-                                                                    variant,
-                                                                );
+                                                                setEditingVariant(variant);
                                                                 setEditOpen(true);
                                                             }}
+                                                            title="Edit"
                                                         >
-                                                            <Pencil className="size-4" />
-                                                            Edit
+                                                            <Pencil className="size-4 text-primary" />
                                                         </Button>
                                                         <Button
                                                             type="button"
-                                                            variant="destructive"
-                                                            size="sm"
-                                                            onClick={() =>
-                                                                deleteVariant(variant)
-                                                            }
+                                                            variant="ghost"
+                                                            size="icon-sm"
+                                                            onClick={() => deleteVariant(variant)}
+                                                            title="Delete"
                                                         >
-                                                            <Trash2 className="size-4" />
-                                                            Delete
+                                                            <Trash2 className="size-4 text-destructive" />
                                                         </Button>
                                                     </div>
                                                 </td>
@@ -254,10 +246,7 @@ export default function ProductVariantsDialog({
                                         ))
                                     ) : (
                                         <tr>
-                                            <td
-                                                colSpan={5}
-                                                className="px-4 py-8 text-center text-slate-500"
-                                            >
+                                            <td colSpan={5} className="px-4 py-12 text-center text-muted-foreground">
                                                 No variants found.
                                             </td>
                                         </tr>
@@ -267,35 +256,31 @@ export default function ProductVariantsDialog({
                         </div>
 
                         {pagination?.last_page > 1 && (
-                            <div className="flex items-center justify-between text-sm text-slate-600">
+                            <div className="flex items-center justify-between text-xs text-muted-foreground">
                                 <p>
                                     Showing {pagination.from} to {pagination.to} of{' '}
-                                    {pagination.total} variants
+                                    <span className="font-medium text-foreground">{pagination.total}</span> variants
                                 </p>
                                 <div className="flex gap-2">
                                     <Button
                                         type="button"
                                         variant="outline"
+                                        size="sm"
                                         disabled={pagination.current_page <= 1}
-                                        onClick={() =>
-                                            loadVariants(pagination.current_page - 1)
-                                        }
+                                        onClick={() => loadVariants(pagination.current_page - 1)}
                                     >
-                                        <ArrowLeft className="size-4" />
+                                        <ArrowLeft className="mr-2 size-4" />
                                         Previous
                                     </Button>
                                     <Button
                                         type="button"
                                         variant="outline"
-                                        disabled={
-                                            pagination.current_page >= pagination.last_page
-                                        }
-                                        onClick={() =>
-                                            loadVariants(pagination.current_page + 1)
-                                        }
+                                        size="sm"
+                                        disabled={pagination.current_page >= pagination.last_page}
+                                        onClick={() => loadVariants(pagination.current_page + 1)}
                                     >
                                         Next
-                                        <ArrowRight className="size-4" />
+                                        <ArrowRight className="ml-2 size-4" />
                                     </Button>
                                 </div>
                             </div>

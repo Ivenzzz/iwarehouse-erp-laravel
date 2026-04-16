@@ -4,7 +4,7 @@ import { Download, FileUp, Plus } from 'lucide-react';
 
 export default function ProductMastersHeader({ onImport, onCreate }) {
     return (
-        <div className="border-b border-slate-200 px-5 py-5 bg-background dark:bg-background dark:border-slate-700 dark:text-foreground">
+        <div className="px-5 py-5 bg-accent mb-2">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="space-y-1 text-foreground">
                     <h1 className="text-2xl font-semibold">
@@ -27,7 +27,7 @@ export default function ProductMastersHeader({ onImport, onCreate }) {
                             Export CSV
                         </Link>
                     </Button>
-                    <Button type="button" onClick={onCreate}>
+                    <Button type="button" variant="primary" onClick={onCreate}>
                         <Plus className="size-4" />
                         Add Product Master
                     </Button>

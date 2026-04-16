@@ -120,18 +120,19 @@ export default function ProductVariantEditDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-3xl">
+            <DialogContent className="max-w-3xl border-border bg-accent">
                 <DialogHeader>
-                    <DialogTitle>Edit Variant</DialogTitle>
-                    <DialogDescription>
+                    <DialogTitle className="text-foreground">Edit Variant</DialogTitle>
+                    <DialogDescription className="text-muted-foreground">
                         Variant name and SKU are generated from the brand, model, and selected attributes.
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={submit}>
                     <DialogBody className="space-y-6">
+                        {/* Condition Select */}
                         <div className="space-y-2">
-                            <Label>Condition</Label>
+                            <Label className="text-foreground">Condition</Label>
                             <select
                                 value={form.condition}
                                 onChange={(event) =>
@@ -140,10 +141,11 @@ export default function ProductVariantEditDialog({
                                         condition: event.target.value,
                                     }))
                                 }
-                                className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                                /* Fixed: Added bg-background and text-foreground to prevent white background in dark mode */
+                                className="h-9 w-full rounded-md border border-input bg-background px-2.5 py-1 text-sm text-foreground outline-none transition-all focus:border-ring focus:ring-2 focus:ring-ring/20"
                             >
                                 {(variantDefinitions?.conditions ?? []).map((condition) => (
-                                    <option key={condition} value={condition}>
+                                    <option key={condition} value={condition} className="bg-background text-foreground">
                                         {condition}
                                     </option>
                                 ))}
@@ -151,14 +153,16 @@ export default function ProductVariantEditDialog({
                             <InputError message={errors.condition?.[0]} />
                         </div>
 
+                        {/* Dynamic Attributes */}
                         <div className="grid gap-4 md:grid-cols-2">
                             {visibleDefinitions.map((definition) => (
                                 <div key={definition.key} className="space-y-2">
-                                    <Label htmlFor={`variant-${definition.key}`}>
+                                    <Label htmlFor={`variant-${definition.key}`} className="text-foreground">
                                         {definition.label}
                                     </Label>
                                     <Input
                                         id={`variant-${definition.key}`}
+                                        className="bg-background border-input text-foreground focus-visible:ring-ring"
                                         value={form.attributes[definition.key] ?? ''}
                                         onChange={(event) =>
                                             updateAttribute(
@@ -176,20 +180,27 @@ export default function ProductVariantEditDialog({
                             ))}
                         </div>
 
-                        <div className="grid gap-4 border border-slate-200 bg-slate-50 px-4 py-4 md:grid-cols-2">
+                        {/* Preview Section - Replaced slate with muted semantic colors */}
+                        <div className="grid gap-4 rounded-lg border border-border bg-muted/30 px-4 py-4 md:grid-cols-2">
                             <div className="space-y-2">
-                                <Label htmlFor="variant-name-preview">Variant Name</Label>
+                                <Label htmlFor="variant-name-preview" className="text-muted-foreground text-xs uppercase font-bold tracking-tight">
+                                    Variant Name Preview
+                                </Label>
                                 <Input
                                     id="variant-name-preview"
+                                    className="bg-muted border-border text-muted-foreground cursor-not-allowed"
                                     value={namePreview}
                                     readOnly
                                     disabled
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="variant-sku-preview">SKU</Label>
+                                <Label htmlFor="variant-sku-preview" className="text-muted-foreground text-xs uppercase font-bold tracking-tight">
+                                    SKU Preview
+                                </Label>
                                 <Input
                                     id="variant-sku-preview"
+                                    className="bg-muted border-border text-muted-foreground cursor-not-allowed"
                                     value={skuPreview}
                                     readOnly
                                     disabled
@@ -201,7 +212,7 @@ export default function ProductVariantEditDialog({
                         <InputError message={errors.submit?.[0]} />
                     </DialogBody>
 
-                    <DialogFooter>
+                    <DialogFooter className="border-t border-border pt-4">
                         <Button
                             type="button"
                             variant="outline"
@@ -209,7 +220,7 @@ export default function ProductVariantEditDialog({
                         >
                             Cancel
                         </Button>
-                        <Button type="submit" disabled={submitting}>
+                        <Button type="submit" variant="primary" disabled={submitting}>
                             {submitting ? 'Saving...' : 'Save Variant'}
                         </Button>
                     </DialogFooter>

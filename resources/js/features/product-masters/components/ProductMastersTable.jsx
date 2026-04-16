@@ -1,5 +1,5 @@
 import { Button } from '@/shared/components/ui/button';
-import { ArrowDown, ArrowUp, Eye, PackageSearch, Pencil, Search, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Eye, PackageSearch, Pencil, Search, Trash2, WandSparkles, X } from 'lucide-react';
 
 export default function ProductMastersTable({
     productMasters,
@@ -33,7 +33,7 @@ export default function ProductMastersTable({
         <>
             <form
                 onSubmit={onSearch}
-                className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-start"
             >
                 <div className="relative w-full sm:max-w-sm">
                     <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
@@ -42,7 +42,7 @@ export default function ProductMastersTable({
                         value={search}
                         onChange={(event) => onSearchChange(event.target.value)}
                         placeholder="Search SKU, brand, model, or category..."
-                        className="h-9 w-full border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                        className="h-9 w-full border-0 border-b border-input bg-transparent pl-9 pr-3 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-ring focus:border-b-2 focus:ring-0"
                     />
                 </div>
 
@@ -53,121 +53,137 @@ export default function ProductMastersTable({
                             Clear
                         </Button>
                     )}
-                    <Button type="submit" variant="outline">
-                        <Search className="size-4" />
-                        Search
-                    </Button>
                 </div>
             </form>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-md border border-border">
                 <table className="min-w-full text-sm">
-                    <thead className="sticky top-0 z-10 bg-slate-50 text-slate-700 shadow-[0_1px_0_rgba(148,163,184,0.35)]">
-                        <tr className="border-b border-slate-200">
-                            <th className="px-4 py-3 text-left font-semibold">
+                    <thead className="sticky top-0 z-10 bg-secondary/90 backdrop-blur-sm">
+                        <tr className="border-b border-border">
+                            <th className="px-4 py-3 text-left font-semibold text-foreground">
                                 <button
                                     type="button"
-                                    className="inline-flex items-center gap-1 hover:text-slate-950"
+                                    className="inline-flex items-center gap-1 hover:text-primary transition-colors"
                                     onClick={() => onSort('master_sku')}
                                 >
                                     SKU
                                     {sortIcon('master_sku')}
                                 </button>
                             </th>
-                            <th className="px-4 py-3 text-left font-semibold">
+                            <th className="px-4 py-3 text-left font-semibold text-foreground">
                                 <button
                                     type="button"
-                                    className="inline-flex items-center gap-1 hover:text-slate-950"
+                                    className="inline-flex items-center gap-1 hover:text-primary transition-colors"
                                     onClick={() => onSort('name')}
                                 >
                                     Product
                                     {sortIcon('name')}
                                 </button>
                             </th>
-                            <th className="px-4 py-3 text-left font-semibold">
+                            <th className="px-4 py-3 text-left font-semibold text-foreground">
                                 <button
                                     type="button"
-                                    className="inline-flex items-center gap-1 hover:text-slate-950"
+                                    className="inline-flex items-center gap-1 hover:text-primary transition-colors"
                                     onClick={() => onSort('category')}
                                 >
                                     Category
                                     {sortIcon('category')}
                                 </button>
                             </th>
-                            <th className="px-4 py-3 text-left font-semibold">Variants</th>
-                            <th className="px-4 py-3 text-right font-semibold">Actions</th>
+                            <th className="px-4 py-3 text-left font-semibold text-foreground">Variants</th>
+                            <th className="px-4 py-3 text-right font-semibold text-foreground">Actions</th>
                         </tr>
                     </thead>
-                    <tbody className="bg-white">
+                    <tbody className="bg-background">
                         {productMasters.length > 0 ? (
                             productMasters.map((productMaster) => (
                                 <tr
                                     key={productMaster.id}
-                                    className="border-b border-slate-200 align-top"
+                                    className="group border-b border-border align-top transition-colors duration-200 hover:bg-slate-50 dark:hover:bg-slate-800/40"
                                 >
-                                    <td className="px-4 py-4 font-semibold text-slate-800">
+                                    {/* SKU */}
+                                    <td className="px-4 py-4 font-medium text-foreground">
                                         {productMaster.master_sku}
                                     </td>
+
+                                    {/* Product Name */}
                                     <td className="px-4 py-4">
-                                        <p className="font-semibold text-slate-800">
+                                        <p className="font-semibold text-foreground">
                                             {productMaster.product_name}
                                         </p>
-                                        <p className="text-xs text-slate-500">
-                                            {productMaster.brand.name} / {productMaster.model.model_name}
-                                        </p>
                                     </td>
-                                    <td className="px-4 py-4 text-slate-700">
-                                        <p>{productMaster.category?.name ?? 'No category'}</p>
-                                        <p className="text-xs text-slate-500">
+
+                                    {/* Category */}
+                                    <td className="px-4 py-4">
+                                        <p className="text-foreground">
+                                            {productMaster.category?.name ?? 'No category'}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
                                             {productMaster.subcategory.name}
                                         </p>
                                     </td>
+
+                                    {/* Variants */}
                                     <td className="px-4 py-4">
                                         <button
                                             type="button"
-                                            className="inline-flex items-center border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+                                            className="inline-flex items-center rounded-sm border border-info/30 bg-info/10 px-2.5 py-1 text-xs font-semibold text-info transition-all hover:bg-info hover:text-info-foreground group-hover:border-info/60"
                                             onClick={() => onManageVariants(productMaster)}
                                         >
                                             {productMaster.variants_count} variant
                                             {productMaster.variants_count === 1 ? '' : 's'}
                                         </button>
                                     </td>
+
+                                    {/* Actions */}
                                     <td className="px-4 py-4">
-                                        <div className="flex justify-end gap-2">
+                                        <div className="flex justify-end gap-1">
+                                            {/* Generate */}
                                             <Button
                                                 type="button"
-                                                variant="outline"
-                                                size="sm"
+                                                size="icon-sm"
+                                                variant="ghost"
                                                 onClick={() => onGenerate(productMaster)}
+                                                title="Generate"
+                                                className="hover:bg-violet-100 dark:hover:bg-violet-900/30 transition-colors"
                                             >
-                                                Generate
+                                                <WandSparkles className="size-4 text-violet-500" />
                                             </Button>
+
+                                            {/* View */}
                                             <Button
                                                 type="button"
-                                                variant="outline"
-                                                size="sm"
+                                                size="icon-sm"
+                                                variant="ghost"
                                                 onClick={() => onView(productMaster)}
+                                                title="View"
+                                                className="hover:bg-sky-100 dark:hover:bg-sky-900/30 transition-colors"
                                             >
-                                                <Eye className="size-4" />
-                                                View
+                                                <Eye className="size-4 text-sky-500" />
                                             </Button>
+
+                                            {/* Edit */}
                                             <Button
                                                 type="button"
-                                                variant="outline"
-                                                size="sm"
+                                                size="icon-sm"
+                                                variant="ghost"
                                                 onClick={() => onEdit(productMaster)}
+                                                title="Edit"
+                                                className="hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
                                             >
-                                                <Pencil className="size-4" />
-                                                Edit
+                                                <Pencil className="size-4 text-warning" />
                                             </Button>
+
+                                            {/* Delete */}
                                             <Button
                                                 type="button"
-                                                variant="destructive"
-                                                size="sm"
+                                                size="icon-sm"
+                                                variant="ghost"
                                                 onClick={() => onDelete(productMaster)}
+                                                title="Delete"
+                                                className="hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
                                             >
-                                                <Trash2 className="size-4" />
-                                                Delete
+                                                <Trash2 className="size-4 text-destructive" />
                                             </Button>
                                         </div>
                                     </td>
@@ -176,13 +192,15 @@ export default function ProductMastersTable({
                         ) : (
                             <tr>
                                 <td colSpan={5} className="px-6 py-12 text-center">
-                                    <PackageSearch className="mx-auto mb-4 size-10 text-slate-300" />
-                                    <p className="text-lg font-semibold text-slate-700">
+                                    <PackageSearch className="mx-auto mb-4 size-10 text-muted-foreground/40" />
+
+                                    <p className="text-lg font-semibold text-foreground">
                                         {filters.search
                                             ? 'No product masters found'
                                             : 'No product masters yet'}
                                     </p>
-                                    <p className="mt-2 text-sm text-slate-500">
+
+                                    <p className="mt-2 text-sm text-muted-foreground">
                                         {filters.search
                                             ? 'Try a different SKU, brand, model, or category search.'
                                             : 'Create a product master manually or import a CSV.'}

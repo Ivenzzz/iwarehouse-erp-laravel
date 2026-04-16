@@ -93,52 +93,47 @@ export default function ProductMasterDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-3xl overflow-y-auto p-1">
-                <DialogHeader>
-                    <DialogTitle>
+            {/* Changed bg-background to bg-accent */}
+            <DialogContent className="flex max-h-[95vh] max-w-4xl flex-col p-0 border-border bg-accent">
+                <DialogHeader className="p-6 pb-2">
+                    <DialogTitle className="text-accent-foreground">
                         {isEditing ? 'Edit Product Master' : 'Add Product Master'}
                     </DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="text-accent-foreground/70">
                         Select existing brand, model, and subcategory records. The master
                         SKU is generated automatically.
                     </DialogDescription>
                 </DialogHeader>
 
-                <form onSubmit={submit}>
-                    <DialogBody className="space-y-6">
+                <form onSubmit={submit} className="flex flex-1 flex-col overflow-hidden">
+                    {/* Scrollable area */}
+                    <DialogBody className="flex-1 overflow-y-auto p-6 pt-2 space-y-8">
                         <section className="grid gap-4 md:grid-cols-2">
                             <div className="space-y-2">
-                                <Label htmlFor="product-master-brand">Brand</Label>
+                                <Label htmlFor="product-master-brand" className="text-accent-foreground">Brand</Label>
                                 <Combobox
                                     id="product-master-brand"
                                     value={form.data.brand_id}
                                     onChange={(brandId) => updateBrand(brandId)}
                                     options={brandOptions}
-                                    placeholder="Select brand"
-                                    searchPlaceholder="Search brands..."
-                                    emptyText="No brands found"
+                                // Combobox internally should handle bg-background
                                 />
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="product-master-model">Model</Label>
+                                <Label htmlFor="product-master-model" className="text-accent-foreground">Model</Label>
                                 <Combobox
                                     id="product-master-model"
                                     value={form.data.model_id}
                                     onChange={(modelId) => form.setData('model_id', modelId)}
                                     options={modelOptions}
-                                    placeholder={
-                                        selectedBrand ? 'Select model' : 'Select brand first'
-                                    }
-                                    searchPlaceholder="Search models..."
-                                    emptyText="No models found"
                                     disabled={!selectedBrand}
                                 />
                                 <InputError message={form.errors.model_id} />
                             </div>
 
                             <div className="space-y-2 md:col-span-2">
-                                <Label htmlFor="product-master-subcategory">Subcategory</Label>
+                                <Label htmlFor="product-master-subcategory" className="text-accent-foreground">Subcategory</Label>
                                 <Combobox
                                     id="product-master-subcategory"
                                     value={form.data.subcategory_id}
@@ -146,32 +141,29 @@ export default function ProductMasterDialog({
                                         form.setData('subcategory_id', subcategoryId)
                                     }
                                     options={subcategoryOptions}
-                                    placeholder="Select subcategory"
-                                    searchPlaceholder="Search categories or subcategories..."
-                                    emptyText="No subcategories found"
                                 />
                                 <InputError message={form.errors.subcategory_id} />
                             </div>
 
                             <div className="space-y-2 md:col-span-2">
-                                <Label htmlFor="product-master-description">Description</Label>
+                                <Label htmlFor="product-master-description" className="text-accent-foreground">Description</Label>
                                 <textarea
                                     id="product-master-description"
                                     value={form.data.description}
                                     onChange={(event) =>
                                         form.setData('description', event.target.value)
                                     }
-                                    className="min-h-20 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                                    className="min-h-24 w-full rounded-md border border-input bg-accent px-3 py-2 text-sm text-foreground outline-none transition-all focus:ring-2 focus:ring-ring/20 placeholder:text-muted-foreground"
                                 />
                                 <InputError message={form.errors.description} />
                             </div>
 
                             <div className="space-y-2 md:col-span-2">
-                                <Label htmlFor="product-master-image">Product Image</Label>
+                                <Label htmlFor="product-master-image" className="text-accent-foreground">Product Image</Label>
                                 <Input
                                     id="product-master-image"
                                     type="file"
-                                    accept="image/jpeg,image/png,image/webp"
+                                    className="bg-background border-input text-foreground"
                                     onChange={(event) =>
                                         form.setData({
                                             ...form.data,
@@ -183,24 +175,23 @@ export default function ProductMasterDialog({
                                 <InputError message={form.errors.image} />
 
                                 {productMaster?.image_url && !form.data.clear_image && (
-                                    <div className="flex items-center gap-3 border bg-slate-50 px-3 py-3">
-                                        <img
-                                            src={productMaster.image_url}
-                                            alt={productMaster.product_name}
-                                            className="size-16 object-cover"
-                                        />
+                                    <div className="flex items-center gap-4 rounded-md border border-border bg-background/50 p-3">
+                                        <div className="overflow-hidden rounded border border-border bg-background">
+                                            <img
+                                                src={productMaster.image_url}
+                                                alt={productMaster.product_name}
+                                                className="size-16 object-cover"
+                                            />
+                                        </div>
                                         <Button
                                             type="button"
-                                            variant="outline"
+                                            variant="secondary"
+                                            size="sm"
                                             onClick={() =>
-                                                form.setData({
-                                                    ...form.data,
-                                                    image: null,
-                                                    clear_image: true,
-                                                })
+                                                form.setData({ ...form.data, image: null, clear_image: true })
                                             }
                                         >
-                                            <ImageOff className="size-4" />
+                                            <ImageOff className="mr-2 size-4" />
                                             Clear Image
                                         </Button>
                                     </div>
@@ -208,29 +199,32 @@ export default function ProductMasterDialog({
                             </div>
                         </section>
 
-                        <section className="space-y-5">
-                            <div>
-                                <h3 className="text-sm font-semibold text-slate-800">
+                        <section className="space-y-6 pt-4">
+                            <div className="border-b border-border/50 pb-2">
+                                <h3 className="text-sm font-bold text-accent-foreground">
                                     Technical Specifications
                                 </h3>
-                                <p className="text-sm text-slate-500">
+                                <p className="text-xs text-accent-foreground/60">
                                     Optional normalized specification values.
                                 </p>
                             </div>
 
                             {specDefinitions.map((group) => (
-                                <div key={group.group} className="space-y-3 border px-4 py-4">
-                                    <h4 className="text-sm font-semibold text-slate-700">
+                                /* Specification cards now use bg-background to contrast against the bg-accent dialog */
+                                <div key={group.group} className="space-y-4 rounded-lg border border-border bg-background p-4 shadow-sm">
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                                         {group.group}
                                     </h4>
                                     <div className="grid gap-4 md:grid-cols-2">
                                         {group.definitions.map((definition) => (
                                             <div key={definition.key} className="space-y-2">
-                                                <Label htmlFor={`spec-${definition.key}`}>
+                                                <Label htmlFor={`spec-${definition.key}`} className="text-xs text-foreground">
                                                     {definition.label}
                                                 </Label>
                                                 <Input
                                                     id={`spec-${definition.key}`}
+                                                    /* Fixed: Changed bg to bg-background and ensured text-foreground */
+                                                    className="h-9 border-input bg-background text-foreground focus-visible:ring-ring placeholder:text-muted-foreground"
                                                     value={form.data.specs[definition.key] ?? ''}
                                                     onChange={(event) =>
                                                         updateSpec(definition.key, event.target.value)
@@ -247,11 +241,11 @@ export default function ProductMasterDialog({
                         </section>
                     </DialogBody>
 
-                    <DialogFooter>
+                    <DialogFooter className="p-6 border-t border-border/50 bg-accent">
                         <Button type="button" variant="outline" onClick={close}>
                             Cancel
                         </Button>
-                        <Button type="submit" disabled={form.processing}>
+                        <Button type="submit" variant="info" disabled={form.processing}>
                             {isEditing ? 'Save Changes' : 'Create Product Master'}
                         </Button>
                     </DialogFooter>

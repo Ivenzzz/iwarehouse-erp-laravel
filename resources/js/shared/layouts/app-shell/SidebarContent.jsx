@@ -1,6 +1,5 @@
 import SidebarNav from '@/shared/layouts/app-shell/SidebarNav';
 import { Link, router, usePage } from '@inertiajs/react';
-import { Warehouse } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 const SIDEBAR_SCROLL_KEY_PREFIX = 'iwarehouse:admin-sidebar:scroll-top';
@@ -166,7 +165,7 @@ export default function SidebarContent({ sections, storageKey = 'default' }) {
     }, [scheduleRestoreScrollTop]);
 
     return (
-        <div className="flex h-full flex-col overflow-hidden bg-sidebar text-sidebar-foreground">
+        <div className="flex h-full flex-col overflow-hidden bg-accent dark:text-slate-300">
             <div className="border-b border-sidebar-border px-5 py-5">
                 <Link
                     href={route('dashboard')}

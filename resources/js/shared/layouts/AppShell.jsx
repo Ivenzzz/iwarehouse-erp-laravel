@@ -20,7 +20,7 @@ export default function AppShell({ title, children }) {
     usePageToasts([props.flash?.error], 'destructive');
 
     return (
-        <div className="h-screen overflow-hidden bg-background text-xs text-slate-900">
+        <div className="h-screen overflow-hidden bg-accent text-xs text-slate-900">
             <div className="flex h-full">
                 <aside className="hidden h-full w-64 flex-col lg:flex">
                     <SidebarContent sections={sections} storageKey="desktop" />
@@ -29,7 +29,7 @@ export default function AppShell({ title, children }) {
                 <div className="flex min-w-0 flex-1 flex-col overflow-hidden text-xs">
                     <AppHeader sections={sections} user={user} initials={initials} />
 
-                    <main className="min-h-0 flex-1 overflow-y-auto px-4 py-5 text-xs sm:px-6">
+                    <main className="min-h-0 flex-1 overflow-y-auto p-4 text-xs bg-background text-foreground">
                         {children}
                     </main>
                 </div>

@@ -9,16 +9,58 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground [a]:hover:bg-primary/80",
-        outline:
-          "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+        // 🔵 PRIMARY
+        primary:
+          "bg-primary text-primary-foreground hover:bg-primary/90 dark:hover:bg-primary/80",
+
+        primaryOutline:
+          "border border-primary text-primary hover:bg-primary/10 dark:hover:bg-primary/20",
+
+        // ⚪ SECONDARY
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80 dark:hover:bg-secondary/70",
+
+        secondaryOutline:
+          "border border-secondary text-secondary-foreground hover:bg-secondary/20 dark:hover:bg-secondary/30",
+
+        // ⚫ NEUTRAL
+        outline:
+          "border border-border bg-background text-foreground hover:bg-muted dark:bg-background dark:hover:bg-muted/50",
+
         ghost:
-          "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
+          "text-foreground hover:bg-muted hover:text-foreground dark:hover:bg-muted/50",
+
+        // 🔴 DESTRUCTIVE
         destructive:
-          "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
-        link: "text-primary underline-offset-4 hover:underline",
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90 dark:hover:bg-destructive/80",
+
+        destructiveOutline:
+          "border border-destructive text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20",
+
+        // 🟢 SUCCESS
+        success:
+          "bg-success text-success-foreground hover:bg-success/90 dark:hover:bg-success/80",
+
+        successOutline:
+          "border border-success text-success hover:bg-success/10 dark:hover:bg-success/20",
+
+        // 🔵 INFO
+        info:
+          "bg-info text-info-foreground hover:bg-info/90 dark:hover:bg-info/80",
+
+        infoOutline:
+          "border border-info text-info hover:bg-info/10 dark:hover:bg-info/20",
+
+        // 🟡 WARNING
+        warning:
+          "bg-warning text-warning-foreground hover:bg-warning/90 dark:hover:bg-warning/80",
+
+        warningOutline:
+          "border border-warning text-warning hover:bg-warning/10 dark:hover:bg-warning/20",
+
+        // 🔗 LINK
+        link:
+          "text-primary underline-offset-4 hover:underline dark:text-primary",
       },
       size: {
         default:

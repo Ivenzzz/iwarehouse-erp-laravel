@@ -251,7 +251,7 @@ export default function InventoryPage({
                 </>
               ) : null}
 
-              <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <Button variant="outline" className="bg-background dark:bg-background dark:text-foreground dark:hover:bg-muted" onClick={() => setImportOpen(true)}>
                 <Upload className="size-4" />
                 Import Inventory Items
               </Button>

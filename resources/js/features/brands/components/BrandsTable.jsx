@@ -1,4 +1,5 @@
 import { Button } from '@/shared/components/ui/button';
+import { Badge } from '@/shared/components/ui/badge';
 import {
     Dialog,
     DialogBody,
@@ -41,98 +42,109 @@ export default function BrandsTable({
         <>
             <form
                 onSubmit={onSearch}
-                className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-start"
             >
                 <div className="relative w-full sm:max-w-sm">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+
                     <input
                         type="search"
                         value={search}
                         onChange={(event) => onSearchChange(event.target.value)}
                         placeholder="Search brands or models..."
-                        className="h-9 w-full border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                        className="h-9 w-full border-0 border-b border-input bg-transparent pl-9 pr-3 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-ring focus:border-b-2 focus:ring-0"
                     />
                 </div>
 
                 <div className="flex gap-2">
                     {filters.search && (
-                        <Button type="button" variant="outline" onClick={onClearSearch}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={onClearSearch}
+                        >
                             <X className="size-4" />
                             Clear
                         </Button>
                     )}
-                    <Button type="submit" variant="outline">
-                        <Search className="size-4" />
-                        Search
-                    </Button>
                 </div>
             </form>
 
             <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                    <thead className="sticky top-0 z-10 bg-slate-50 text-slate-700 shadow-[0_1px_0_rgba(148,163,184,0.35)]">
-                        <tr className="border-b border-slate-200">
+                <table className="min-w-full text-sm bg-background text-foreground">
+                    <thead className="sticky top-0 z-10 bg-muted/50 backdrop-blur supports-[backdrop-filter]:bg-muted/40">
+                        <tr className="border-b border-border">
                             <th className="px-4 py-3 text-left font-semibold">
                                 <button
                                     type="button"
-                                    className="inline-flex items-center gap-1 hover:text-slate-950"
+                                    className="inline-flex items-center gap-1 hover:text-foreground/80"
                                     onClick={() => onSort('name')}
                                 >
                                     Brand
                                     {sortIcon('name')}
                                 </button>
                             </th>
+
                             <th className="px-4 py-3 text-left font-semibold">
                                 <button
                                     type="button"
-                                    className="inline-flex items-center gap-1 hover:text-slate-950"
+                                    className="inline-flex items-center gap-1 hover:text-foreground/80"
                                     onClick={() => onSort('models_count')}
                                 >
                                     Models
                                     {sortIcon('models_count')}
                                 </button>
                             </th>
-                            <th className="px-4 py-3 text-right font-semibold">Actions</th>
+
+                            <th className="px-4 py-3 text-right font-semibold">
+                                Actions
+                            </th>
                         </tr>
                     </thead>
-                    <tbody className="bg-white">
+
+                    <tbody>
                         {brands.length > 0 ? (
                             brands.map((brand) => (
                                 <tr
                                     key={brand.id}
-                                    className="border-b border-slate-200 align-top"
+                                    className="border-b border-border align-top hover:bg-muted/50 transition-colors"
                                 >
                                     <td className="px-4 py-4">
-                                        <p className="font-semibold text-slate-800">
+                                        <p className="font-semibold text-foreground">
                                             {brand.name}
                                         </p>
                                     </td>
+
                                     <td className="px-4 py-4">
-                                        <button
-                                            type="button"
-                                            className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.3)] transition hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                            onClick={() => setSelectedBrand(brand)}
-                                        >
-                                            {brand.models_count}{' '}
-                                            {brand.models_count === 1 ? 'model' : 'models'}
-                                        </button>
+                                        <Badge asChild variant="info">
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedBrand(brand)}
+                                                className="cursor-pointer"
+                                            >
+                                                {brand.models_count}{' '}
+                                                {brand.models_count === 1 ? 'model' : 'models'}
+                                            </button>
+                                        </Badge>
                                     </td>
+
                                     <td className="px-4 py-4">
-                                        <div className="flex justify-end gap-2">
+                                        <div className="flex justify-end gap-3">
                                             <Button
                                                 type="button"
-                                                variant="outline"
+                                                variant="warning"
+                                                size="sm"
                                                 onClick={() => onEdit(brand)}
                                             >
-                                                <Pencil className="size-4" />
                                                 Edit
                                             </Button>
+
                                             <Button
                                                 type="button"
                                                 variant="destructive"
+                                                size="sm"
                                                 onClick={() => onDelete(brand)}
                                             >
-                                                <Trash2 className="size-4" />
                                                 Delete
                                             </Button>
                                         </div>
@@ -141,12 +153,19 @@ export default function BrandsTable({
                             ))
                         ) : (
                             <tr>
-                                <td colSpan={3} className="px-6 py-12 text-center">
-                                    <Rows3 className="mx-auto mb-4 size-10 text-slate-300" />
-                                    <p className="text-lg font-semibold text-slate-700">
-                                        {filters.search ? 'No brands found' : 'No brands yet'}
+                                <td
+                                    colSpan={3}
+                                    className="px-6 py-12 text-center"
+                                >
+                                    <Rows3 className="mx-auto mb-4 size-10 text-muted-foreground/40" />
+
+                                    <p className="text-lg font-semibold text-foreground">
+                                        {filters.search
+                                            ? 'No brands found'
+                                            : 'No brands yet'}
                                     </p>
-                                    <p className="mt-2 text-sm text-slate-500">
+
+                                    <p className="mt-2 text-sm text-muted-foreground">
                                         {filters.search
                                             ? 'Try a different brand or model search.'
                                             : 'Create a brand manually or import a CSV containing brand and model pairs.'}
@@ -158,7 +177,7 @@ export default function BrandsTable({
                 </table>
             </div>
 
-            <div className="mt-4 flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mt-4 flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
                 <p>
                     {pagination.total > 0
                         ? `Showing ${pagination.from} to ${pagination.to} of ${pagination.total} brands`
@@ -169,8 +188,12 @@ export default function BrandsTable({
                     <div className="flex flex-wrap justify-end gap-2">
                         {pagination.links.map((link, index) => {
                             const page = link.url
-                                ? Number(new URL(link.url).searchParams.get('page') ?? 1)
+                                ? Number(
+                                    new URL(link.url).searchParams.get('page') ??
+                                    1
+                                )
                                 : null;
+
                             const label = link.label
                                 .replace('&laquo; Previous', 'Previous')
                                 .replace('Next &raquo;', 'Next');
@@ -197,7 +220,10 @@ export default function BrandsTable({
             >
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{selectedBrand?.name ?? 'Brand'} Models</DialogTitle>
+                        <DialogTitle>
+                            {selectedBrand?.name ?? 'Brand'} Models
+                        </DialogTitle>
+
                         <DialogDescription>
                             Models associated with this brand.
                         </DialogDescription>
@@ -205,18 +231,18 @@ export default function BrandsTable({
 
                     <DialogBody>
                         {selectedBrand?.models.length > 0 ? (
-                            <ul className="divide-y border">
+                            <ul className="divide-y border border-border bg-card">
                                 {selectedBrand.models.map((model) => (
                                     <li
                                         key={model.id}
-                                        className="px-4 py-3 text-sm font-medium text-slate-700"
+                                        className="px-4 py-3 text-sm font-medium text-foreground"
                                     >
                                         {model.model_name}
                                     </li>
                                 ))}
                             </ul>
                         ) : (
-                            <div className="border border-dashed px-4 py-8 text-center text-sm text-slate-500">
+                            <div className="border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
                                 No associated models
                             </div>
                         )}

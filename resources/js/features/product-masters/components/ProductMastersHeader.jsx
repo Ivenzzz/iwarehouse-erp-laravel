@@ -4,13 +4,13 @@ import { Download, FileUp, Plus } from 'lucide-react';
 
 export default function ProductMastersHeader({ onImport, onCreate }) {
     return (
-        <div className="border-b border-slate-200 px-5 py-5">
+        <div className="border-b border-slate-200 px-5 py-5 bg-background dark:bg-background dark:border-slate-700 dark:text-foreground">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="space-y-1">
-                    <h1 className="text-2xl font-semibold text-slate-800">
+                <div className="space-y-1 text-foreground">
+                    <h1 className="text-2xl font-semibold">
                         Product Masters
                     </h1>
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm">
                         Manage normalized catalog masters, images, specifications, and
                         CSV import/export flows.
                     </p>

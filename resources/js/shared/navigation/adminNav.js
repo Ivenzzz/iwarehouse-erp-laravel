@@ -20,14 +20,14 @@ export function getAdminNavSections({ permissions = [] } = {}) {
 
     return [
         {
-            label: 'Overview',
+            label: 'OVERVIEW',
             icon: Home,
             active: route().current('dashboard'),
             defaultOpen: true,
             links: [{ label: 'Dashboard', href: route('dashboard'), active: true }],
         },
         {
-            label: 'Operations',
+            label: 'OPERATIONS',
             icon: ChartColumn,
             defaultOpen: false,
             links: [
@@ -40,7 +40,7 @@ export function getAdminNavSections({ permissions = [] } = {}) {
             ],
         },
         {
-            label: 'Warehouse',
+            label: 'WAREHOUSE',
             icon: Warehouse,
             defaultOpen: false,
             links: [
@@ -49,7 +49,7 @@ export function getAdminNavSections({ permissions = [] } = {}) {
             ],
         },
         {
-            label: 'Purchasing',
+            label: 'PURCHASING',
             icon: ShoppingCart,
             defaultOpen: false,
             links: [
@@ -62,7 +62,7 @@ export function getAdminNavSections({ permissions = [] } = {}) {
             ],
         },
         {
-            label: 'Finance',
+            label: 'FINANCE',
             icon: Mail,
             defaultOpen: false,
             links: [
@@ -71,7 +71,7 @@ export function getAdminNavSections({ permissions = [] } = {}) {
             ],
         },
         {
-            label: 'Master Data',
+            label: 'MASTER DATA',
             icon: LayoutDashboard,
             defaultOpen: true,
             links: [
@@ -120,7 +120,7 @@ export function getAdminNavSections({ permissions = [] } = {}) {
             ],
         },
         {
-            label: 'Settings',
+            label: 'SETTINGS',
             icon: Settings,
             defaultOpen: false,
             links: [

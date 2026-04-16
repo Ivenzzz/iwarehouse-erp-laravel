@@ -123,14 +123,14 @@ export default function BrandsPage({ brands, filters }) {
             />
 
             <div className="mx-auto flex w-full max-w-full flex-col gap-4">
-                <section className="bg-white shadow-[0_14px_40px_rgba(15,23,42,0.08)]">
+                <section className="bg-background text-foreground">
                     <BrandsHeader
                         onImport={() => fileInputRef.current?.click()}
                         onCreate={openCreate}
                     />
 
-                    <div className="space-y-5 px-5 py-5">
-                        <section className="bg-white shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+                    <div className="space-y-5">
+                        <section className="bg-accent text-foreground rounded-md">
                             <div className="px-5 py-5">
                                 <BrandsTable
                                     brands={brands.data}

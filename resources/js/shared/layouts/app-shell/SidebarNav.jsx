@@ -137,8 +137,8 @@ export default function SidebarNav({ sections, onNavigate, onLayoutChange }) {
                                 </button>
                             </CollapsibleTrigger>
 
-                            <CollapsibleContent className="px-3 pb-1 pt-2">
-                                <div className="ml-3 rounded-l-2xl border-l border-sidebar-border pl-4">
+                            <CollapsibleContent className="px-1 pb-1 pt-2">
+                                <div className="ml-3 rounded-l-2xl border-sidebar-border pl-2">
                                     <div className="space-y-1">
                                         {section.links.map((link) => {
                                             const LinkIcon = link.icon;
@@ -148,16 +148,15 @@ export default function SidebarNav({ sections, onNavigate, onLayoutChange }) {
                                                     key={link.label}
                                                     href={link.href}
                                                     onBefore={onNavigate}
-                                                    className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs transition ${
-                                                        link.active
-                                                            ? 'bg-secondary text-secondary-foreground'
-                                                            : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-                                                    }`}
+                                                    className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs transition-colors ${link.active
+                                                            ? 'bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-slate-100'
+                                                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100'
+                                                        }`}
                                                 >
                                                     {LinkIcon ? (
                                                         <LinkIcon className="size-3.5 shrink-0 text-current/70" />
                                                     ) : null}
-                                                    <span>{link.label}</span>
+                                                    <span className="truncate">{link.label}</span>
                                                 </Link>
                                             );
                                         })}

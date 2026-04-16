@@ -58,7 +58,7 @@ export default function ProductMastersTable({
 
             <div className="overflow-x-auto rounded-md border border-border">
                 <table className="min-w-full text-sm">
-                    <thead className="sticky top-0 z-10 bg-secondary/90 backdrop-blur-sm">
+                    <thead className="sticky top-0 z-10 bg-table-header text-table-header-foreground backdrop-blur supports-[backdrop-filter]:bg-muted/40">
                         <tr className="border-b border-border">
                             <th className="px-4 py-3 text-left font-semibold text-foreground">
                                 <button
@@ -94,7 +94,7 @@ export default function ProductMastersTable({
                             <th className="px-4 py-3 text-right font-semibold text-foreground">Actions</th>
                         </tr>
                     </thead>
-                    <tbody className="bg-background">
+                    <tbody className="bg-table-body text-table-body-foreground">
                         {productMasters.length > 0 ? (
                             productMasters.map((productMaster) => (
                                 <tr
@@ -147,7 +147,7 @@ export default function ProductMastersTable({
                                                 title="Generate"
                                                 className="hover:bg-violet-100 dark:hover:bg-violet-900/30 transition-colors"
                                             >
-                                                <WandSparkles className="size-4 text-violet-500" />
+                                                <WandSparkles className="size-4 text-indigo-500" />
                                             </Button>
 
                                             {/* View */}

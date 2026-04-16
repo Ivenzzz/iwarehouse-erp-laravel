@@ -4,11 +4,11 @@ import { Download, FileUp, Plus } from 'lucide-react';
 
 export default function CategoriesHeader({ onImport, onCreate }) {
     return (
-        <div className="border-b border-slate-200 px-5 py-5">
+        <div className="bg-accent px-5 py-5 mb-2 rounded-md">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="space-y-1">
-                    <h1 className="text-2xl font-semibold text-slate-800">Categories</h1>
-                    <p className="text-sm text-slate-500">
+                    <h1 className="text-2xl font-semibold">Categories</h1>
+                    <p className="text-sm">
                         Manage product categories, subcategories, and CSV import/export flows.
                     </p>
                 </div>
@@ -24,7 +24,7 @@ export default function CategoriesHeader({ onImport, onCreate }) {
                             Export CSV
                         </Link>
                     </Button>
-                    <Button type="button" onClick={onCreate}>
+                    <Button type="button" variant="primary" onClick={onCreate}>
                         <Plus className="size-4" />
                         Add Category
                     </Button>

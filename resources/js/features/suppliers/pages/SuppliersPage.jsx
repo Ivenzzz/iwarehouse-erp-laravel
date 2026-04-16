@@ -122,15 +122,15 @@ export default function SuppliersPage({ suppliers, filters }) {
                 onChange={handleImport}
             />
 
-            <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-4">
-                <section className="bg-white shadow-[0_14px_40px_rgba(15,23,42,0.08)]">
+            <div className="mx-auto flex max-w-full flex-col gap-5">
+                <section className="bg-background">
                     <SuppliersHeader
                         onImport={() => fileInputRef.current?.click()}
                         onCreate={openCreate}
                     />
 
-                    <div className="space-y-5 px-5 py-5">
-                        <section className="bg-white shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+                    <div className="space-y-5">
+                        <section className="bg-accent">
                             <div className="px-5 py-5">
                                 <SuppliersTable
                                     suppliers={suppliers.data}

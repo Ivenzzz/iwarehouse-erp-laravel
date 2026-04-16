@@ -70,6 +70,12 @@ export default {
                     border: 'var(--sidebar-border)',
                     ring: 'var(--sidebar-ring)',
                 },
+                table: {
+                    header: 'var(--table-header)',
+                    'header-foreground': 'var(--table-header-foreground)',
+                    body: 'var(--table-body)',
+                    'body-foreground': 'var(--table-body-foreground)',
+                },
             },
             borderRadius: {
                 lg: 'var(--radius)',

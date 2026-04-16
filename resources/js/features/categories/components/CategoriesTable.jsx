@@ -30,7 +30,7 @@ export default function CategoriesTable({
         <>
             <form
                 onSubmit={onSearch}
-                className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-start"
             >
                 <div className="relative w-full sm:max-w-sm">
                     <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
@@ -39,7 +39,7 @@ export default function CategoriesTable({
                         value={search}
                         onChange={(event) => onSearchChange(event.target.value)}
                         placeholder="Search categories..."
-                        className="h-9 w-full border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                        className="h-9 w-full border-0 border-b border-input bg-transparent pl-9 pr-3 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-ring focus:border-b-2 focus:ring-0"
                     />
                 </div>
 
@@ -50,55 +50,51 @@ export default function CategoriesTable({
                             Clear
                         </Button>
                     )}
-                    <Button type="submit" variant="outline">
-                        <Search className="size-4" />
-                        Search
-                    </Button>
                 </div>
             </form>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-md border border-border">
                 <table className="min-w-full text-sm">
-                    <thead className="sticky top-0 z-10 bg-slate-50 text-slate-700 shadow-[0_1px_0_rgba(148,163,184,0.35)]">
-                        <tr className="border-b border-slate-200">
-                            <th className="px-4 py-3 text-left font-semibold">
+                    <thead className="sticky top-0 z-10 bg-table-header text-table-header-foreground backdrop-blur-sm">
+                        <tr className="border-b border-border">
+                            <th className="px-4 py-3 text-left font-semibold text-foreground">
                                 <button
                                     type="button"
-                                    className="inline-flex items-center gap-1 hover:text-slate-950"
+                                    className="inline-flex items-center gap-1 hover:text-primary transition-colors"
                                     onClick={() => onSort('name')}
                                 >
                                     Category
                                     {sortIcon('name')}
                                 </button>
                             </th>
-                            <th className="px-4 py-3 text-left font-semibold">
+                            <th className="px-4 py-3 text-left font-semibold text-foreground">
                                 <button
                                     type="button"
-                                    className="inline-flex items-center gap-1 hover:text-slate-950"
+                                    className="inline-flex items-center gap-1 hover:text-primary transition-colors"
                                     onClick={() => onSort('parent')}
                                 >
                                     Parent
                                     {sortIcon('parent')}
                                 </button>
                             </th>
-                            <th className="px-4 py-3 text-right font-semibold">Actions</th>
+                            <th className="px-4 py-3 text-right font-semibold text-foreground">Actions</th>
                         </tr>
                     </thead>
-                    <tbody className="bg-white">
+                    <tbody className="bg-table-body text-table-body-foreground">
                         {categories.length > 0 ? (
                             categories.map((category) => (
                                 <tr
                                     key={category.id}
-                                    className="border-b border-slate-200 align-top"
+                                    className="group border-b border-border align-top transition-colors hover:bg-muted/50"
                                 >
                                     <td className="px-4 py-4">
-                                        <p className="font-semibold text-slate-800">
+                                        <p className="font-semibold text-foreground">
                                             {category.name}
                                         </p>
                                     </td>
-                                    <td className="px-4 py-4 text-slate-600">
+                                    <td className="px-4 py-4 text-foreground">
                                         {category.parent?.name ?? (
-                                            <span className="text-slate-400">Top-level</span>
+                                            <span className="text-muted-foreground italic">Top-level</span>
                                         )}
                                     </td>
                                     <td className="px-4 py-4">
@@ -106,17 +102,21 @@ export default function CategoriesTable({
                                             <Button
                                                 type="button"
                                                 variant="outline"
+                                                size="sm"
                                                 onClick={() => onEdit(category)}
+                                                className="h-8 gap-1.5"
                                             >
-                                                <Pencil className="size-4" />
+                                                <Pencil className="size-3.5 text-warning" />
                                                 Edit
                                             </Button>
                                             <Button
                                                 type="button"
-                                                variant="destructive"
+                                                variant="outline"
+                                                size="sm"
                                                 onClick={() => onDelete(category)}
+                                                className="h-8 gap-1.5 border-destructive/20 hover:bg-destructive/10 hover:text-destructive transition-colors"
                                             >
-                                                <Trash2 className="size-4" />
+                                                <Trash2 className="size-3.5 text-destructive" />
                                                 Delete
                                             </Button>
                                         </div>
@@ -126,13 +126,13 @@ export default function CategoriesTable({
                         ) : (
                             <tr>
                                 <td colSpan={3} className="px-6 py-12 text-center">
-                                    <Rows3 className="mx-auto mb-4 size-10 text-slate-300" />
-                                    <p className="text-lg font-semibold text-slate-700">
+                                    <Rows3 className="mx-auto mb-4 size-10 text-muted-foreground/40" />
+                                    <p className="text-lg font-semibold text-foreground">
                                         {filters.search
                                             ? 'No categories found'
                                             : 'No categories yet'}
                                     </p>
-                                    <p className="mt-2 text-sm text-slate-500">
+                                    <p className="mt-2 text-sm text-muted-foreground">
                                         {filters.search
                                             ? 'Try a different category search.'
                                             : 'Create a category manually or import a CSV containing category and subcategory pairs.'}

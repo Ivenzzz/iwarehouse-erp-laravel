@@ -70,9 +70,9 @@ export default function BrandsTable({
                 </div>
             </form>
 
-            <div className="overflow-x-auto">
-                <table className="min-w-full text-sm bg-background text-foreground">
-                    <thead className="sticky top-0 z-10 bg-muted/50 backdrop-blur supports-[backdrop-filter]:bg-muted/40">
+            <div className="overflow-x-auto rounded-md border border-border">
+                <table className="min-w-full border rounded-md text-sm">
+                    <thead className="sticky top-0 z-10 bg-table-header text-table-header-foreground backdrop-blur supports-[backdrop-filter]:bg-muted/40">
                         <tr className="border-b border-border">
                             <th className="px-4 py-3 text-left font-semibold">
                                 <button
@@ -102,7 +102,7 @@ export default function BrandsTable({
                         </tr>
                     </thead>
 
-                    <tbody>
+                    <tbody className='bg-table-body text-table-body-foreground'>
                         {brands.length > 0 ? (
                             brands.map((brand) => (
                                 <tr

@@ -71,6 +71,40 @@ const getVariantAttributeValue = (variant, keys = []) => {
   return "";
 };
 
+const getVariantSpecValue = (variant, field) => {
+  if (!variant) return "";
+
+  const fieldSources = {
+    cpu: [variant.cpu, getVariantAttributeValue(variant, ["CPU", "cpu"])],
+    gpu: [variant.gpu, getVariantAttributeValue(variant, ["GPU", "gpu"])],
+    model_code: [variant.model_code, getVariantAttributeValue(variant, ["Model Code", "model_code", "Model code"])],
+    ram_type: [variant.ram_type, getVariantAttributeValue(variant, ["RAM Type", "ram_type", "Ram Type"])],
+    rom_type: [variant.rom_type, getVariantAttributeValue(variant, ["ROM Type", "rom_type", "Rom Type"])],
+    os: [variant.operating_system, getVariantAttributeValue(variant, ["Operating System", "OS", "os", "operating_system"])],
+    screen: [variant.screen, getVariantAttributeValue(variant, ["Screen", "screen"])],
+  };
+
+  const candidates = fieldSources[field] || [];
+  const found = candidates.find((value) => value !== undefined && value !== null && String(value).trim() !== "");
+  return found ? String(found).trim() : "";
+};
+
+const getVariantSpecBadges = (variant) => {
+  const badgeFields = [
+    ["CPU", "cpu"],
+    ["GPU", "gpu"],
+    ["Model Code", "model_code"],
+    ["RAM Type", "ram_type"],
+    ["ROM Type", "rom_type"],
+    ["Operating System", "os"],
+    ["Screen", "screen"],
+  ];
+
+  return badgeFields
+    .map(([label, field]) => ({ label, value: getVariantSpecValue(variant, field) }))
+    .filter((entry) => entry.value);
+};
+
 export default function EncodingDialog({
   open,
   onOpenChange,
@@ -143,6 +177,18 @@ export default function EncodingDialog({
   const allocationEditing =
     activeTab === "scan" && !!selectedDeclaredItem && (allocationRequired || showAllocationEditor);
   const allocationReady = allocationTarget > 0 && allocationTotal === allocationTarget;
+  const variantById = useMemo(
+    () => new Map((variants || []).map((variant) => [normalizeId(variant.id), variant])),
+    [variants]
+  );
+  const selectedVariant = useMemo(
+    () => variantById.get(normalizeId(selectedDeclaredItem?.variant_id)) || null,
+    [variantById, selectedDeclaredItem]
+  );
+  const selectedVariantSpecBadges = useMemo(
+    () => getVariantSpecBadges(selectedVariant),
+    [selectedVariant]
+  );
 
   // Focus Effect
   useEffect(() => {
@@ -168,36 +214,6 @@ export default function EncodingDialog({
     setShowAllocationEditor(!!selectedDeclaredItem.allocation_required);
     setShowBatchSetup(true);
   }, [selectedDeclaredItem]);
-
-  useEffect(() => {
-    if (!selectedDeclaredItem?.variant_id) return;
-
-    const selectedVariant = variants?.find((variant) => idEquals(variant.id, selectedDeclaredItem.variant_id));
-    if (!selectedVariant?.attributes) return;
-
-    const attributeDefaults = {
-      cpu: getVariantAttributeValue(selectedVariant, ["CPU", "cpu"]),
-      gpu: getVariantAttributeValue(selectedVariant, ["GPU", "gpu"]),
-      model_code: getVariantAttributeValue(selectedVariant, ["Model Code", "model_code", "Model code"]),
-      ram_type: getVariantAttributeValue(selectedVariant, ["RAM Type", "ram_type", "Ram Type"]),
-      rom_type: getVariantAttributeValue(selectedVariant, ["ROM Type", "rom_type", "Rom Type"]),
-      os: getVariantAttributeValue(selectedVariant, ["Operating System", "OS", "os"]),
-      screen: getVariantAttributeValue(selectedVariant, ["Screen", "screen"]),
-    };
-
-    setMasterPattern((prev) => {
-      let hasChanges = false;
-      const nextPattern = { ...prev };
-
-      Object.entries(attributeDefaults).forEach(([field, value]) => {
-        if (!value || String(prev?.[field] || "").trim() !== "") return;
-        nextPattern[field] = value;
-        hasChanges = true;
-      });
-
-      return hasChanges ? nextPattern : prev;
-    });
-  }, [selectedDeclaredItem, variants, setMasterPattern]);
 
   // --- LOGIC: Configuration & Validation ---
   const handleConfigChange = (field, value) => {
@@ -266,19 +282,15 @@ export default function EncodingDialog({
         imei1: masterPattern.trackingMode === 'IMEI' ? val : "",
         serial_number: masterPattern.trackingMode === 'Serial' ? val : "",
         imei2: "",
-        cpu: masterPattern.cpu || "",
-        gpu: masterPattern.gpu || "",
-        model_code: masterPattern.model_code || "",
-        submodel: masterPattern.submodel || "",
-        ram_type: masterPattern.ram_type || "",
-        rom_type: masterPattern.rom_type || "",
-        ram_slots: masterPattern.ram_slots || "",
+        cpu: getVariantSpecValue(selectedVariant, "cpu"),
+        gpu: getVariantSpecValue(selectedVariant, "gpu"),
+        model_code: getVariantSpecValue(selectedVariant, "model_code"),
+        ram_type: getVariantSpecValue(selectedVariant, "ram_type"),
+        rom_type: getVariantSpecValue(selectedVariant, "rom_type"),
         product_type: masterPattern.product_type || "Standard",
-        country_model: masterPattern.country_model || "",
-        os: masterPattern.os || "",
-        screen: masterPattern.screen || "",
+        os: getVariantSpecValue(selectedVariant, "os"),
+        screen: getVariantSpecValue(selectedVariant, "screen"),
         with_charger: !!masterPattern.with_charger,
-        resolution: masterPattern.resolution || "",
         item_notes: masterPattern.item_notes || "",
         condition: selectedDeclaredItem.condition || "good",
         mode: "Scan",
@@ -722,6 +734,19 @@ export default function EncodingDialog({
                         SRP: {formatMoney(masterPattern.srp)}
                       </Badge>
                     </div>
+                    {selectedVariantSpecBadges.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {selectedVariantSpecBadges.map((badge) => (
+                          <Badge
+                            key={`setup-${badge.label}`}
+                            variant="outline"
+                            className="bg-background border-border text-muted-foreground"
+                          >
+                            {badge.label}: {badge.value}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {showBatchSetup && (
@@ -792,50 +817,6 @@ export default function EncodingDialog({
                         </div>
 
                         <div>
-                          <label className="text-[10px] font-bold text-muted-foreground uppercase">CPU</label>
-                          <Input
-                            type="text"
-                            value={masterPattern.cpu || ""}
-                            onChange={(e) => handleConfigChange("cpu", e.target.value)}
-                            className="h-10 text-sm bg-background border-border text-foreground focus-visible:ring-ring"
-                            placeholder="e.g. Intel i7"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[10px] font-bold text-muted-foreground uppercase">GPU</label>
-                          <Input
-                            type="text"
-                            value={masterPattern.gpu || ""}
-                            onChange={(e) => handleConfigChange("gpu", e.target.value)}
-                            className="h-10 text-sm bg-background border-border text-foreground focus-visible:ring-ring"
-                            placeholder="e.g. RTX 4060"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[10px] font-bold text-muted-foreground uppercase">Submodel</label>
-                          <Input
-                            type="text"
-                            value={masterPattern.submodel || ""}
-                            onChange={(e) => handleConfigChange("submodel", e.target.value)}
-                            className="h-10 text-sm bg-background border-border text-foreground focus-visible:ring-ring"
-                            placeholder="e.g. Intel i7-13700H, Snapdragon 8 Gen 2"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[10px] font-bold text-muted-foreground uppercase">Model Code</label>
-                          <Input
-                            type="text"
-                            value={masterPattern.model_code || ""}
-                            onChange={(e) => handleConfigChange("model_code", e.target.value)}
-                            className="h-10 text-sm bg-background border-border text-foreground focus-visible:ring-ring"
-                            placeholder="e.g. AL14-32P-34RE OPI"
-                          />
-                        </div>
-
-                        <div>
                           <label className="text-[10px] font-bold text-muted-foreground uppercase">Product Type</label>
                           <Input
                             type="text"
@@ -843,83 +824,6 @@ export default function EncodingDialog({
                             onChange={(e) => handleConfigChange("product_type", e.target.value)}
                             className="h-10 text-sm bg-background border-border text-foreground focus-visible:ring-ring"
                             placeholder="e.g. Standard"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[10px] font-bold text-muted-foreground uppercase">RAM Type</label>
-                          <Input
-                            type="text"
-                            value={masterPattern.ram_type || ""}
-                            onChange={(e) => handleConfigChange("ram_type", e.target.value)}
-                            className="h-10 text-sm bg-background border-border text-foreground focus-visible:ring-ring"
-                            placeholder="e.g. LPDDR5, DDR5"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[10px] font-bold text-muted-foreground uppercase">ROM Type</label>
-                          <Input
-                            type="text"
-                            value={masterPattern.rom_type || ""}
-                            onChange={(e) => handleConfigChange("rom_type", e.target.value)}
-                            className="h-10 text-sm bg-background border-border text-foreground focus-visible:ring-ring"
-                            placeholder="e.g. UFS 4.0, NVMe SSD"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[10px] font-bold text-muted-foreground uppercase">Operating System</label>
-                          <Input
-                            type="text"
-                            value={masterPattern.os || ""}
-                            onChange={(e) => handleConfigChange("os", e.target.value)}
-                            className="h-10 text-sm bg-background border-border text-foreground focus-visible:ring-ring"
-                            placeholder="e.g. Windows 11 Home"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[10px] font-bold text-muted-foreground uppercase">RAM Slots</label>
-                          <Input
-                            type="text"
-                            value={masterPattern.ram_slots || ""}
-                            onChange={(e) => handleConfigChange("ram_slots", e.target.value)}
-                            className="h-10 text-sm bg-background border-border text-foreground focus-visible:ring-ring"
-                            placeholder="e.g. 2 Slots, Soldered"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[10px] font-bold text-muted-foreground uppercase">Screen</label>
-                          <Input
-                            type="text"
-                            value={masterPattern.screen || ""}
-                            onChange={(e) => handleConfigChange("screen", e.target.value)}
-                            className="h-10 text-sm bg-background border-border text-foreground focus-visible:ring-ring"
-                            placeholder="e.g. 14.0-inch IPS display"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[10px] font-bold text-muted-foreground uppercase">Country Model</label>
-                          <Input
-                            type="text"
-                            value={masterPattern.country_model || ""}
-                            onChange={(e) => handleConfigChange("country_model", e.target.value)}
-                            className="h-10 text-sm bg-background border-border text-foreground focus-visible:ring-ring"
-                            placeholder="e.g. HK, US, NTC"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[10px] font-bold text-muted-foreground uppercase">Resolution</label>
-                          <Input
-                            type="text"
-                            value={masterPattern.resolution || ""}
-                            onChange={(e) => handleConfigChange("resolution", e.target.value)}
-                            className="h-10 text-sm bg-background border-border text-foreground focus-visible:ring-ring"
-                            placeholder="e.g. 720 x 1080p"
                           />
                         </div>
 
@@ -1127,10 +1031,26 @@ export default function EncodingDialog({
                                       {scan.warranty}
                                     </span>
                                   )}
-                                  {(scan.cpu || scan.gpu) && (
-                                    <span>{scan.cpu || '-'} / {scan.gpu || '-'}</span>
-                                  )}
                                 </div>
+                                {(() => {
+                                  const queueVariant = variantById.get(normalizeId(scan.variant_id));
+                                  const queueSpecBadges = getVariantSpecBadges(queueVariant);
+                                  if (queueSpecBadges.length === 0) return null;
+
+                                  return (
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                      {queueSpecBadges.map((badge) => (
+                                        <Badge
+                                          key={`${normalizeId(scan.variant_id)}-${badge.label}`}
+                                          variant="outline"
+                                          className="bg-background border-border text-muted-foreground"
+                                        >
+                                          {badge.label}: {badge.value}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  );
+                                })()}
                               </div>
 
                               <div className="text-muted-foreground font-mono">

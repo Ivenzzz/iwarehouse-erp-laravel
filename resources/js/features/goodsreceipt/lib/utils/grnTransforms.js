@@ -34,18 +34,32 @@ export const getEncodedItemPricing = (item) => ({
   srp: Number(item.pricing?.srp ?? item.srp ?? 0),
 });
 
-export const getEncodedItemSpec = (item) => ({
-  cpu: item.spec?.cpu || item.cpu || "",
-  gpu: item.spec?.gpu || item.gpu || "",
-  submodel: item.spec?.submodel || item.submodel || "",
-  ram_type: item.spec?.ram_type || item.ram_type || "",
-  rom_type: item.spec?.rom_type || item.rom_type || "",
-  ram_slots: item.spec?.ram_slots || item.ram_slots || "",
-  product_type: item.spec?.product_type || item.product_type || "",
-  country_model: item.spec?.country_model || item.country_model || "",
-  with_charger: Boolean(item.spec?.with_charger ?? item.with_charger),
-  resolution: item.spec?.resolution || item.resolution || "",
-});
+export const getEncodedItemSpec = (item) => {
+  const spec = {
+    cpu: item.spec?.cpu || item.cpu || "",
+    gpu: item.spec?.gpu || item.gpu || "",
+    submodel: item.spec?.submodel || item.submodel || "",
+    ram_type: item.spec?.ram_type || item.ram_type || "",
+    rom_type: item.spec?.rom_type || item.rom_type || "",
+    ram_slots: item.spec?.ram_slots || item.ram_slots || "",
+    product_type: item.spec?.product_type || item.product_type || "",
+    with_charger: Boolean(item.spec?.with_charger ?? item.with_charger),
+  };
+
+  const isCsvItem = item.mode === "CSV" || Boolean(item._purchaseFileData);
+  const countryModel = item.spec?.country_model || item.country_model || "";
+  const resolution = item.spec?.resolution || item.resolution || "";
+
+  if (isCsvItem && countryModel) {
+    spec.country_model = countryModel;
+  }
+
+  if (isCsvItem && resolution) {
+    spec.resolution = resolution;
+  }
+
+  return spec;
+};
 
 export const getProductReferenceData = (
   item,

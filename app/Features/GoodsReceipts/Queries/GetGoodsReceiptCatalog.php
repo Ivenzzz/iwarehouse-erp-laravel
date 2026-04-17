@@ -105,6 +105,8 @@ class GetGoodsReceiptCatalog
                 'gpu' => $variant->gpu,
                 'ram_type' => $variant->ram_type,
                 'rom_type' => $variant->rom_type,
+                'operating_system' => $variant->operating_system,
+                'screen' => $variant->screen,
                 'category_name' => $variant->productMaster?->subcategory?->parent?->name,
                 'subcategory_name' => $variant->productMaster?->subcategory?->name,
                 'brand_name' => $variant->productMaster?->model?->brand?->name,
@@ -119,6 +121,9 @@ class GetGoodsReceiptCatalog
                     'RAM Type' => $variant->ram_type,
                     'ROM Type' => $variant->rom_type,
                     'Model Code' => $variant->model_code,
+                    'Operating System' => $variant->operating_system,
+                    'OS' => $variant->operating_system,
+                    'Screen' => $variant->screen,
                 ],
             ])->all(),
         ];
@@ -129,4 +134,3 @@ class GetGoodsReceiptCatalog
         return strtolower(trim((string) $value));
     }
 }
-

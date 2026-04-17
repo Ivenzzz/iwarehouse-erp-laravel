@@ -165,21 +165,23 @@ export default function SidebarContent({ sections, storageKey = 'default' }) {
     }, [scheduleRestoreScrollTop]);
 
     return (
-        <div className="flex h-full flex-col overflow-hidden bg-accent dark:text-slate-300">
-            <div className="border-b border-sidebar-border px-5 py-5">
+        <div className="flex h-full flex-col overflow-hidden bg-gradient-to-b from-sidebar via-sidebar/95 to-accent/30 dark:text-slate-300 border-r border-sidebar-border">
+            {/* Header Section */}
+            <div className="border-b border-sidebar-border/50 px-5 py-6 bg-transparent">
                 <Link
                     href={route('dashboard')}
                     onBefore={persistScrollTop}
-                    className="flex items-center gap-3"
+                    className="flex items-center gap-3 group"
                 >
                     <div className="min-w-0">
-                        <p className="text-xs font-semibold uppercase text-sidebar-foreground/70">
-                            IWAREHOUSE ERP 2026
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/60 group-hover:text-sidebar-foreground transition-colors">
+                            <span className="text-orange-500">i</span>Warehouse ERP 2026
                         </p>
                     </div>
                 </Link>
             </div>
 
+            {/* Scrollable Nav Area */}
             <div
                 ref={scrollContainerRef}
                 scroll-region={isDesktopSidebar ? undefined : 'true'}
@@ -193,6 +195,9 @@ export default function SidebarContent({ sections, storageKey = 'default' }) {
                     onLayoutChange={handleSidebarLayoutChange}
                 />
             </div>
+
+            {/* Optional: Subtle bottom fade to indicate more content */}
+            <div className="h-4 bg-gradient-to-t from-accent/10 to-transparent pointer-events-none" />
         </div>
     );
 }

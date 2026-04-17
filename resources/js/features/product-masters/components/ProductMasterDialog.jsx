@@ -15,7 +15,12 @@ import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { useForm } from '@inertiajs/react';
 import { ImageOff } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+
+const NEW_BRAND_PREFIX = '__new_brand__:';
+const NEW_MODEL_PREFIX = '__new_model__:';
+
+const normalizeName = (value) => String(value ?? '').trim().toLowerCase();
 
 export default function ProductMasterDialog({
     open,
@@ -27,15 +32,101 @@ export default function ProductMasterDialog({
 }) {
     const isEditing = productMaster !== null;
     const form = useForm(buildProductMasterFormData(productMaster, specDefinitions));
-    const selectedBrand = brands.find((brand) => String(brand.id) === String(form.data.brand_id));
-    const brandOptions = brands.map((brand) => ({
+    const [brandSearch, setBrandSearch] = useState('');
+    const [modelSearch, setModelSearch] = useState('');
+    const selectedBrand = brands.find(
+        (brand) => String(brand.id) === String(form.data.brand_id),
+    );
+    const brandOptionsBase = brands.map((brand) => ({
         value: brand.id,
         label: brand.name,
     }));
-    const modelOptions = (selectedBrand?.models ?? []).map((model) => ({
+    const modelOptionsBase = (selectedBrand?.models ?? []).map((model) => ({
         value: model.id,
         label: model.model_name,
     }));
+    const normalizedBrandSearch = useMemo(() => normalizeName(brandSearch), [brandSearch]);
+    const normalizedModelSearch = useMemo(() => normalizeName(modelSearch), [modelSearch]);
+    const hasBrandContext = Boolean(form.data.brand_id || form.data.new_brand_name);
+    const hasBrandDuplicate = useMemo(
+        () =>
+            normalizedBrandSearch !== '' &&
+            brands.some((brand) => normalizeName(brand.name) === normalizedBrandSearch),
+        [brands, normalizedBrandSearch],
+    );
+    const canAddBrand = normalizedBrandSearch !== '' && !hasBrandDuplicate;
+    const currentBrandModels = selectedBrand?.models ?? [];
+    const hasModelDuplicate = useMemo(
+        () =>
+            normalizedModelSearch !== '' &&
+            currentBrandModels.some(
+                (model) => normalizeName(model.model_name) === normalizedModelSearch,
+            ),
+        [currentBrandModels, normalizedModelSearch],
+    );
+    const canAddModel = hasBrandContext && normalizedModelSearch !== '' && !hasModelDuplicate;
+    const brandOptions = useMemo(() => {
+        if (!canAddBrand) {
+            return brandOptionsBase;
+        }
+
+        return [
+            {
+                value: `${NEW_BRAND_PREFIX}${brandSearch.trim()}`,
+                label: `Add "${brandSearch.trim()}"`,
+                description: 'Create new brand',
+                searchText: brandSearch.trim(),
+            },
+            ...brandOptionsBase,
+        ];
+    }, [brandOptionsBase, brandSearch, canAddBrand]);
+    const modelOptions = useMemo(() => {
+        if (!canAddModel) {
+            return modelOptionsBase;
+        }
+
+        return [
+            {
+                value: `${NEW_MODEL_PREFIX}${modelSearch.trim()}`,
+                label: `Add "${modelSearch.trim()}"`,
+                description: 'Create new model',
+                searchText: modelSearch.trim(),
+            },
+            ...modelOptionsBase,
+        ];
+    }, [canAddModel, modelOptionsBase, modelSearch]);
+    const selectedBrandOption = useMemo(() => {
+        if (form.data.brand_id) {
+            return brandOptionsBase.find(
+                (option) => String(option.value) === String(form.data.brand_id),
+            );
+        }
+
+        if (form.data.new_brand_name) {
+            return {
+                value: `${NEW_BRAND_PREFIX}${form.data.new_brand_name}`,
+                label: form.data.new_brand_name,
+            };
+        }
+
+        return null;
+    }, [brandOptionsBase, form.data.brand_id, form.data.new_brand_name]);
+    const selectedModelOption = useMemo(() => {
+        if (form.data.model_id) {
+            return modelOptionsBase.find(
+                (option) => String(option.value) === String(form.data.model_id),
+            );
+        }
+
+        if (form.data.new_model_name) {
+            return {
+                value: `${NEW_MODEL_PREFIX}${form.data.new_model_name}`,
+                label: form.data.new_model_name,
+            };
+        }
+
+        return null;
+    }, [form.data.model_id, form.data.new_model_name, modelOptionsBase]);
     const subcategoryOptions = categories.flatMap((category) =>
         category.children.map((subcategory) => ({
             value: subcategory.id,
@@ -49,19 +140,57 @@ export default function ProductMasterDialog({
     useEffect(() => {
         form.setData(buildProductMasterFormData(productMaster, specDefinitions));
         form.clearErrors();
+        setBrandSearch('');
+        setModelSearch('');
     }, [productMaster, specDefinitions]);
 
     const close = () => {
         onOpenChange(false);
         form.reset();
         form.clearErrors();
+        setBrandSearch('');
+        setModelSearch('');
     };
 
-    const updateBrand = (brandId) => {
+    const updateBrand = (brandValue) => {
+        if (String(brandValue).startsWith(NEW_BRAND_PREFIX)) {
+            const newBrandName = String(brandValue).slice(NEW_BRAND_PREFIX.length).trim();
+
+            form.setData({
+                ...form.data,
+                brand_id: '',
+                model_id: '',
+                new_brand_name: newBrandName,
+                new_model_name: '',
+            });
+            return;
+        }
+
         form.setData({
             ...form.data,
-            brand_id: brandId,
+            brand_id: brandValue,
             model_id: '',
+            new_brand_name: '',
+            new_model_name: '',
+        });
+    };
+
+    const updateModel = (modelValue) => {
+        if (String(modelValue).startsWith(NEW_MODEL_PREFIX)) {
+            const newModelName = String(modelValue).slice(NEW_MODEL_PREFIX.length).trim();
+
+            form.setData({
+                ...form.data,
+                model_id: '',
+                new_model_name: newModelName,
+            });
+            return;
+        }
+
+        form.setData({
+            ...form.data,
+            model_id: modelValue,
+            new_model_name: '',
         });
     };
 
@@ -100,8 +229,8 @@ export default function ProductMasterDialog({
                         {isEditing ? 'Edit Product Master' : 'Add Product Master'}
                     </DialogTitle>
                     <DialogDescription className="text-accent-foreground/70">
-                        Select existing brand, model, and subcategory records. The master
-                        SKU is generated automatically.
+                        Select existing brand/model or add missing entries inline. The master SKU
+                        is generated automatically.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -116,7 +245,15 @@ export default function ProductMasterDialog({
                                     value={form.data.brand_id}
                                     onChange={(brandId) => updateBrand(brandId)}
                                     options={brandOptions}
-                                // Combobox internally should handle bg-background
+                                    onInputValueChange={setBrandSearch}
+                                    selectedOption={selectedBrandOption}
+                                />
+                                <InputError
+                                    message={
+                                        hasBrandDuplicate && normalizedBrandSearch !== ''
+                                            ? 'Brand already exists.'
+                                            : form.errors.new_brand_name ?? form.errors.brand_id
+                                    }
                                 />
                             </div>
 
@@ -125,11 +262,19 @@ export default function ProductMasterDialog({
                                 <Combobox
                                     id="product-master-model"
                                     value={form.data.model_id}
-                                    onChange={(modelId) => form.setData('model_id', modelId)}
+                                    onChange={(modelId) => updateModel(modelId)}
                                     options={modelOptions}
-                                    disabled={!selectedBrand}
+                                    disabled={!hasBrandContext}
+                                    onInputValueChange={setModelSearch}
+                                    selectedOption={selectedModelOption}
                                 />
-                                <InputError message={form.errors.model_id} />
+                                <InputError
+                                    message={
+                                        hasModelDuplicate && normalizedModelSearch !== ''
+                                            ? 'Model already exists for this brand.'
+                                            : form.errors.new_model_name ?? form.errors.model_id
+                                    }
+                                />
                             </div>
 
                             <div className="space-y-2 md:col-span-2">

@@ -72,7 +72,7 @@ export default function BrandsTable({
 
             <div className="overflow-x-auto rounded-md border border-border">
                 <table className="min-w-full border rounded-md text-sm">
-                    <thead className="sticky top-0 z-10 bg-table-header text-table-header-foreground backdrop-blur supports-[backdrop-filter]:bg-muted/40">
+                    <thead className="sticky top-0 z-10 bg-table-header backdrop-blur supports-[backdrop-filter]:bg-muted/40">
                         <tr className="border-b border-border">
                             <th className="px-4 py-3 text-left font-semibold">
                                 <button

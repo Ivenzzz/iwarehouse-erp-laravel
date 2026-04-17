@@ -31,38 +31,39 @@ export default function PaymentMethodsTable({
         <>
             <form
                 onSubmit={onSearch}
-                className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-start"
             >
                 <div className="relative w-full sm:max-w-sm">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                     <input
                         type="search"
                         value={search}
                         onChange={(event) => onSearchChange(event.target.value)}
                         placeholder="Search payment methods..."
-                        className="h-9 w-full border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                        className="h-9 w-full border-0 border-b border-input bg-transparent pl-9 pr-3 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-ring focus:border-b-2 focus:ring-0"
                     />
                 </div>
 
                 <div className="flex gap-2">
                     {filters.search && (
-                        <Button type="button" variant="outline" onClick={onClearSearch}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={onClearSearch}
+                            className="h-9 border-border text-foreground hover:bg-accent"
+                        >
                             <X className="size-4" />
                             Clear
                         </Button>
                     )}
-                    <Button type="submit" variant="outline">
-                        <Search className="size-4" />
-                        Search
-                    </Button>
                 </div>
             </form>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-md border border-border">
                 <table className="min-w-full text-sm">
-                    <thead className="sticky top-0 z-10 bg-slate-50 text-slate-700 shadow-[0_1px_0_rgba(148,163,184,0.35)]">
-                        <tr className="border-b border-slate-200">
-                            <th className="px-4 py-3 text-left font-semibold">
+                    <thead className="sticky top-0 z-10 bg-table-header text-table-header-foreground backdrop-blur-sm">
+                        <tr className="border-b border-border">
+                            <th className="px-4 py-3 text-left font-semibold text-foreground">
                                 <button
                                     type="button"
                                     className="inline-flex items-center gap-1 hover:text-slate-950"
@@ -72,7 +73,7 @@ export default function PaymentMethodsTable({
                                     {sortIcon('name')}
                                 </button>
                             </th>
-                            <th className="px-4 py-3 text-left font-semibold">
+                            <th className="px-4 py-3 text-left font-semibold text-foreground">
                                 <button
                                     type="button"
                                     className="inline-flex items-center gap-1 hover:text-slate-950"
@@ -82,47 +83,49 @@ export default function PaymentMethodsTable({
                                     {sortIcon('type')}
                                 </button>
                             </th>
-                            <th className="px-4 py-3 text-left font-semibold">Logo</th>
-                            <th className="px-4 py-3 text-right font-semibold">Actions</th>
+                            <th className="px-4 py-3 text-left font-semibold text-foreground">Logo</th>
+                            <th className="px-4 py-3 text-right font-semibold text-foreground">Actions</th>
                         </tr>
                     </thead>
-                    <tbody className="bg-white">
+                    <tbody className="bg-table-body text-table-body-foreground">
                         {paymentMethods.length > 0 ? (
                             paymentMethods.map((paymentMethod) => (
                                 <tr
                                     key={paymentMethod.id}
-                                    className="border-b border-slate-200 align-top"
+                                    className="group border-b border-border align-top transition-colors hover:bg-muted/50"
                                 >
                                     <td className="px-4 py-4">
-                                        <p className="font-semibold text-slate-800">
+                                        <p className="font-semibold text-foreground">
                                             {paymentMethod.name}
                                         </p>
                                     </td>
                                     <td className="px-4 py-4">
-                                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-700">
+                                        <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold uppercase tracking-wide text-secondary-foreground border border-border">
                                             {formatPaymentMethodType(paymentMethod.type)}
                                         </span>
                                     </td>
-                                    <td className="max-w-[280px] truncate px-4 py-4 text-slate-600">
+                                    <td className="max-w-[280px] truncate px-4 py-4 text-muted-foreground">
                                         {paymentMethod.logo || 'No logo'}
                                     </td>
                                     <td className="px-4 py-4">
-                                        <div className="flex justify-end gap-2">
+                                        <div className="flex justify-end gap-1">
                                             <Button
                                                 type="button"
-                                                variant="outline"
+                                                size="icon-sm"
+                                                variant="ghost"
                                                 onClick={() => onEdit(paymentMethod)}
+                                                className="hover:bg-warning/10 hover:text-warning"
                                             >
-                                                <Pencil className="size-4" />
-                                                Edit
+                                                <Pencil className="size-4 text-warning" />
                                             </Button>
                                             <Button
                                                 type="button"
-                                                variant="destructive"
+                                                size="icon-sm"
+                                                variant="ghost"
                                                 onClick={() => onDelete(paymentMethod)}
+                                                className="hover:bg-destructive/10 hover:text-destructive"
                                             >
-                                                <Trash2 className="size-4" />
-                                                Delete
+                                                <Trash2 className="size-4 text-destructive" />
                                             </Button>
                                         </div>
                                     </td>
@@ -131,13 +134,13 @@ export default function PaymentMethodsTable({
                         ) : (
                             <tr>
                                 <td colSpan={4} className="px-6 py-12 text-center">
-                                    <CreditCard className="mx-auto mb-4 size-10 text-slate-300" />
-                                    <p className="text-lg font-semibold text-slate-700">
+                                    <CreditCard className="mx-auto mb-4 size-10 text-muted-foreground/30" />
+                                    <p className="text-lg font-semibold text-foreground">
                                         {filters.search
                                             ? 'No payment methods found'
                                             : 'No payment methods yet'}
                                     </p>
-                                    <p className="mt-2 text-sm text-slate-500">
+                                    <p className="mt-2 text-sm text-muted-foreground">
                                         {filters.search
                                             ? 'Try a different payment method search.'
                                             : 'Create a payment method manually or import a CSV.'}
@@ -149,7 +152,7 @@ export default function PaymentMethodsTable({
                 </table>
             </div>
 
-            <div className="mt-4 flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mt-4 flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
                 <p>
                     {pagination.total > 0
                         ? `Showing ${pagination.from} to ${pagination.to} of ${pagination.total} payment methods`
@@ -171,8 +174,10 @@ export default function PaymentMethodsTable({
                                     key={`${link.label}-${index}`}
                                     type="button"
                                     variant={link.active ? 'default' : 'outline'}
+                                    size="sm"
                                     disabled={!link.url}
                                     onClick={() => page && onPageChange(page)}
+                                    className={!link.active ? 'border-border text-foreground hover:bg-accent' : ''}
                                 >
                                     {label}
                                 </Button>

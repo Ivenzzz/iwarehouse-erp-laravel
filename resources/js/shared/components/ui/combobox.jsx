@@ -77,6 +77,7 @@ function Combobox({
   selectedOption,
   renderSelectedOption,
   footer,
+  onInputValueChange,
 }) {
   const [open, setOpen] = useState(false)
   const [inputValue, setInputValue] = useState("")
@@ -104,8 +105,9 @@ function Combobox({
   useEffect(() => {
     if (searchValue !== undefined) {
       setInputValue(searchValue)
+      onInputValueChange?.(searchValue)
     }
-  }, [searchValue])
+  }, [onInputValueChange, searchValue])
 
   useEffect(() => {
     onSearchChangeRef.current = onSearchChange
@@ -158,6 +160,7 @@ function Combobox({
 
     if (!nextOpen) {
       setInputValue("")
+      onInputValueChange?.("")
 
       if (isExternalSearch) {
         onSearchChange("")
@@ -206,7 +209,10 @@ function Combobox({
           <CommandInput
             placeholder={searchPlaceholder}
             value={inputValue}
-            onValueChange={setInputValue}
+            onValueChange={(nextValue) => {
+              setInputValue(nextValue)
+              onInputValueChange?.(nextValue)
+            }}
             onKeyDown={handleKeyDown}
             className="text-slate-900 dark:text-slate-100"
           />

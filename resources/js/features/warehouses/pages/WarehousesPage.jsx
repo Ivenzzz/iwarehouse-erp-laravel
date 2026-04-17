@@ -16,16 +16,20 @@ export default function WarehousesPage({ warehouses, warehouseTypes, filters }) 
     usePageToasts([errors?.file, errors?.warehouse], 'destructive');
 
     const visitWarehouses = (params) => {
-        router.get(route('warehouses.index'), {
-            search: params.search ?? filters.search,
-            sort: params.sort ?? filters.sort,
-            direction: params.direction ?? filters.direction,
-            page: params.page,
-        }, {
-            preserveState: true,
-            preserveScroll: true,
-            replace: true,
-        });
+        router.get(
+            route('warehouses.index'),
+            {
+                search: params.search ?? filters.search,
+                sort: params.sort ?? filters.sort,
+                direction: params.direction ?? filters.direction,
+                page: params.page,
+            },
+            {
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+            },
+        );
     };
 
     const openCreate = () => {
@@ -50,17 +54,33 @@ export default function WarehousesPage({ warehouses, warehouseTypes, filters }) 
 
     const searchWarehouses = (event) => {
         event.preventDefault();
-        visitWarehouses({ search: search.trim(), page: undefined });
+        visitWarehouses({
+            search: search.trim(),
+            page: undefined,
+        });
     };
 
     const clearSearch = () => {
         setSearch('');
-        visitWarehouses({ search: '', page: undefined });
+        visitWarehouses({
+            search: '',
+            page: undefined,
+        });
     };
 
     const sortWarehouses = (sort) => {
-        const direction = filters.sort === sort && filters.direction === 'asc' ? 'desc' : 'asc';
-        visitWarehouses({ sort, direction, page: undefined });
+        const direction =
+            filters.sort === sort && filters.direction === 'asc' ? 'desc' : 'asc';
+
+        visitWarehouses({
+            sort,
+            direction,
+            page: undefined,
+        });
+    };
+
+    const goToPage = (page) => {
+        visitWarehouses({ page });
     };
 
     const handleImport = (event) => {
@@ -70,13 +90,17 @@ export default function WarehousesPage({ warehouses, warehouseTypes, filters }) 
             return;
         }
 
-        router.post(route('warehouses.import'), { file }, {
-            forceFormData: true,
-            preserveScroll: true,
-            onFinish: () => {
-                event.target.value = '';
+        router.post(
+            route('warehouses.import'),
+            { file },
+            {
+                forceFormData: true,
+                preserveScroll: true,
+                onFinish: () => {
+                    event.target.value = '';
+                },
             },
-        });
+        );
     };
 
     return (
@@ -90,14 +114,20 @@ export default function WarehousesPage({ warehouses, warehouseTypes, filters }) 
                 warehouseTypes={warehouseTypes}
             />
 
-            <input ref={fileInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleImport} />
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={handleImport}
+            />
 
-            <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-4">
-                <section className="bg-white shadow-[0_14px_40px_rgba(15,23,42,0.08)]">
+            <div className="mx-auto flex max-w-full flex-col gap-5">
+                <section className="bg-background">
                     <WarehousesHeader onImport={() => fileInputRef.current?.click()} onCreate={openCreate} />
 
-                    <div className="space-y-5 px-5 py-5">
-                        <section className="bg-white shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+                    <div className="space-y-5">
+                        <section className="bg-accent">
                             <div className="px-5 py-5">
                                 <WarehousesTable
                                     warehouses={warehouses.data}
@@ -116,7 +146,7 @@ export default function WarehousesPage({ warehouses, warehouseTypes, filters }) 
                                     onSearch={searchWarehouses}
                                     onClearSearch={clearSearch}
                                     onSort={sortWarehouses}
-                                    onPageChange={(page) => visitWarehouses({ page })}
+                                    onPageChange={goToPage}
                                     onEdit={openEdit}
                                     onDelete={deleteWarehouse}
                                 />

@@ -3,6 +3,7 @@
 namespace App\Features\ProductMasters\Actions;
 
 use App\Models\ProductMaster;
+use App\Models\ProductBrand;
 use App\Models\ProductModel;
 use App\Models\ProductSpecDefinition;
 use App\Support\GeneratesProductMasterSku;
@@ -15,12 +16,21 @@ class SaveProductMaster
     public function __construct(private readonly GeneratesProductMasterSku $skuGenerator) {}
 
     /**
-     * @param  array{model_id: int, subcategory_id: int, description: string|null, clear_image: bool, specs: array<string, string>}  $payload
+     * @param  array{
+     *     brand_id: int|null,
+     *     model_id: int|null,
+     *     new_brand_name: string|null,
+     *     new_model_name: string|null,
+     *     subcategory_id: int,
+     *     description: string|null,
+     *     clear_image: bool,
+     *     specs: array<string, string>
+     * }  $payload
      */
     public function handle(array $payload, ?UploadedFile $image = null, ?ProductMaster $productMaster = null): ProductMaster
     {
         return DB::transaction(function () use ($payload, $image, $productMaster) {
-            $model = ProductModel::with('brand')->findOrFail($payload['model_id']);
+            $model = $this->resolveModel($payload);
             $imagePath = $productMaster?->image_path;
             $oldImagePath = null;
 
@@ -34,7 +44,7 @@ class SaveProductMaster
 
             $attributes = [
                 'master_sku' => $this->skuGenerator->fromModel($model),
-                'model_id' => $payload['model_id'],
+                'model_id' => $model->id,
                 'subcategory_id' => $payload['subcategory_id'],
                 'image_path' => $imagePath,
                 'description' => $payload['description'],
@@ -54,6 +64,35 @@ class SaveProductMaster
 
             return $productMaster;
         });
+    }
+
+    /**
+     * @param  array{
+     *     brand_id: int|null,
+     *     model_id: int|null,
+     *     new_brand_name: string|null,
+     *     new_model_name: string|null
+     * }  $payload
+     */
+    private function resolveModel(array $payload): ProductModel
+    {
+        if ($payload['model_id'] !== null) {
+            return ProductModel::with('brand')->findOrFail($payload['model_id']);
+        }
+
+        $brand = $payload['brand_id'] !== null
+            ? ProductBrand::query()->findOrFail($payload['brand_id'])
+            : ProductBrand::query()->create([
+                'name' => $payload['new_brand_name'],
+            ]);
+
+        $model = $brand->models()->create([
+            'model_name' => $payload['new_model_name'],
+        ]);
+
+        $model->setRelation('brand', $brand);
+
+        return $model;
     }
 
     /**

@@ -64,7 +64,10 @@ export default function CustomersPage({
 
     const searchCustomers = (event) => {
         event.preventDefault();
-        visitCustomers({ search: search.trim(), page: undefined });
+        visitCustomers({
+            search: search.trim(),
+            page: undefined,
+        });
     };
 
     const updateFilter = (field, value) => {
@@ -87,7 +90,15 @@ export default function CustomersPage({
         const direction =
             filters.sort === sort && filters.direction === 'asc' ? 'desc' : 'asc';
 
-        visitCustomers({ sort, direction, page: undefined });
+        visitCustomers({
+            sort,
+            direction,
+            page: undefined,
+        });
+    };
+
+    const goToPage = (page) => {
+        visitCustomers({ page });
     };
 
     const handleImport = (event) => {
@@ -131,15 +142,15 @@ export default function CustomersPage({
                 onChange={handleImport}
             />
 
-            <div className="mx-auto flex w-full max-w-full flex-col gap-4">
-                <section className="bg-white shadow-[0_14px_40px_rgba(15,23,42,0.08)]">
+            <div className="mx-auto flex max-w-full flex-col gap-5">
+                <section className="bg-background">
                     <CustomersHeader
                         onImport={() => fileInputRef.current?.click()}
                         onCreate={openCreate}
                     />
 
-                    <div className="space-y-5 px-5 py-5">
-                        <section className="bg-white shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+                    <div className="space-y-5">
+                        <section className="bg-accent">
                             <div className="px-5 py-5">
                                 <CustomersTable
                                     customers={customers.data}
@@ -162,7 +173,7 @@ export default function CustomersPage({
                                     onSearch={searchCustomers}
                                     onClearFilters={clearFilters}
                                     onSort={sortCustomers}
-                                    onPageChange={(page) => visitCustomers({ page })}
+                                    onPageChange={goToPage}
                                     onEdit={openEdit}
                                     onDelete={deleteCustomer}
                                 />

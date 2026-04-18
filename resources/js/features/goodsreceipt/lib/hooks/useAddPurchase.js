@@ -2,7 +2,6 @@ import { useState, useCallback } from "react";
 import { ADD_PURCHASE_STEPS as STEPS } from "../constants/addPurchaseSteps";
 import {
   executeDirectPurchaseImport,
-  uploadPurchaseFile,
   validateCSVOnServer,
   resolveConflictsOnServer,
 } from "../services/goodsReceiptService";
@@ -30,6 +29,7 @@ function createInitialFormData(currentUser) {
     waybillUrl: "",
     trackingNumber: "",
     purchaseFileUrl: "",
+    purchaseFile: null,
   };
 }
 
@@ -66,15 +66,6 @@ export function useAddPurchase({ mainWarehouse, currentUser, refreshPage }) {
   const updateFormData = useCallback((field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   }, []);
-
-  const handleUploadPurchaseFile = useCallback(
-    async (file) => {
-      const fileUrl = await uploadPurchaseFile(file);
-      updateFormData("purchaseFileUrl", fileUrl);
-      return fileUrl;
-    },
-    [updateFormData]
-  );
 
   const handleValidateCSV = useCallback(async (csvText) => {
     setStep(STEPS.VALIDATING);
@@ -148,8 +139,6 @@ export function useAddPurchase({ mainWarehouse, currentUser, refreshPage }) {
     handleValidateCSV,
     handleResolveConflicts,
     handleImport,
-    handleUploadPurchaseFile,
     STEPS,
   };
 }
-

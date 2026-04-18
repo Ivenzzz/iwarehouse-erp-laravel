@@ -127,6 +127,7 @@ export function useGoodsReceiptPage() {
           currentUser: data.currentUser,
           grnNumber,
           grnDate,
+          assignedWarehouseId,
           assignedWarehouse,
           variants: data.variants,
           productMasters: data.productMasters,

@@ -18,6 +18,7 @@ use App\Models\GoodsReceipt;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -34,14 +35,14 @@ class GoodsReceiptController extends Controller
         return response()->json($query($request)['goods_receipt_page']);
     }
 
-    public function catalog(Request $request, GetGoodsReceiptCatalog $query): JsonResponse
+    public function catalog(Request $request, GetGoodsReceiptCatalog $query): JsonResponse|RedirectResponse
     {
-        return response()->json($query($request));
+        return $this->respondGoodsReceiptAction($request, 'catalog', $query($request));
     }
 
-    public function show(GoodsReceipt $goodsReceipt, GetGoodsReceiptDetail $query): JsonResponse
+    public function show(Request $request, GoodsReceipt $goodsReceipt, GetGoodsReceiptDetail $query): JsonResponse|RedirectResponse
     {
-        return response()->json($query($goodsReceipt));
+        return $this->respondGoodsReceiptAction($request, 'detail', $query($goodsReceipt));
     }
 
     public function store(Request $request, CreateGoodsReceipt $action): JsonResponse|RedirectResponse
@@ -73,14 +74,13 @@ class GoodsReceiptController extends Controller
 
         $grn = $action->handle($validated, $request->user()?->id);
 
-        if ($request->expectsJson() || $request->ajax()) {
-            return response()->json(['ok' => true, 'id' => $grn->id]);
-        }
-
-        return redirect()->route('goods-receipts.index')->with('success', 'GRN created successfully.');
+        return $this->respondGoodsReceiptAction($request, 'create_goods_receipt', [
+            'ok' => true,
+            'id' => $grn->id,
+        ]);
     }
 
-    public function validateDuplicates(Request $request, ValidateGoodsReceiptDuplicates $action): JsonResponse
+    public function validateDuplicates(Request $request, ValidateGoodsReceiptDuplicates $action): JsonResponse|RedirectResponse
     {
         $validated = $request->validate([
             'items' => ['required', 'array', 'min:1'],
@@ -90,12 +90,12 @@ class GoodsReceiptController extends Controller
             'items.*.identifiers.imei2' => ['nullable', 'string', 'max:50'],
         ]);
 
-        return response()->json([
+        return $this->respondGoodsReceiptAction($request, 'validate_duplicates', [
             'duplicates' => $action->handle($validated['items']),
         ]);
     }
 
-    public function markDeliveryReceiptComplete(DeliveryReceipt $deliveryReceipt, Request $request): JsonResponse
+    public function markDeliveryReceiptComplete(DeliveryReceipt $deliveryReceipt, Request $request): JsonResponse|RedirectResponse
     {
         $deliveryReceipt->forceFill([
             'has_goods_receipt' => true,
@@ -103,29 +103,40 @@ class GoodsReceiptController extends Controller
             'encoded_by_user_id' => $request->user()?->id,
         ])->save();
 
-        return response()->json(['ok' => true]);
+        return $this->respondGoodsReceiptAction($request, 'mark_dr_complete', ['ok' => true]);
     }
 
-    public function validatePurchaseCsv(Request $request, ValidatePurchaseCsv $action): JsonResponse
+    public function validatePurchaseCsv(Request $request, ValidatePurchaseCsv $action): JsonResponse|RedirectResponse
     {
         $validated = $request->validate([
             'csvText' => ['required', 'string'],
         ]);
 
-        return response()->json($action->handle($validated['csvText']));
+        return $this->respondGoodsReceiptAction(
+            $request,
+            'validate_csv',
+            $action->handle($validated['csvText'])
+        );
     }
 
-    public function resolvePurchaseBrandConflicts(Request $request, ResolvePurchaseBrandConflicts $action): JsonResponse
+    public function resolvePurchaseBrandConflicts(Request $request, ResolvePurchaseBrandConflicts $action): JsonResponse|RedirectResponse
     {
         $validated = $request->validate([
             'brandConflicts' => ['required', 'array'],
         ]);
 
-        return response()->json($action->handle($validated['brandConflicts']));
+        return $this->respondGoodsReceiptAction(
+            $request,
+            'resolve_conflicts',
+            $action->handle($validated['brandConflicts'])
+        );
     }
 
-    public function executeDirectPurchase(Request $request, ExecuteDirectPurchaseImport $action): JsonResponse
-    {
+    public function executeDirectPurchase(
+        Request $request,
+        ExecuteDirectPurchaseImport $action,
+        StoreGoodsReceiptUpload $storeGoodsReceiptUpload,
+    ): JsonResponse|RedirectResponse {
         $validated = $request->validate([
             'warehouseId' => ['required', 'integer', 'exists:warehouses,id'],
             'formData' => ['required', 'array'],
@@ -134,12 +145,37 @@ class GoodsReceiptController extends Controller
             'formData.arrivalDate' => ['nullable', 'date'],
             'formData.trackingNumber' => ['nullable', 'string', 'max:100'],
             'formData.purchaseFileUrl' => ['nullable', 'string', 'max:500'],
+            'formData.drDocumentFile' => ['nullable', 'file', 'max:10240'],
+            'formData.waybillFile' => ['nullable', 'file', 'max:10240'],
+            'formData.purchaseFile' => ['nullable', 'file', 'max:10240'],
             'validatedRows' => ['required', 'array', 'min:1'],
             'validatedRows.*.product_master_id' => ['required', 'integer', 'exists:product_masters,id'],
             'validatedRows.*.variant_id' => ['required', 'integer', 'exists:product_variants,id'],
         ]);
 
-        return response()->json($action->handle($validated, $request->user()?->id));
+        $formData = $validated['formData'];
+
+        $drDocumentFile = $request->file('formData.drDocumentFile');
+        if ($drDocumentFile instanceof UploadedFile) {
+            $formData['drDocumentUrl'] = (string) ($storeGoodsReceiptUpload->handle($drDocumentFile)['file_url'] ?? '');
+        }
+
+        $waybillFile = $request->file('formData.waybillFile');
+        if ($waybillFile instanceof UploadedFile) {
+            $formData['waybillUrl'] = (string) ($storeGoodsReceiptUpload->handle($waybillFile)['file_url'] ?? '');
+        }
+
+        $purchaseFile = $request->file('formData.purchaseFile');
+        if ($purchaseFile instanceof UploadedFile) {
+            $formData['purchaseFileUrl'] = (string) ($storeGoodsReceiptUpload->handle($purchaseFile)['file_url'] ?? '');
+        }
+
+        $payload = $action->handle([
+            ...$validated,
+            'formData' => $formData,
+        ], $request->user()?->id);
+
+        return $this->respondGoodsReceiptAction($request, 'execute_purchase_import', $payload);
     }
 
     public function export(Request $request, ExportGoodsReceiptsCsv $action): StreamedResponse
@@ -147,12 +183,31 @@ class GoodsReceiptController extends Controller
         return $action->handle($request);
     }
 
-    public function upload(Request $request, StoreGoodsReceiptUpload $storeGoodsReceiptUpload): JsonResponse
+    public function upload(Request $request, StoreGoodsReceiptUpload $storeGoodsReceiptUpload): JsonResponse|RedirectResponse
     {
         $validated = $request->validate([
             'file' => ['required', 'file', 'max:10240'],
         ]);
 
-        return response()->json($storeGoodsReceiptUpload->handle($validated['file']));
+        return $this->respondGoodsReceiptAction(
+            $request,
+            'upload_purchase_file',
+            $storeGoodsReceiptUpload->handle($validated['file']),
+        );
+    }
+
+    private function respondGoodsReceiptAction(Request $request, string $key, array $payload): JsonResponse|RedirectResponse
+    {
+        if ($request->headers->has('X-Inertia')) {
+            return redirect()
+                ->back()
+                ->with('goods_receipt_api', [$key => $payload]);
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json($payload);
+        }
+
+        return redirect()->back()->with('goods_receipt_api', [$key => $payload]);
     }
 }

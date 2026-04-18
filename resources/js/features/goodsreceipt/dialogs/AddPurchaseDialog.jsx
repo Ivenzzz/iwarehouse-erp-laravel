@@ -22,7 +22,6 @@ export default function AddPurchaseDialog({
   validatedRows,
   importResult,
   onValidateCSV,
-  onUploadPurchaseFile,
   onResolveConflicts,
   onImport,
   onClose,
@@ -62,7 +61,6 @@ export default function AddPurchaseDialog({
             updateFormData={updateFormData}
             suppliers={suppliers}
             onValidateCSV={onValidateCSV}
-            onUploadPurchaseFile={onUploadPurchaseFile}
             onClose={onClose}
           />
         )}

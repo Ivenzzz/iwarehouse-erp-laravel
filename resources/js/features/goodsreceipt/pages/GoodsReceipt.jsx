@@ -40,11 +40,11 @@ export default function GoodsReceipt() {
 
   return (
     <AppShell title="Goods Receipt">
-      <div className="p-6 space-y-8 text-foreground">
+      <div className="p-2 space-y-4 bg-background">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground tracking-tight">
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">
             Goods Receiving / Purchases
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -82,14 +82,13 @@ export default function GoodsReceipt() {
       {/* KPI Section */}
       <GRNKPICards kpis={kpis} />
 
-      <Separator className="bg-border" />
 
       {/* Main Operations Area */}
-      <Card className="border border-border bg-card text-card-foreground shadow-sm">
+      <Card className="border-none bg-card text-card-foreground">
         <CardContent className="p-0">
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <div className="bg-muted/40 px-6 py-2 border-b border-border flex justify-between items-center">
-              <TabsList className="bg-muted border border-border shadow-sm">
+            <div className="bg-background py-2 flex justify-between items-center">
+              <TabsList className="bg-secondary border border-border shadow-sm p-2">
                 <TabsTrigger
                   value="delivery-receipts"
                   className="
@@ -101,18 +100,6 @@ export default function GoodsReceipt() {
                 >
                   <Package className="w-4 h-4 mr-2" />
                   Pending Purchases
-                  {deliveryReceipts.length > 0 && (
-                    <span
-                      className="
-                      ml-2
-                      bg-primary/10 text-primary
-                      border border-primary/20
-                      text-[10px] px-1.5 py-0.5 rounded-full
-                    "
-                    >
-                      {deliveryReceipts.length}
-                    </span>
-                  )}
                 </TabsTrigger>
 
                 <TabsTrigger
@@ -130,7 +117,7 @@ export default function GoodsReceipt() {
               </TabsList>
             </div>
 
-            <TabsContent value="delivery-receipts" className="p-6 m-0 animate-in fade-in-50 duration-300">
+            <TabsContent value="delivery-receipts" className="m-0 animate-in fade-in-50 duration-300">
               <DRTable
                 deliveryReceipts={deliveryReceipts}
                 loadingDRs={loadingDRs}
@@ -220,7 +207,6 @@ export default function GoodsReceipt() {
         validatedRows={addPurchase.validatedRows}
         importResult={addPurchase.importResult}
         onValidateCSV={addPurchase.handleValidateCSV}
-        onUploadPurchaseFile={addPurchase.handleUploadPurchaseFile}
         onResolveConflicts={addPurchase.handleResolveConflicts}
         onImport={addPurchase.handleImport}
         onClose={addPurchase.closeDialog}

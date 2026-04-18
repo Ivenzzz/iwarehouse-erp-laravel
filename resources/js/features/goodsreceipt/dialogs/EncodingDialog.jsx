@@ -677,7 +677,7 @@ export default function EncodingDialog({
                     </div>
                     <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all duration-500 ${currentProgress.percent >= 100 ? "bg-[hsl(var(--success))]" : "bg-primary"}`}
+                        className={`h-full rounded-full transition-all duration-500 ${currentProgress.percent >= 100 ? "bg-success" : "bg-primary"}`}
                         style={{ width: `${currentProgress.percent}%` }}
                       />
                     </div>
@@ -852,14 +852,14 @@ export default function EncodingDialog({
                         </div>
 
                         <div className="xl:col-span-2">
-                          <label className="text-[10px] font-bold text-muted-foreground uppercase">Tracking Mode</label>
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase mx-2">Tracking Mode</label>
                           <div className="mt-2 inline-flex rounded-xl border border-border bg-background p-1">
                             {["IMEI", "Serial"].map((mode) => (
                               <button
                                 key={mode}
                                 type="button"
                                 onClick={() => handleConfigChange("trackingMode", mode)}
-                                className={`px-4 py-2 text-xs font-semibold rounded-lg transition-colors ${masterPattern.trackingMode === mode ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                                className={`px-4 py-2 text-xs font-semibold rounded-lg transition-colors ${masterPattern.trackingMode === mode ? "bg-success text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                               >
                                 {mode}
                               </button>
@@ -878,7 +878,7 @@ export default function EncodingDialog({
                 <div className="rounded-2xl border border-primary/15 bg-card shadow-sm p-5">
                   <div className="flex items-start justify-between gap-4 mb-4">
                     <div>
-                      <h3 className="text-base font-semibold text-foreground">Fast Scan</h3>
+                      <h3 className="text-base font-semibold text-foreground">Scanning Mode</h3>
                       <p className="text-xs text-muted-foreground mt-1">{scanHelperText}</p>
                     </div>
                     <Badge variant="outline" className="bg-background border-border text-muted-foreground">
@@ -936,20 +936,20 @@ export default function EncodingDialog({
               {selectedDeclaredItem && (
                 <button
                   onClick={() => setActiveTab("scan")}
-                  className={`min-w-[200px] rounded-xl px-4 py-3 text-left transition-colors ${activeTab === "scan" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"}`}
+                  className={`min-w-[200px] rounded-xl px-4 py-3 text-left transition-colors ${activeTab === "scan" ? "bg-accent" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"}`}
                 >
                   <div className="flex items-center gap-2 text-sm font-semibold">
-                    <ScanBarcode size={16} /> Fast Scan
+                    <ScanBarcode size={16} /> Scan
                   </div>
                   <div className="mt-1 text-[11px] leading-tight text-current/80">
-                    Encode one unit at a time
+                    Scan one unit at a time
                   </div>
                 </button>
               )}
 
               <button
                 onClick={() => setActiveTab("purchasefile")}
-                className={`min-w-[200px] rounded-xl px-4 py-3 text-left transition-colors ${activeTab === "purchasefile" ? "bg-[hsl(var(--success))]/10 text-[hsl(var(--success))]" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"}`}
+                className={`min-w-[200px] rounded-xl px-4 py-3 text-left transition-colors ${activeTab === "purchasefile" ? "bg-accent" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"}`}
               >
                 <div className="flex items-center gap-2 text-sm font-semibold">
                   <FileSpreadsheet size={16} /> Import File

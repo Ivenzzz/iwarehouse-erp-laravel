@@ -1,67 +1,103 @@
-import axios from "axios";
+import { router } from "@inertiajs/react";
+
+function readGoodsReceiptFlash(page, key, fallback = null) {
+  return page?.props?.flash?.goods_receipt_api?.[key] ?? fallback;
+}
+
+function inertiaPost(url, data, key, { forceFormData = false } = {}) {
+  return new Promise((resolve, reject) => {
+    router.post(url, data, {
+      preserveState: true,
+      preserveScroll: true,
+      forceFormData,
+      onSuccess: (page) => resolve(readGoodsReceiptFlash(page, key, {})),
+      onError: (errors) => reject(new Error(errors?.message || "Request failed.")),
+    });
+  });
+}
+
+function inertiaPatch(url, data, key) {
+  return new Promise((resolve, reject) => {
+    router.patch(url, data, {
+      preserveState: true,
+      preserveScroll: true,
+      onSuccess: (page) => resolve(readGoodsReceiptFlash(page, key, {})),
+      onError: (errors) => reject(new Error(errors?.message || "Request failed.")),
+    });
+  });
+}
+
+function inertiaGet(url, data, key) {
+  return new Promise((resolve, reject) => {
+    router.get(url, data, {
+      preserveState: true,
+      preserveScroll: true,
+      replace: true,
+      onSuccess: (page) => resolve(readGoodsReceiptFlash(page, key, {})),
+      onError: (errors) => reject(new Error(errors?.message || "Request failed.")),
+    });
+  });
+}
 
 export async function createGoodsReceipt(payload) {
-  const response = await axios.post(route("goods-receipts.store"), payload);
-  return response.data;
+  return inertiaPost(route("goods-receipts.store"), payload, "create_goods_receipt");
 }
 
 export async function validateDuplicates(items) {
-  const response = await axios.post(route("goods-receipts.validate-duplicates"), { items });
-  return response.data?.duplicates || [];
+  const payload = await inertiaPost(route("goods-receipts.validate-duplicates"), { items }, "validate_duplicates");
+  return payload?.duplicates || [];
 }
 
 export async function markDeliveryReceiptComplete(deliveryReceiptId) {
-  await axios.patch(route("goods-receipts.mark-dr-complete", deliveryReceiptId));
+  await inertiaPatch(route("goods-receipts.mark-dr-complete", deliveryReceiptId), {}, "mark_dr_complete");
 }
 
 export async function uploadPurchaseFile(file) {
   const formData = new FormData();
   formData.append("file", file);
-  const response = await axios.post(route("goods-receipts.upload"), formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
-  return response.data?.file_url || "";
+  const payload = await inertiaPost(route("goods-receipts.upload"), formData, "upload_purchase_file", { forceFormData: true });
+  return payload?.file_url || "";
 }
 
 export async function validateCSVOnServer(csvText) {
-  const response = await axios.post(route("goods-receipts.purchase-import.validate-csv"), { csvText });
-  return response.data;
+  return inertiaPost(route("goods-receipts.purchase-import.validate-csv"), { csvText }, "validate_csv");
 }
 
 export async function resolveConflictsOnServer(brandConflicts) {
-  const response = await axios.post(route("goods-receipts.purchase-import.resolve-conflicts"), { brandConflicts });
-  return response.data;
+  return inertiaPost(route("goods-receipts.purchase-import.resolve-conflicts"), { brandConflicts }, "resolve_conflicts");
 }
 
 export async function executeDirectPurchaseImport({ formData, validatedRows, mainWarehouse }) {
-  const response = await axios.post(route("goods-receipts.purchase-import.execute"), {
-    formData,
-    warehouseId: mainWarehouse.id,
-    validatedRows,
-  });
+  const payload = await inertiaPost(
+    route("goods-receipts.purchase-import.execute"),
+    {
+      formData,
+      warehouseId: mainWarehouse.id,
+      validatedRows,
+    },
+    "execute_purchase_import",
+    { forceFormData: true }
+  );
 
-  const result = response.data || {};
-  if (result.duplicates) return { duplicates: result.duplicates };
+  if (payload?.duplicates) return { duplicates: payload.duplicates };
 
   return {
-    drNumber: result.drNumber,
-    grnNumber: result.grnNumber,
-    itemCount: result.itemCount,
+    drNumber: payload?.drNumber,
+    grnNumber: payload?.grnNumber,
+    itemCount: payload?.itemCount,
   };
 }
 
 export async function fetchGoodsReceiptCatalog(drId) {
-  const response = await axios.get(route("goods-receipts.catalog"), {
-    params: { dr_id: drId },
-  });
+  const payload = await inertiaGet(route("goods-receipts.catalog"), { dr_id: drId }, "catalog");
 
   return {
-    productMasters: response.data?.product_masters || [],
-    variants: response.data?.variants || [],
+    productMasters: payload?.product_masters || [],
+    variants: payload?.variants || [],
   };
 }
 
 export async function fetchGoodsReceiptDetail(goodsReceiptId) {
-  const response = await axios.get(route("goods-receipts.show", goodsReceiptId));
-  return response.data?.goods_receipt || null;
+  const payload = await inertiaGet(route("goods-receipts.show", goodsReceiptId), {}, "detail");
+  return payload?.goods_receipt || null;
 }

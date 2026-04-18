@@ -221,11 +221,11 @@ export default function GRNDetailsDialog({
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs font-medium uppercase text-slate-400">PO Number</p>
-                  <p className="text-base font-semibold text-white/90">{selectedGRN.receipt_info?.po_number || "N/A"}</p>
+                  <p className="text-base font-semibold text-foreground">{selectedGRN.receipt_info?.po_number || "N/A"}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs font-medium uppercase text-slate-400">Supplier</p>
-                  <p className="text-base font-semibold text-white/90 truncate" title={supplierName}>
+                  <p className="text-base font-semibold text-foreground truncate" title={supplierName}>
                     {supplierName}
                   </p>
                 </div>
@@ -234,21 +234,21 @@ export default function GRNDetailsDialog({
               <div className="space-y-3">
                 <div className="space-y-1">
                   <p className="text-xs font-medium uppercase text-slate-400">Warehouse</p>
-                  <p className="text-base font-semibold text-white/90 flex items-center gap-1">
+                  <p className="text-base font-semibold text-foreground flex items-center gap-1">
                     <MapPin className="w-4 h-4 text-blue-400" />
                     {selectedGRN.parties?.warehouse_name || "N/A"}
                   </p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs font-medium uppercase text-slate-400">Received By</p>
-                  <p className="text-base font-semibold text-white/90 flex items-center gap-1">
+                  <p className="text-base font-semibold text-foreground flex items-center gap-1">
                     <User className="w-4 h-4 text-green-400" />
                     {receivedBy}
                   </p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs font-medium uppercase text-slate-400">Encoded Date</p>
-                  <p className="text-base font-semibold text-white/90 flex items-center gap-1">
+                  <p className="text-base font-semibold text-foreground flex items-center gap-1">
                     <Calendar className="w-4 h-4 text-orange-400" />
                     {encodedDate ? format(new Date(encodedDate), "MMM dd, yyyy hh:mm a") : "N/A"}
                   </p>
@@ -262,14 +262,14 @@ export default function GRNDetailsDialog({
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs font-medium uppercase text-slate-400">Handling Units</p>
-                  <p className="text-base font-semibold text-white/90 flex items-center gap-1">
+                  <p className="text-base font-semibold text-foreground flex items-center gap-1">
                     <Box className="w-4 h-4 text-purple-400" />
                     Declared: {boxDeclared} | Received: {boxReceived}
                   </p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs font-medium uppercase text-slate-400">Vendor DR / Ref</p>
-                  <p className="text-base font-semibold text-white/90 flex items-center gap-1">
+                  <p className="text-base font-semibold text-foreground flex items-center gap-1">
                     <FileText className="w-4 h-4 text-sky-400" />
                     {selectedGRN.receipt_info?.dr_number || "-"} / -
                   </p>

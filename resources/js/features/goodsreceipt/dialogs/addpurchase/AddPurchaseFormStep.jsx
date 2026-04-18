@@ -151,32 +151,22 @@ export default function AddPurchaseFormStep({
   updateFormData,
   suppliers,
   onValidateCSV,
-  onUploadPurchaseFile,
   onClose,
 }) {
   const [csvFileName, setCsvFileName] = useState("");
   const [csvText, setCsvText] = useState("");
-  const [csvUploading, setCsvUploading] = useState(false);
   const csvInputRef = useRef(null);
 
-  const supplierOptions = suppliers
-    .filter(s => s.master_profile?.status === "Active")
-    .map((s) => ({
-      value: s.id,
-      label: s.master_profile?.trade_name || s.master_profile?.legal_business_name || s.supplier_code,
-    }));
+  const supplierOptions = suppliers.map((s) => ({
+    value: String(s.id),
+    label: s.master_profile?.trade_name || s.master_profile?.legal_business_name || s.supplier_code,
+  }));
 
   const handleCSVSelect = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setCsvFileName(file.name);
-
-    setCsvUploading(true);
-    try {
-      await onUploadPurchaseFile(file);
-    } finally {
-      setCsvUploading(false);
-    }
+    updateFormData("purchaseFile", file);
 
     const reader = new FileReader();
     reader.onload = (ev) => setCsvText(ev.target.result);
@@ -317,12 +307,11 @@ export default function AddPurchaseFormStep({
           <Button
             variant="outline"
             size="sm"
-            disabled={csvUploading}
             className="bg-background border-border text-foreground hover:bg-accent hover:text-accent-foreground"
             onClick={() => csvInputRef.current?.click()}
           >
             <Upload className="w-4 h-4 mr-2" />
-            {csvUploading ? "Uploading..." : "Select CSV"}
+            Select CSV
           </Button>
           <input
             ref={csvInputRef}

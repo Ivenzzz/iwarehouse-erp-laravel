@@ -6,7 +6,7 @@ export default function GRNKPICards({ kpis }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
       {/* Ready for Encoding */}
-      <Card className="border border-border bg-card text-card-foreground">
+      <Card className="border border-border bg-accent text-card-foreground">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-card-foreground">
             Ready for Encoding
@@ -24,7 +24,7 @@ export default function GRNKPICards({ kpis }) {
       </Card>
 
       {/* In Progress */}
-      <Card className="border border-border bg-card text-card-foreground">
+      <Card className="border border-border bg-accent text-card-foreground">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-card-foreground">
             In Progress
@@ -42,7 +42,7 @@ export default function GRNKPICards({ kpis }) {
       </Card>
 
       {/* Completed Today */}
-      <Card className="border border-border bg-card text-card-foreground">
+      <Card className="border border-border bg-accent text-card-foreground">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-card-foreground">
             Completed Today
@@ -60,7 +60,7 @@ export default function GRNKPICards({ kpis }) {
       </Card>
 
       {/* Label Accuracy */}
-      <Card className="border border-border bg-card text-card-foreground">
+      <Card className="border border-border bg-accent text-card-foreground">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-card-foreground">
             Label Accuracy

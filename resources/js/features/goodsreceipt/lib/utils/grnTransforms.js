@@ -202,6 +202,7 @@ export const buildGRNData = ({
   currentUser,
   grnNumber,
   grnDate,
+  assignedWarehouseId = "",
   assignedWarehouse,
   variants = [],
   productMasters = [],
@@ -251,6 +252,7 @@ export const buildGRNData = ({
     dr_number: selectedDR.dr_number || selectedDR.vendor_dr_number || "",
     supplier_name: selectedDR.supplier_name || "",
     status: "completed",
+    warehouse_id: assignedWarehouseId || "",
     total_amount: schemaItems.reduce((sum, unit) => sum + (unit.pricing?.cost_price || 0), 0),
     discrepancy_info: {
       has_discrepancy: hasDiscrepancy,

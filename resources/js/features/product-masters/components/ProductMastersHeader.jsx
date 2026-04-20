@@ -1,5 +1,4 @@
 import { Button } from '@/shared/components/ui/button';
-import { Link } from '@inertiajs/react';
 import { Download, FileUp, Plus } from 'lucide-react';
 
 export default function ProductMastersHeader({ onImport, onCreate }) {
@@ -21,11 +20,9 @@ export default function ProductMastersHeader({ onImport, onCreate }) {
                         <FileUp className="size-4" />
                         Import CSV
                     </Button>
-                    <Button variant="outline" asChild>
-                        <Link href={route('product-masters.export')}>
-                            <Download className="size-4" />
-                            Export CSV
-                        </Link>
+                    <Button variant="outline" onClick={() => { window.location.href = route('product-masters.export'); }}>
+                        <Download className="size-4" />
+                        Export CSV
                     </Button>
                     <Button type="button" onClick={onCreate}>
                         <Plus className="size-4" />

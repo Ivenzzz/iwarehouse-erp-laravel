@@ -2,52 +2,63 @@
 
 namespace App\Features\ProductMasters\Actions;
 
-use App\Models\ProductMaster;
-use App\Support\ProductMasterSpecDefinitions;
+use App\Models\ProductVariant;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ExportProductMastersCsv
 {
     public function handle(): StreamedResponse
     {
-        $productMasters = ProductMaster::query()
-            ->with(['model.brand', 'subcategory.parent', 'specValues.definition'])
-            ->orderBy('master_sku')
+        $variants = ProductVariant::query()
+            ->where('is_active', true)
+            ->with(['productMaster.model.brand', 'productMaster.subcategory.parent'])
+            ->orderBy('sku')
             ->get();
-        $specKeys = ProductMasterSpecDefinitions::keys();
 
-        $callback = function () use ($productMasters, $specKeys): void {
+        $callback = function () use ($variants): void {
             $stream = fopen('php://output', 'w');
-            fputcsv($stream, array_merge([
-                'master_sku',
-                'brand',
-                'model',
-                'category',
-                'subcategory',
-                'image_url',
-                'description',
-            ], $specKeys));
+            fputcsv($stream, [
+                'Brand',
+                'Model',
+                'Category',
+                'Subcategory',
+                'RAM',
+                'ROM',
+                'Color',
+                'Model Code',
+                'CPU',
+                'GPU',
+                'RAM Type',
+                'ROM Type',
+                'OS',
+                'Screen',
+            ]);
 
-            foreach ($productMasters as $productMaster) {
-                $specs = $productMaster->specValues
-                    ->mapWithKeys(fn ($value) => [$value->definition->key => $value->value])
-                    ->all();
+            foreach ($variants as $variant) {
+                $productMaster = $variant->productMaster;
 
-                fputcsv($stream, array_merge([
-                    $productMaster->master_sku,
-                    $productMaster->model->brand->name,
-                    $productMaster->model->model_name,
-                    $productMaster->subcategory->parent?->name ?? '',
-                    $productMaster->subcategory->name,
-                    $productMaster->image_url ?? '',
-                    $productMaster->description ?? '',
-                ], array_map(fn ($key) => $specs[$key] ?? '', $specKeys)));
+                fputcsv($stream, [
+                    $productMaster?->model?->brand?->name ?? '',
+                    $productMaster?->model?->model_name ?? '',
+                    $productMaster?->subcategory?->parent?->name ?? '',
+                    $productMaster?->subcategory?->name ?? '',
+                    $variant->ram ?? '',
+                    $variant->rom ?? '',
+                    $variant->color ?? '',
+                    $variant->model_code ?? '',
+                    $variant->cpu ?? '',
+                    $variant->gpu ?? '',
+                    $variant->ram_type ?? '',
+                    $variant->rom_type ?? '',
+                    $variant->operating_system ?? '',
+                    $variant->screen ?? '',
+                ]);
             }
 
             fclose($stream);
         };
 
-        return response()->streamDownload($callback, 'product-masters.csv', [
+        return response()->streamDownload($callback, 'product-variants.csv', [
             'Content-Type' => 'text/csv',
         ]);
     }

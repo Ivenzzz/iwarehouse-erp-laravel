@@ -172,9 +172,9 @@ export default function ProductVariantGenerateDialog({
                                                     type="button"
                                                     onClick={() => toggleOption('rams', ram)}
                                                     className={cn(
-                                                        "inline-flex h-7 items-center justify-center rounded-full border px-3 text-[11px] font-bold transition-all",
+                                                        "inline-flex h-7 items-center justify-center rounded-md border px-3 text-[11px] font-bold transition-all",
                                                         selected
-                                                            ? "bg-info/15 text-info border-info/40 shadow-[0_0_8px_rgba(var(--info),0.1)]"
+                                                            ? "bg-blue-500/15 text-info border-blue-500/40 shadow-[0_0_8px_rgba(var(--info),0.1)]"
                                                             : "bg-background text-muted-foreground border-border hover:border-muted-foreground/50"
                                                     )}
                                                 >
@@ -197,9 +197,9 @@ export default function ProductVariantGenerateDialog({
                                                     type="button"
                                                     onClick={() => toggleOption('roms', rom)}
                                                     className={cn(
-                                                        "inline-flex h-7 items-center justify-center rounded-full border px-3 text-[11px] font-bold transition-all",
+                                                        "inline-flex h-7 items-center justify-center rounded-md border px-3 text-[11px] font-bold transition-all",
                                                         selected
-                                                            ? "bg-info/15 text-info border-info/40 shadow-[0_0_8px_rgba(var(--info),0.1)]"
+                                                            ? "bg-blue-500/15 text-foreground border-blue-500/40 shadow-[0_0_8px_rgba(var(--info),0.1)]"
                                                             : "bg-background text-muted-foreground border-border hover:border-muted-foreground/50"
                                                     )}
                                                 >
@@ -225,11 +225,11 @@ export default function ProductVariantGenerateDialog({
                                                 type="button"
                                                 onClick={() => toggleCondition(condition)}
                                                 className={cn(
-                                                    "inline-flex h-7 items-center justify-center rounded-full border px-4 text-[11px] font-bold transition-all",
+                                                    "inline-flex h-7 items-center justify-center rounded-md border px-4 text-[11px] font-bold transition-all",
                                                     selected
                                                         ? isBrandNew
-                                                            ? "bg-success/15 text-success border-success/40"
-                                                            : "bg-warning/15 text-warning border-warning/40"
+                                                            ? "bg-green-500/15 text-foregorund border-green-500/40"
+                                                            : "bg-green-500/15 text-foreground border-green-500/40"
                                                         : "bg-background text-muted-foreground border-border hover:border-muted-foreground/50"
                                                 )}
                                             >
@@ -255,27 +255,25 @@ export default function ProductVariantGenerateDialog({
                             </div>
 
                             {/* Computer Specs Section */}
-                            {productMaster?.supports_computer_variants && (
-                                <section className="space-y-4 border-t border-border pt-5">
-                                    <Label className="text-sm font-bold">Computer Specifications</Label>
-                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                        {computerDefinitions.map((def) => (
-                                            <div key={def.key} className="space-y-1.5">
-                                                <Label htmlFor={`gen-${def.key}`} className="text-[11px] text-muted-foreground">
-                                                    {def.label}
-                                                </Label>
-                                                <Input
-                                                    id={`gen-${def.key}`}
-                                                    className="h-9 bg-background text-xs"
-                                                    value={form.shared_attributes[def.key] ?? ''}
-                                                    onChange={(e) => updateSharedAttribute(def.key, e.target.value)}
-                                                    placeholder={`Enter ${def.label.toLowerCase()}`}
-                                                />
-                                            </div>
-                                        ))}
-                                    </div>
-                                </section>
-                            )}
+                            <section className="space-y-4 border-t border-border pt-5">
+                                <Label className="text-sm font-bold">Laptops/Desktops Specifications</Label>
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                    {computerDefinitions.map((def) => (
+                                        <div key={def.key} className="space-y-1.5">
+                                            <Label htmlFor={`gen-${def.key}`} className="text-[11px] text-muted-foreground">
+                                                {def.label}
+                                            </Label>
+                                            <Input
+                                                id={`gen-${def.key}`}
+                                                className="h-9 bg-background text-xs"
+                                                value={form.shared_attributes[def.key] ?? ''}
+                                                onChange={(e) => updateSharedAttribute(def.key, e.target.value)}
+                                                placeholder={`Enter ${def.label.toLowerCase()}`}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
                         </div>
 
                         {/* Summary Info Box */}

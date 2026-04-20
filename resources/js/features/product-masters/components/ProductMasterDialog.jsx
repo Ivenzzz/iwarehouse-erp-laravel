@@ -390,7 +390,7 @@ export default function ProductMasterDialog({
                         <Button type="button" variant="outline" onClick={close}>
                             Cancel
                         </Button>
-                        <Button type="submit" variant="info" disabled={form.processing}>
+                        <Button type="submit" disabled={form.processing}>
                             {isEditing ? 'Save Changes' : 'Create Product Master'}
                         </Button>
                     </DialogFooter>

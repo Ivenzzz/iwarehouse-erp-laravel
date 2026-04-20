@@ -44,9 +44,9 @@ class CreateGoodsReceipt
 
                 GoodsReceiptItemIdentifier::query()->create([
                     'goods_receipt_item_id' => $grnItem->id,
-                    'serial_number' => data_get($item, 'identifiers.serial_number'),
-                    'imei1' => data_get($item, 'identifiers.imei1'),
-                    'imei2' => data_get($item, 'identifiers.imei2'),
+                    'serial_number' => $this->nullableIdentifier(data_get($item, 'identifiers.serial_number')),
+                    'imei1' => $this->nullableIdentifier(data_get($item, 'identifiers.imei1')),
+                    'imei2' => $this->nullableIdentifier(data_get($item, 'identifiers.imei2')),
                 ]);
 
                 GoodsReceiptItemDetail::query()->create([
@@ -65,9 +65,9 @@ class CreateGoodsReceipt
                 InventoryItem::query()->create([
                     'product_variant_id' => $item['variant_id'],
                     'warehouse_id' => (int) ($validated['warehouse_id'] ?? 0),
-                    'imei' => data_get($item, 'identifiers.imei1'),
-                    'imei2' => data_get($item, 'identifiers.imei2'),
-                    'serial_number' => data_get($item, 'identifiers.serial_number'),
+                    'imei' => $this->nullableIdentifier(data_get($item, 'identifiers.imei1')),
+                    'imei2' => $this->nullableIdentifier(data_get($item, 'identifiers.imei2')),
+                    'serial_number' => $this->nullableIdentifier(data_get($item, 'identifiers.serial_number')),
                     'status' => data_get($item, 'condition') === 'Certified Pre-Owned' ? 'quality_check' : 'available',
                     'cost_price' => data_get($item, 'pricing.cost_price', 0),
                     'cash_price' => data_get($item, 'pricing.cash_price', 0),
@@ -89,5 +89,15 @@ class CreateGoodsReceipt
 
             return $grn->fresh(['deliveryReceipt', 'discrepancy', 'items.identifiers', 'items.details']);
         });
+    }
+
+    /**
+     * Empty strings violate unique indexes (multiple '' collide); nullable columns should use null when absent.
+     */
+    private function nullableIdentifier(mixed $value): ?string
+    {
+        $trimmed = trim((string) ($value ?? ''));
+
+        return $trimmed === '' ? null : $trimmed;
     }
 }

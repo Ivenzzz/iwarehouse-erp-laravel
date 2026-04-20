@@ -206,7 +206,7 @@ export default function ProductVariantsDialog({
                                                         {variant.tags.map((tag) => (
                                                             <Badge
                                                                 key={`${variant.id}-${tag.key}`}
-                                                                variant="info" // Using the premium semantic info badge
+                                                                variant="primary" // Using the premium semantic info badge
                                                                 size="xs"      // Smaller size fits better in a vertical stack
                                                             >
                                                                 <span className="opacity-70 font-medium">
@@ -218,7 +218,7 @@ export default function ProductVariantsDialog({
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-4">
-                                                    <div className="flex justify-end gap-1">
+                                                    <div className="flex justify-end gap-2">
                                                         <Button
                                                             type="button"
                                                             variant="ghost"
@@ -229,7 +229,7 @@ export default function ProductVariantsDialog({
                                                             }}
                                                             title="Edit"
                                                         >
-                                                            <Pencil className="size-4 text-primary" />
+                                                            <Pencil className="size-4 text-amber-500" />
                                                         </Button>
                                                         <Button
                                                             type="button"

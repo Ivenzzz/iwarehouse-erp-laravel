@@ -1,5 +1,6 @@
+import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
-import { ArrowDown, ArrowUp, Eye, PackageSearch, Pencil, Search, Trash2, WandSparkles, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Eye, PackageSearch, SquarePen, Search, Trash2, WandSparkles, X } from 'lucide-react';
 
 export default function ProductMastersTable({
     productMasters,
@@ -64,19 +65,9 @@ export default function ProductMastersTable({
                                 <button
                                     type="button"
                                     className="inline-flex items-center gap-1 hover:text-primary transition-colors"
-                                    onClick={() => onSort('master_sku')}
-                                >
-                                    SKU
-                                    {sortIcon('master_sku')}
-                                </button>
-                            </th>
-                            <th className="px-4 py-3 text-left font-semibold text-foreground">
-                                <button
-                                    type="button"
-                                    className="inline-flex items-center gap-1 hover:text-primary transition-colors"
                                     onClick={() => onSort('name')}
                                 >
-                                    Product
+                                    Name
                                     {sortIcon('name')}
                                 </button>
                             </th>
@@ -101,11 +92,6 @@ export default function ProductMastersTable({
                                     key={productMaster.id}
                                     className="group border-b border-border align-top transition-colors duration-200 hover:bg-slate-50 dark:hover:bg-slate-800/40"
                                 >
-                                    {/* SKU */}
-                                    <td className="px-4 py-4 font-medium text-foreground">
-                                        {productMaster.master_sku}
-                                    </td>
-
                                     {/* Product Name */}
                                     <td className="px-4 py-4">
                                         <p className="font-semibold text-foreground">
@@ -127,17 +113,22 @@ export default function ProductMastersTable({
                                     <td className="px-4 py-4">
                                         <button
                                             type="button"
-                                            className="inline-flex items-center rounded-sm border border-info/30 bg-info/10 px-2.5 py-1 text-xs font-semibold text-info transition-all hover:bg-info hover:text-info-foreground group-hover:border-info/60"
                                             onClick={() => onManageVariants(productMaster)}
+                                            className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                                         >
-                                            {productMaster.variants_count} variant
-                                            {productMaster.variants_count === 1 ? '' : 's'}
+                                            <Badge
+                                                variant="outline"
+                                                className="border-info/30 bg-info/10 px-2.5 py-1 text-xs font-semibold text-info"
+                                            >
+                                                {productMaster.variants_count} variant
+                                                {productMaster.variants_count === 1 ? '' : 's'}
+                                            </Badge>
                                         </button>
                                     </td>
 
                                     {/* Actions */}
                                     <td className="px-4 py-4">
-                                        <div className="flex justify-end gap-1">
+                                        <div className="flex justify-end gap-4">
                                             {/* Generate */}
                                             <Button
                                                 type="button"
@@ -145,9 +136,9 @@ export default function ProductMastersTable({
                                                 variant="ghost"
                                                 onClick={() => onGenerate(productMaster)}
                                                 title="Generate"
-                                                className="hover:bg-violet-100 dark:hover:bg-violet-900/30 transition-colors"
+                                                className="hover:bg-cyan-100 dark:hover:bg-cyan-900/30 transition-colors"
                                             >
-                                                <WandSparkles className="size-4 text-indigo-500" />
+                                                <WandSparkles className="size-4 text-cyan-500" />
                                             </Button>
 
                                             {/* View */}
@@ -157,9 +148,9 @@ export default function ProductMastersTable({
                                                 variant="ghost"
                                                 onClick={() => onView(productMaster)}
                                                 title="View"
-                                                className="hover:bg-sky-100 dark:hover:bg-sky-900/30 transition-colors"
+                                                className="hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
                                             >
-                                                <Eye className="size-4 text-sky-500" />
+                                                <Eye className="size-4 text-green-500" />
                                             </Button>
 
                                             {/* Edit */}
@@ -169,9 +160,9 @@ export default function ProductMastersTable({
                                                 variant="ghost"
                                                 onClick={() => onEdit(productMaster)}
                                                 title="Edit"
-                                                className="hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
+                                                className="hover:bg-sky-100 dark:hover:bg-sky-900/30 transition-colors"
                                             >
-                                                <Pencil className="size-4 text-warning" />
+                                                <SquarePen className="size-4 text-sky-500" />
                                             </Button>
 
                                             {/* Delete */}

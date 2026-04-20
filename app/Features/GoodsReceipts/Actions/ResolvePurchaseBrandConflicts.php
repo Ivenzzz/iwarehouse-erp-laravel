@@ -24,6 +24,7 @@ class ResolvePurchaseBrandConflicts
 
             if ($selectedBrandId === '') {
                 $errors[] = ['message' => "Missing selected brand for model {$modelName}."];
+
                 continue;
             }
 
@@ -36,6 +37,7 @@ class ResolvePurchaseBrandConflicts
 
             if ($candidateMasterIds->isEmpty()) {
                 $errors[] = ['message' => "Selected brand for model {$modelName} has no matching product master."];
+
                 continue;
             }
 
@@ -43,23 +45,42 @@ class ResolvePurchaseBrandConflicts
             $master = $masters->get($candidateMasterIds->first());
             if (! $master) {
                 $errors[] = ['message' => "Product master not found for model {$modelName}."];
+
+                continue;
+            }
+
+            $rowNumber = ((int) ($conflict['rowIndex'] ?? 0)) + 2;
+            if (! $this->rowHasAtLeastOneIdentifier($row)) {
+                $errors[] = ['message' => "Row {$rowNumber}: Provide at least one of Serial Number, IMEI 1, IMEI 2, or Barcode (Barcode used when IMEI 1 is empty)."];
+
                 continue;
             }
 
             $variant = $this->matchOrCreatePurchaseVariant->handle($row, $master);
             if (! $variant) {
                 $errors[] = ['message' => "Variant not found for selected brand on model {$modelName}."];
+
                 continue;
             }
 
-            $rowIndex = ((int) ($conflict['rowIndex'] ?? 0)) + 2;
-            $resolved[] = $this->buildValidatedRow($row, $rowIndex, $master, $variant);
+            $resolved[] = $this->buildValidatedRow($row, $rowNumber, $master, $variant);
         }
 
         return [
             'resolved' => $resolved,
             'errors' => $errors,
         ];
+    }
+
+    private function rowHasAtLeastOneIdentifier(array $row): bool
+    {
+        $serial = trim((string) ($row['Serial Number'] ?? ''));
+        $imei1Direct = trim((string) ($row['IMEI 1'] ?? ''));
+        $barcode = trim((string) ($row['Barcode'] ?? ''));
+        $imei1 = $imei1Direct !== '' ? $imei1Direct : $barcode;
+        $imei2 = trim((string) ($row['IMEI 2'] ?? ''));
+
+        return $serial !== '' || $imei1 !== '' || $imei2 !== '';
     }
 
     private function buildValidatedRow(array $row, int $rowNumber, ProductMaster $master, ProductVariant $variant): array
@@ -113,6 +134,7 @@ class ResolvePurchaseBrandConflicts
         }
         if (preg_match('/^\d+$/', $cleaned) === 1) {
             $n = (int) $cleaned;
+
             return $n === 1024 ? '1TB' : "{$n}GB";
         }
         if (preg_match('/^(\d+)(tb|gb)$/', $cleaned, $matches) === 1) {
@@ -121,6 +143,7 @@ class ResolvePurchaseBrandConflicts
             if ($unit === 'GB' && $n === 1024) {
                 return '1TB';
             }
+
             return "{$n}{$unit}";
         }
 
@@ -136,12 +159,14 @@ class ResolvePurchaseBrandConflicts
         if ($normalized === 'refurbished') {
             return 'Refurbished';
         }
+
         return 'Brand New';
     }
 
     private function parseNumber(mixed $value): float
     {
         $clean = preg_replace('/[^\d.\-]/', '', (string) $value);
+
         return is_numeric($clean) ? (float) $clean : 0.0;
     }
 }

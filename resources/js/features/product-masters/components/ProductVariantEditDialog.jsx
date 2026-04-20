@@ -48,12 +48,8 @@ export default function ProductVariantEditDialog({
     }, [open, variant]);
 
     const visibleDefinitions = useMemo(
-        () =>
-            getEditableAttributeDefinitions(
-                variantDefinitions,
-                productMaster?.supports_computer_variants ?? false,
-            ),
-        [productMaster?.supports_computer_variants, variantDefinitions],
+        () => getEditableAttributeDefinitions(variantDefinitions, true),
+        [variantDefinitions],
     );
 
     const skuPreview = buildVariantSkuPreview(
@@ -220,7 +216,7 @@ export default function ProductVariantEditDialog({
                         >
                             Cancel
                         </Button>
-                        <Button type="submit" variant="primary" disabled={submitting}>
+                        <Button type="submit" disabled={submitting}>
                             {submitting ? 'Saving...' : 'Save Variant'}
                         </Button>
                     </DialogFooter>

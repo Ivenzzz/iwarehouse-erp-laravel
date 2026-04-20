@@ -19,6 +19,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -153,6 +154,11 @@ class GoodsReceiptController extends Controller
             'validatedRows.*.variant_id' => ['required', 'integer', 'exists:product_variants,id'],
         ]);
 
+        $validated['validatedRows'] = $this->mergeValidatedPurchaseRows(
+            $validated['validatedRows'],
+            $request->input('validatedRows', [])
+        );
+
         $formData = $validated['formData'];
 
         $drDocumentFile = $request->file('formData.drDocumentFile');
@@ -194,6 +200,42 @@ class GoodsReceiptController extends Controller
             'upload_purchase_file',
             $storeGoodsReceiptUpload->handle($validated['file']),
         );
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $validatedStubs
+     * @param  array<int, mixed>  $fullRows
+     * @return array<int, array<string, mixed>>
+     */
+    private function mergeValidatedPurchaseRows(array $validatedStubs, array $fullRows): array
+    {
+        if (count($fullRows) !== count($validatedStubs)) {
+            throw ValidationException::withMessages([
+                'validatedRows' => ['Validated row count does not match the request.'],
+            ]);
+        }
+
+        foreach ($validatedStubs as $i => $stub) {
+            $row = $fullRows[$i] ?? null;
+            if (! is_array($row)) {
+                throw ValidationException::withMessages([
+                    'validatedRows' => ["Validated row at index {$i} is missing or invalid."],
+                ]);
+            }
+            if ((int) ($row['product_master_id'] ?? 0) !== (int) $stub['product_master_id']) {
+                throw ValidationException::withMessages([
+                    'validatedRows' => ["Validated row at index {$i}: product_master_id does not match."],
+                ]);
+            }
+            if ((int) ($row['variant_id'] ?? 0) !== (int) $stub['variant_id']) {
+                throw ValidationException::withMessages([
+                    'validatedRows' => ["Validated row at index {$i}: variant_id does not match."],
+                ]);
+            }
+        }
+
+        /** @var array<int, array<string, mixed>> */
+        return $fullRows;
     }
 
     private function respondGoodsReceiptAction(Request $request, string $key, array $payload): JsonResponse|RedirectResponse

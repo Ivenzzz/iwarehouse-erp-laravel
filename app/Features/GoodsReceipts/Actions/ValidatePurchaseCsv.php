@@ -55,6 +55,13 @@ class ValidatePurchaseCsv
             $modelName = trim((string) ($row['Model'] ?? ''));
             if ($modelName === '') {
                 $errors[] = ['row' => $rowNumber, 'message' => "Row {$rowNumber}: Model name is empty."];
+
+                continue;
+            }
+
+            if (! $this->rowHasAtLeastOneIdentifier($row)) {
+                $errors[] = ['row' => $rowNumber, 'message' => "Row {$rowNumber}: Provide at least one of Serial Number, IMEI 1, IMEI 2, or Barcode (Barcode used when IMEI 1 is empty)."];
+
                 continue;
             }
 
@@ -62,12 +69,14 @@ class ValidatePurchaseCsv
                 function (ProductMaster $pm) use ($modelName) {
                     $csv = $this->normalizeText($modelName);
                     $name = $this->normalizeText($pm->product_name);
+
                     return $name === $csv || str_contains($name, $csv) || str_contains($csv, $name);
                 }
             )->values();
 
             if ($candidateMasters->isEmpty()) {
                 $errors[] = ['row' => $rowNumber, 'message' => "Row {$rowNumber}: Model \"{$modelName}\" not found."];
+
                 continue;
             }
 
@@ -90,6 +99,7 @@ class ValidatePurchaseCsv
                         'brands' => $brandChoices,
                         'selectedBrandId' => null,
                     ];
+
                     continue;
                 }
             }
@@ -99,6 +109,7 @@ class ValidatePurchaseCsv
 
             if (! $variant) {
                 $errors[] = ['row' => $rowNumber, 'message' => "Row {$rowNumber}: No matching variant for \"{$modelName}\"."];
+
                 continue;
             }
 
@@ -110,6 +121,17 @@ class ValidatePurchaseCsv
             'errors' => $errors,
             'brandConflicts' => $brandConflicts,
         ];
+    }
+
+    private function rowHasAtLeastOneIdentifier(array $row): bool
+    {
+        $serial = trim((string) ($row['Serial Number'] ?? ''));
+        $imei1Direct = trim((string) ($row['IMEI 1'] ?? ''));
+        $barcode = trim((string) ($row['Barcode'] ?? ''));
+        $imei1 = $imei1Direct !== '' ? $imei1Direct : $barcode;
+        $imei2 = trim((string) ($row['IMEI 2'] ?? ''));
+
+        return $serial !== '' || $imei1 !== '' || $imei2 !== '';
     }
 
     private function parseCsv(string $csvText): array
@@ -213,6 +235,7 @@ class ValidatePurchaseCsv
 
         if (preg_match('/^\d+$/', $cleaned) === 1) {
             $n = (int) $cleaned;
+
             return $n === 1024 ? '1TB' : "{$n}GB";
         }
 
@@ -222,6 +245,7 @@ class ValidatePurchaseCsv
             if ($unit === 'GB' && $n === 1024) {
                 return '1TB';
             }
+
             return "{$n}{$unit}";
         }
 
@@ -237,12 +261,14 @@ class ValidatePurchaseCsv
         if ($normalized === 'refurbished') {
             return 'Refurbished';
         }
+
         return 'Brand New';
     }
 
     private function parseNumber(mixed $value): float
     {
         $clean = preg_replace('/[^\d.\-]/', '', (string) $value);
+
         return is_numeric($clean) ? (float) $clean : 0.0;
     }
 }

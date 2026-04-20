@@ -2,7 +2,6 @@
 
 namespace App\Features\ProductMasters\Http\Requests;
 
-use App\Models\ProductMaster;
 use App\Support\ProductVariantDefinitions;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -30,30 +29,6 @@ class GenerateProductVariantsRequest extends FormRequest
         ];
     }
 
-    public function withValidator($validator): void
-    {
-        $validator->after(function ($validator) {
-            $productMaster = $this->productMaster();
-
-            if ($productMaster === null) {
-                return;
-            }
-
-            $allowedKeys = ProductVariantDefinitions::allowedKeysForCategory(
-                $productMaster->subcategory,
-            );
-            $sharedKeys = array_keys($this->input('shared_attributes', []));
-            $invalidKeys = array_diff($sharedKeys, $allowedKeys);
-
-            if ($invalidKeys !== []) {
-                $validator->errors()->add(
-                    'shared_attributes',
-                    'One or more shared variant attributes are not allowed for this product category.',
-                );
-            }
-        });
-    }
-
     /**
      * @return array{
      *     conditions: array<int, string>,
@@ -73,18 +48,10 @@ class GenerateProductVariantsRequest extends FormRequest
             'rams' => $this->cleanList($validated['rams'] ?? []),
             'roms' => $this->cleanList($validated['roms'] ?? []),
             'shared_attributes' => collect($validated['shared_attributes'] ?? [])
-                ->only([...ProductVariantDefinitions::sharedComputerKeys(), 'model_code'])
                 ->map(fn ($value) => trim((string) $value))
                 ->filter(fn ($value) => $value !== '')
                 ->all(),
         ];
-    }
-
-    private function productMaster(): ?ProductMaster
-    {
-        $productMaster = $this->route('productMaster');
-
-        return $productMaster instanceof ProductMaster ? $productMaster : null;
     }
 
     /**

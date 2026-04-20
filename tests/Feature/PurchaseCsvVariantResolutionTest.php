@@ -180,6 +180,32 @@ class PurchaseCsvVariantResolutionTest extends TestCase
         ]);
     }
 
+    public function test_validate_csv_rejects_row_with_no_identifiers(): void
+    {
+        $this->createProductMaster(modelName: 'Pavilion 15', brandName: 'HP');
+
+        $result = app(ValidatePurchaseCsv::class)->handle($this->csvWithRows([
+            $this->rowFor('Pavilion 15', [
+                'Model Code' => 'PV15',
+                'Condition' => 'Brand New',
+                'Ram Capacity' => '8GB',
+                'Rom Capacity' => '256GB',
+                'Color' => 'Silver',
+                'Serial Number' => '',
+                'Barcode' => '',
+                'IMEI 1' => '',
+                'IMEI 2' => '',
+            ]),
+        ]));
+
+        $this->assertCount(0, $result['validatedRows']);
+        $this->assertCount(1, $result['errors']);
+        $this->assertStringContainsString(
+            'Provide at least one',
+            (string) ($result['errors'][0]['message'] ?? '')
+        );
+    }
+
     public function test_resolve_brand_conflicts_uses_same_auto_create_logic(): void
     {
         $asusMaster = $this->createProductMaster(modelName: 'Nitro V', brandName: 'Acer');

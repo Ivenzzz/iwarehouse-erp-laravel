@@ -149,12 +149,12 @@ export default function SidebarNav({ sections, onNavigate, onLayoutChange }) {
                                                     href={link.href}
                                                     onBefore={onNavigate}
                                                     className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs transition-all duration-200 ${link.active
-                                                            ? 'bg-gradient-to-r from-sidebar-primary via-sidebar-primary/95 to-sidebar-primary/80 text-sidebar-primary-foreground shadow-sm shadow-sidebar-primary/20'
-                                                            : 'bg-transparent text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                                                            ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                                                            : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
                                                         }`}
                                                 >
                                                     {LinkIcon ? (
-                                                        <LinkIcon className={`size-3.5 shrink-0 ${link.active ? 'text-current' : 'text-current/70'}`} />
+                                                        <LinkIcon className="size-3.5 shrink-0 text-current/80" />
                                                     ) : null}
                                                     <span className={`truncate ${link.active ? 'font-semibold' : 'font-medium'}`}>
                                                         {link.label}

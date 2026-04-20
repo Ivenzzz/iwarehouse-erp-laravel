@@ -129,9 +129,6 @@ class ListProductMasters
                 'name' => $productMaster->subcategory->name,
             ],
             'variants_count' => $productMaster->variants_count,
-            'supports_computer_variants' => ProductVariantDefinitions::supportsComputerVariants(
-                $productMaster->subcategory,
-            ),
             'specs' => $specs,
             'created_at' => optional($productMaster->created_at)?->toDateTimeString(),
             'updated_at' => optional($productMaster->updated_at)?->toDateTimeString(),

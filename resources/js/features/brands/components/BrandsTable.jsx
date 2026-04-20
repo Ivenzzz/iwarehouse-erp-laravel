@@ -116,7 +116,7 @@ export default function BrandsTable({
                                     </td>
 
                                     <td className="px-4 py-4">
-                                        <Badge asChild variant="info">
+                                        <Badge asChild variant="primary">
                                             <button
                                                 type="button"
                                                 onClick={() => setSelectedBrand(brand)}
@@ -132,8 +132,8 @@ export default function BrandsTable({
                                         <div className="flex justify-end gap-3">
                                             <Button
                                                 type="button"
-                                                variant="warning"
                                                 size="sm"
+                                                variant="warning"
                                                 onClick={() => onEdit(brand)}
                                             >
                                                 Edit

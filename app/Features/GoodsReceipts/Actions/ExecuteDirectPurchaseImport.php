@@ -4,7 +4,6 @@ namespace App\Features\GoodsReceipts\Actions;
 
 use App\Features\DeliveryReceipts\Actions\CreateDeliveryReceipt;
 use App\Models\ProductMaster;
-use App\Models\ProductVariant;
 use App\Models\Warehouse;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -15,8 +14,7 @@ class ExecuteDirectPurchaseImport
         private readonly CreateDeliveryReceipt $createDeliveryReceipt,
         private readonly CreateGoodsReceipt $createGoodsReceipt,
         private readonly ValidateGoodsReceiptDuplicates $validateGoodsReceiptDuplicates,
-    ) {
-    }
+    ) {}
 
     public function handle(array $validated, ?int $userId): array
     {
@@ -29,9 +27,16 @@ class ExecuteDirectPurchaseImport
 
             $grnItems = collect($validatedRows)->map(function (array $row) {
                 $raw = (array) ($row['row'] ?? []);
-                $imei1 = trim((string) ($row['imei1'] ?? ($raw['IMEI 1'] ?? ($raw['Barcode'] ?? ''))));
+                $imei1Direct = trim((string) ($row['imei1'] ?? ($raw['IMEI 1'] ?? '')));
+                $imei1 = $imei1Direct !== '' ? $imei1Direct : trim((string) ($raw['Barcode'] ?? ''));
                 $imei2 = trim((string) ($row['imei2'] ?? ($raw['IMEI 2'] ?? '')));
                 $serial = trim((string) ($row['serial_number'] ?? ($raw['Serial Number'] ?? '')));
+
+                if ($serial === '' && $imei1 === '' && $imei2 === '') {
+                    $rowIndex = (int) ($row['rowIndex'] ?? 0);
+                    $label = $rowIndex > 0 ? "Row {$rowIndex}" : 'Import row';
+                    throw new RuntimeException("{$label}: At least one of Serial Number, IMEI 1, IMEI 2, or Barcode (used when IMEI 1 is empty) is required.");
+                }
 
                 return [
                     'variant_id' => (int) ($row['variant_id'] ?? 0),
@@ -88,6 +93,7 @@ class ExecuteDirectPurchaseImport
                     $cost = (float) ($row['cost_price'] ?? $this->parseNumber($raw['Cost'] ?? 0));
                     $cash = (float) ($row['cash_price'] ?? $this->parseNumber($raw['Cash Price'] ?? 0));
                     $srp = (float) ($row['srp'] ?? $this->parseNumber($raw['SRP'] ?? 0));
+
                     return implode('::', [(int) ($row['product_master_id'] ?? 0), $ram, $rom, $condition, $cost, $cash, $srp]);
                 })
                 ->map(function ($rows, $groupKey) {
@@ -163,12 +169,14 @@ class ExecuteDirectPurchaseImport
     private function parseNumber(mixed $value): float
     {
         $clean = preg_replace('/[^\d.\-]/', '', (string) $value);
+
         return is_numeric($clean) ? (float) $clean : 0.0;
     }
 
     private function parseBooleanLike(mixed $value): bool
     {
         $normalized = strtolower(trim((string) $value));
+
         return in_array($normalized, ['1', 'true', 'yes', 'y', 'with charger', 'included'], true);
     }
 
@@ -181,6 +189,7 @@ class ExecuteDirectPurchaseImport
         if ($normalized === 'refurbished') {
             return 'Refurbished';
         }
+
         return 'Brand New';
     }
 

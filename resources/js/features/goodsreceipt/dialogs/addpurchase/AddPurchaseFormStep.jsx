@@ -303,6 +303,9 @@ export default function AddPurchaseFormStep({
             Download Template
           </button>
         </div>
+        <p className="text-xs text-muted-foreground">
+          Each data row needs at least one of: Serial Number, IMEI 1, IMEI 2, or Barcode (Barcode fills IMEI 1 when IMEI 1 is empty).
+        </p>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"

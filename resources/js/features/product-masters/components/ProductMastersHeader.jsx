@@ -27,7 +27,7 @@ export default function ProductMastersHeader({ onImport, onCreate }) {
                             Export CSV
                         </Link>
                     </Button>
-                    <Button type="button" variant="primary" onClick={onCreate}>
+                    <Button type="button" onClick={onCreate}>
                         <Plus className="size-4" />
                         Add Product Master
                     </Button>

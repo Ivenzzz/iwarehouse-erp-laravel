@@ -211,7 +211,7 @@ export default function InventoryTable({
 
       <div className="overflow-x-auto rounded-xl border border-border">
         <table className="min-w-full divide-y divide-border text-xs">
-          <thead className="sticky top-0 z-10 bg-accent text-muted-foreground backdrop-blur-md">
+          <thead className="sticky top-0 z-10 border-b border-primary bg-background text-muted-foreground backdrop-blur-md">
             <tr>
               <th className="px-4 py-3 text-left">
                 <Checkbox checked={allVisibleSelected} onCheckedChange={toggleAllVisible} />
@@ -229,7 +229,7 @@ export default function InventoryTable({
               <th className="px-4 py-3 text-right">Action</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border bg-accent">
+          <tbody className="divide-y divide-border bg-background">
             {items.length ? items.map((item) => (
               <tr key={item.id} className="align-top hover:bg-muted/30 transition-colors">
                 <td className="px-4 py-4">

@@ -214,44 +214,61 @@ export default function InventoryPage({
       />
 
       <div className="mx-auto flex w-full flex-col gap-6">
-        <section className="rounded-xl bg-white shadow-[0_14px_40px_rgba(15,23,42,0.08)] dark:bg-slate-950">
-          <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-5 dark:border-slate-800 lg:flex-row lg:items-center lg:justify-between">
+        <section className="bg-background text-card-foreground shadow-sm">
+          <div className="flex flex-col gap-4 px-5 py-2 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Inventory</h1>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Track and manage inventory items under the Warehouse section.</p>
+              <h1 className="text-2xl font-semibold text-foreground">Inventory</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Track and manage all inventory items
+              </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {selectedItems.length > 0 ? (
                 <>
-                  <Button variant="outline" onClick={() => printInventoryQRStickers({ items: getSelectedInventoryItems() })}>
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      printInventoryQRStickers({ items: getSelectedInventoryItems() })
+                    }
+                  >
                     <QrCode className="size-4" />
                     Print QR Codes ({selectedItems.length})
                   </Button>
-                  <Button variant="outline" onClick={() => {
-                    const productMasterId = getSelectedBatchUpdateProductMasterId();
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const productMasterId = getSelectedBatchUpdateProductMasterId();
 
-                    if (!productMasterId) {
-                      return;
-                    }
+                      if (!productMasterId) {
+                        return;
+                      }
 
-                    setBatchUpdateOpen(true);
-                    setBatchUpdateProductMasterId(productMasterId);
-                    setBatchUpdateState({ isLoading: false, result: null });
-                  }}>
+                      setBatchUpdateOpen(true);
+                      setBatchUpdateProductMasterId(productMasterId);
+                      setBatchUpdateState({ isLoading: false, result: null });
+                    }}
+                  >
                     <Pencil className="size-4" />
                     Batch Update ({selectedItems.length})
                   </Button>
-                  <Button variant="destructive" onClick={() => {
-                    setBatchDeleteOpen(true);
-                    setBatchDeleteState({ isLoading: false, result: null });
-                  }}>
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      setBatchDeleteOpen(true);
+                      setBatchDeleteState({ isLoading: false, result: null });
+                    }}
+                  >
                     <Trash2 className="size-4" />
                     Delete ({selectedItems.length})
                   </Button>
                 </>
               ) : null}
 
-              <Button variant="outline" className="bg-background dark:bg-background dark:text-foreground dark:hover:bg-muted" onClick={() => setImportOpen(true)}>
+              <Button
+                variant="outline"
+                className="bg-background hover:bg-accent hover:text-accent-foreground"
+                onClick={() => setImportOpen(true)}
+              >
                 <Upload className="size-4" />
                 Import Inventory Items
               </Button>
@@ -265,7 +282,7 @@ export default function InventoryPage({
           <div className="space-y-5 px-5 py-5">
             <InventoryKPIs refreshToken={refreshToken} />
 
-            <Card className="border-slate-200 bg-white text-slate-900 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
+            <Card className="rounded-xl border-border bg-background">
               <CardContent className="p-4">
                 <InventoryTable
                   items={visibleItems}

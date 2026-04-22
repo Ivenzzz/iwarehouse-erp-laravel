@@ -345,6 +345,7 @@ export default function POS(props) {
       unit_price: priceType === "srp" ? inventoryItem.srp : inventoryItem.cash_price,
       discount_amount: 0,
       discount_proof_image_url: null,
+      discount_proof_file: null,
       discount_validated_at: null,
       sales_representative_id: selectedSalesRep?.id || null,
       line_total: priceType === "srp" ? inventoryItem.srp : inventoryItem.cash_price,
@@ -382,6 +383,7 @@ export default function POS(props) {
   const updateItemDiscount = ({
     amount,
     discount_proof_image_url = null,
+    discount_proof_file = null,
     discount_validated_at = null,
   }) => {
     if (discountDialogItemIndex === null) {
@@ -401,6 +403,7 @@ export default function POS(props) {
         ...item,
         discount_amount: appliedDiscount,
         discount_proof_image_url: appliedDiscount > 0 ? discount_proof_image_url : null,
+        discount_proof_file: appliedDiscount > 0 ? discount_proof_file : null,
         discount_validated_at: appliedDiscount > 0 ? discount_validated_at : null,
         line_total: Math.max(0, (item.unit_price || 0) - appliedDiscount),
       };
@@ -542,14 +545,93 @@ export default function POS(props) {
     setProcessingTransaction(true);
 
     try {
-      const payloadItems = cart.map((item) => ({
+      const normalizeToStoragePath = (value, fieldLabel) => {
+        if (!value) {
+          return null;
+        }
+
+        const raw = String(value).trim();
+        if (!raw) {
+          return null;
+        }
+
+        if (raw.startsWith("pos-documents/")) {
+          return raw;
+        }
+
+        if (raw.startsWith("/storage/pos-documents/")) {
+          return raw.replace(/^\/storage\//, "");
+        }
+
+        if (/^https?:\/\//i.test(raw)) {
+          try {
+            const parsed = new URL(raw);
+            if (parsed.pathname.startsWith("/storage/pos-documents/")) {
+              return parsed.pathname.replace(/^\/storage\//, "");
+            }
+          } catch {
+            throw new Error(`${fieldLabel}: invalid document URL format.`);
+          }
+        }
+
+        throw new Error(`${fieldLabel}: only local POS storage paths are allowed.`);
+      };
+
+      const uploadDiscountProof = async (file) => {
+        try {
+          const formData = new FormData();
+          formData.append("file", file);
+
+          const { data } = await axios.post(route("pos.uploads.store"), formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+          });
+
+          return normalizeToStoragePath(data.path || data.file_url, "Discount proof");
+        } catch (error) {
+          const validationErrors = error?.response?.data?.errors;
+          const firstFieldErrors = validationErrors && typeof validationErrors === "object"
+            ? Object.values(validationErrors).find((messages) => Array.isArray(messages) && messages.length > 0)
+            : null;
+
+          throw new Error(firstFieldErrors?.[0] || error?.response?.data?.message || "Failed to upload discount proof image.");
+        }
+      };
+
+      const itemDiscountProofUrls = new Map();
+      for (let index = 0; index < cart.length; index += 1) {
+        const item = cart[index];
+
+        if ((item.discount_amount || 0) <= 0) {
+          continue;
+        }
+
+        if (item.discount_proof_file instanceof File) {
+          const uploadedUrl = await uploadDiscountProof(item.discount_proof_file);
+          itemDiscountProofUrls.set(index, uploadedUrl);
+        }
+      }
+
+      let manualDiscountProofUrl = manualDiscount?.discount_proof_image_url || null;
+      if ((manualDiscount?.amount || 0) > 0 && manualDiscount?.discount_proof_file instanceof File) {
+        manualDiscountProofUrl = await uploadDiscountProof(manualDiscount.discount_proof_file);
+      }
+      if ((manualDiscount?.amount || 0) > 0 && !manualDiscount?.discount_proof_file) {
+        manualDiscountProofUrl = normalizeToStoragePath(manualDiscountProofUrl, "Manual discount proof");
+      }
+
+      const payloadItems = cart.map((item, index) => ({
         inventory_item_id: item.inventory_id,
         price_basis: item.price_basis,
         snapshot_cash_price: item.cash_price || 0,
         snapshot_srp: item.srp || 0,
         snapshot_cost_price: item.cost_price || 0,
         discount_amount: item.discount_amount || 0,
-        discount_proof_image_url: item.discount_amount > 0 ? item.discount_proof_image_url || null : null,
+        discount_proof_image_url: item.discount_amount > 0
+          ? normalizeToStoragePath(
+            itemDiscountProofUrls.get(index) || item.discount_proof_image_url || null,
+            `Item ${index + 1} discount proof`,
+          )
+          : null,
         discount_validated_at: item.discount_amount > 0 ? item.discount_validated_at || null : null,
         line_total: Math.max(0, (item.unit_price || 0) - (item.discount_amount || 0)),
         is_bundle: Boolean(item.is_bundle),
@@ -561,7 +643,7 @@ export default function POS(props) {
 
       if ((manualDiscount?.amount || 0) > 0 && payloadItems[0]) {
         payloadItems[0].discount_amount += manualDiscount.amount;
-        payloadItems[0].discount_proof_image_url = manualDiscount.discount_proof_image_url || null;
+        payloadItems[0].discount_proof_image_url = manualDiscountProofUrl;
         payloadItems[0].discount_validated_at = manualDiscount.discount_validated_at || null;
         payloadItems[0].line_total = Math.max(0, payloadItems[0].line_total - manualDiscount.amount);
       }
@@ -594,7 +676,7 @@ export default function POS(props) {
               registered_mobile: details.registered_mobile || null,
               supporting_doc_urls: supportingDocUrls.map((document, index) => ({
                 name: document.name || `${payment.payment_method}-${index + 1}`,
-                url: document.url,
+                url: normalizeToStoragePath(document.url, `${payment.payment_method} supporting doc ${index + 1}`),
                 type: document.type || "supporting_document",
               })),
             },
@@ -605,7 +687,7 @@ export default function POS(props) {
           .map(([documentType, documentUrl]) => ({
             document_type: documentType,
             document_name: documentType.replaceAll("_", " "),
-            document_url: documentUrl,
+            document_url: normalizeToStoragePath(documentUrl, `Transaction document: ${documentType}`),
           })),
       };
 
@@ -623,7 +705,15 @@ export default function POS(props) {
 
       toast({ description: "Transaction completed successfully." });
     } catch (error) {
-      toast({ variant: "destructive", description: error.response?.data?.message || "Transaction failed." });
+      const validationErrors = error?.response?.data?.errors;
+      const firstFieldErrors = validationErrors && typeof validationErrors === "object"
+        ? Object.values(validationErrors).find((messages) => Array.isArray(messages) && messages.length > 0)
+        : null;
+
+      toast({
+        variant: "destructive",
+        description: firstFieldErrors?.[0] || error?.message || error.response?.data?.message || "Transaction failed.",
+      });
     } finally {
       setProcessingTransaction(false);
     }
@@ -895,6 +985,7 @@ export default function POS(props) {
             setManualDiscount(discount.amount > 0 ? {
               amount: discount.amount,
               discount_proof_image_url: discount.discount_proof_image_url || null,
+              discount_proof_file: discount.discount_proof_file || null,
               discount_validated_at: discount.discount_validated_at || null,
             } : null);
             return;

@@ -2,6 +2,7 @@
 
 namespace App\Features\Pos\Actions;
 
+use App\Features\Inventory\Actions\LogInventoryActivity;
 use App\Features\Pos\Support\PosDataTransformer;
 use App\Models\InventoryItem;
 use App\Models\SalesTransaction;
@@ -16,26 +17,37 @@ use InvalidArgumentException;
 
 class CreatePosTransaction
 {
-    public function __construct(private readonly PosDataTransformer $transformer)
-    {
-    }
+    public function __construct(
+        private readonly PosDataTransformer $transformer,
+        private readonly LogInventoryActivity $logInventoryActivity,
+    ) {}
 
-    public function handle(array $payload): array
+    public function handle(array $payload, ?int $actorId = null): array
     {
-        return DB::transaction(function () use ($payload) {
-            $inventoryIds = collect($payload['items'])
+        return DB::transaction(function () use ($payload, $actorId) {
+            $lineInventoryIds = collect($payload['items'])
                 ->pluck('inventory_item_id')
                 ->map(fn ($value) => (int) $value)
                 ->all();
+            $bundleComponentIds = collect($payload['items'])
+                ->flatMap(fn ($item) => $item['bundle_components'] ?? [])
+                ->pluck('inventory_id')
+                ->filter(fn ($value) => filled($value))
+                ->map(fn ($value) => (int) $value)
+                ->all();
+            $allInventoryIds = collect([...$lineInventoryIds, ...$bundleComponentIds])
+                ->unique()
+                ->values()
+                ->all();
 
             $inventoryItems = InventoryItem::query()
-                ->whereIn('id', $inventoryIds)
+                ->whereIn('id', $allInventoryIds)
                 ->lockForUpdate()
                 ->get()
                 ->keyBy('id');
 
-            foreach ($payload['items'] as $itemPayload) {
-                $inventoryItem = $inventoryItems->get((int) $itemPayload['inventory_item_id']);
+            foreach ($allInventoryIds as $inventoryId) {
+                $inventoryItem = $inventoryItems->get($inventoryId);
 
                 if ($inventoryItem === null) {
                     throw new InvalidArgumentException('One or more inventory items no longer exist.');
@@ -57,6 +69,16 @@ class CreatePosTransaction
                 'remarks' => $payload['remarks'] ?? null,
                 'total_amount' => (float) $payload['total_amount'],
             ]);
+            $transaction->loadMissing('customer');
+
+            $customerName = trim(implode(' ', array_filter([
+                (string) ($transaction->customer?->firstname ?? ''),
+                (string) ($transaction->customer?->lastname ?? ''),
+            ])));
+            $customerName = $customerName !== '' ? $customerName : null;
+            $transactionDate = optional($transaction->created_at)?->toDateTimeString();
+            $customerNotesSegment = $customerName !== null ? " for {$customerName}" : '';
+            $saleNotes = "Sold via POS transaction {$transaction->transaction_number} (OR {$transaction->or_number}) on {$transactionDate}{$customerNotesSegment}.";
 
             foreach ($payload['items'] as $itemPayload) {
                 $lineItem = SalesTransactionItem::create([
@@ -84,14 +106,50 @@ class CreatePosTransaction
                         'inventory_item_id' => (int) $componentPayload['inventory_id'],
                     ]);
 
-                    InventoryItem::query()
-                        ->whereKey((int) $componentPayload['inventory_id'])
-                        ->update(['status' => 'sold']);
+                    $componentInventoryId = (int) $componentPayload['inventory_id'];
+                    $componentItem = $inventoryItems->get($componentInventoryId);
+                    if ($componentItem !== null && $componentItem->status !== 'sold') {
+                        $componentItem->update(['status' => 'sold']);
+                        $this->logInventoryActivity->handle(
+                            $componentItem->fresh(),
+                            'POS_SOLD',
+                            $actorId,
+                            $saleNotes,
+                            [
+                                'sales_transaction_id' => $transaction->id,
+                                'transaction_number' => $transaction->transaction_number,
+                                'or_number' => $transaction->or_number,
+                                'transaction_date' => $transactionDate,
+                                'customer_id' => $transaction->customer_id,
+                                'customer_name' => $customerName,
+                                'line_item_id' => $lineItem->id,
+                                'is_bundle_component' => true,
+                            ],
+                        );
+                    }
                 }
 
-                InventoryItem::query()
-                    ->whereKey((int) $itemPayload['inventory_item_id'])
-                    ->update(['status' => 'sold']);
+                $lineInventoryId = (int) $itemPayload['inventory_item_id'];
+                $lineInventoryItem = $inventoryItems->get($lineInventoryId);
+                if ($lineInventoryItem !== null && $lineInventoryItem->status !== 'sold') {
+                    $lineInventoryItem->update(['status' => 'sold']);
+                    $this->logInventoryActivity->handle(
+                        $lineInventoryItem->fresh(),
+                        'POS_SOLD',
+                        $actorId,
+                        $saleNotes,
+                        [
+                            'sales_transaction_id' => $transaction->id,
+                            'transaction_number' => $transaction->transaction_number,
+                            'or_number' => $transaction->or_number,
+                            'transaction_date' => $transactionDate,
+                            'customer_id' => $transaction->customer_id,
+                            'customer_name' => $customerName,
+                            'line_item_id' => $lineItem->id,
+                            'is_bundle_component' => false,
+                        ],
+                    );
+                }
             }
 
             foreach ($payload['payments'] as $paymentPayload) {

@@ -21,10 +21,42 @@ export default function DiscountDialog({
 
   const [discountAmount, setDiscountAmount] = useState(String(currentDiscount || 0));
   const [oicPin, setOicPin] = useState("");
-  const [proofImageUrl, setProofImageUrl] = useState(null);
+  const [proofImageFile, setProofImageFile] = useState(null);
+  const [proofImagePreviewUrl, setProofImagePreviewUrl] = useState(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isVerifyingPin, setIsVerifyingPin] = useState(false);
+
+  const getFirstErrorMessage = (error, fallback) => {
+    const validationErrors = error?.response?.data?.errors;
+    if (validationErrors && typeof validationErrors === "object") {
+      const firstFieldErrors = Object.values(validationErrors).find((messages) => Array.isArray(messages) && messages.length > 0);
+      if (firstFieldErrors?.[0]) {
+        return firstFieldErrors[0];
+      }
+    }
+
+    return error?.response?.data?.message || fallback;
+  };
+
+  const clearProofImage = () => {
+    if (proofImagePreviewUrl) {
+      URL.revokeObjectURL(proofImagePreviewUrl);
+    }
+
+    setProofImageFile(null);
+    setProofImagePreviewUrl(null);
+  };
+
+  const setProofImageFromFile = (file) => {
+    if (!file) {
+      return;
+    }
+
+    clearProofImage();
+    setProofImageFile(file);
+    setProofImagePreviewUrl(URL.createObjectURL(file));
+  };
 
   const stopCamera = () => {
     if (streamRef.current) {
@@ -42,16 +74,20 @@ export default function DiscountDialog({
   useEffect(() => {
     if (!open) {
       stopCamera();
+      clearProofImage();
       return;
     }
 
     setDiscountAmount(String(currentDiscount || 0));
     setOicPin("");
-    setProofImageUrl(null);
+    clearProofImage();
     setIsUploadingPhoto(false);
     setIsVerifyingPin(false);
 
-    return stopCamera;
+    return () => {
+      stopCamera();
+      clearProofImage();
+    };
   }, [open, currentDiscount]);
 
   const startCamera = async () => {
@@ -129,26 +165,20 @@ export default function DiscountDialog({
         type: "image/jpeg",
       });
 
-      const formData = new FormData();
-      formData.append("file", file);
-      const { data } = await axios.post(route("pos.uploads.store"), formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      setProofImageUrl(data.file_url);
+      setProofImageFromFile(file);
       stopCamera();
-      toast({ description: "Validation photo uploaded." });
+      toast({ description: "Validation photo captured." });
     } catch (error) {
       toast({
         variant: "destructive",
-        description: error.response?.data?.message || error.message || "Failed to upload validation photo.",
+        description: error?.message || "Failed to capture validation photo.",
       });
     } finally {
       setIsUploadingPhoto(false);
     }
   };
 
-  const handleFileUpload = async (event) => {
+  const handleFileUpload = (event) => {
     const file = event.target.files?.[0];
 
     if (!file) {
@@ -156,27 +186,9 @@ export default function DiscountDialog({
     }
 
     stopCamera();
-    setIsUploadingPhoto(true);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const { data } = await axios.post(route("pos.uploads.store"), formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      setProofImageUrl(data.file_url);
-      toast({ description: "Validation photo uploaded." });
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        description: error.response?.data?.message || "Failed to upload validation photo.",
-      });
-    } finally {
-      event.target.value = "";
-      setIsUploadingPhoto(false);
-    }
+    setProofImageFromFile(file);
+    toast({ description: "Validation photo selected." });
+    event.target.value = "";
   };
 
   const handleApply = async () => {
@@ -186,6 +198,7 @@ export default function DiscountDialog({
       onApplyDiscount({
         amount: 0,
         discount_proof_image_url: null,
+        discount_proof_file: null,
         discount_validated_at: null,
       });
       toast({ description: "Discount cleared." });
@@ -209,7 +222,7 @@ export default function DiscountDialog({
       return;
     }
 
-    if (!proofImageUrl) {
+    if (!proofImageFile) {
       toast({
         variant: "destructive",
         description: "Capture or upload the discount validation photo before applying a discount.",
@@ -229,7 +242,8 @@ export default function DiscountDialog({
 
       onApplyDiscount({
         amount,
-        discount_proof_image_url: proofImageUrl,
+        discount_proof_image_url: null,
+        discount_proof_file: proofImageFile,
         discount_validated_at: discountValidatedAt,
       });
 
@@ -242,7 +256,7 @@ export default function DiscountDialog({
     } catch (error) {
       toast({
         variant: "destructive",
-        description: error.response?.data?.message || "Invalid OIC PIN.",
+        description: getFirstErrorMessage(error, "Invalid OIC PIN."),
       });
     } finally {
       setIsVerifyingPin(false);
@@ -253,10 +267,11 @@ export default function DiscountDialog({
     stopCamera();
     setDiscountAmount("0");
     setOicPin("");
-    setProofImageUrl(null);
+    clearProofImage();
     onApplyDiscount({
       amount: 0,
       discount_proof_image_url: null,
+      discount_proof_file: null,
       discount_validated_at: null,
     });
     toast({ description: "Discount cleared." });
@@ -311,10 +326,10 @@ export default function DiscountDialog({
                 <Label className="text-gray-700 dark:text-slate-300">Discount Validation Photo</Label>
                 <p className="text-xs text-gray-500 dark:text-slate-400">Capture a fresh photo or upload an image for each discount approval.</p>
               </div>
-              {proofImageUrl ? (
+              {proofImagePreviewUrl ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
                   <CheckCircle className="w-3.5 h-3.5" />
-                  Uploaded
+                  Ready
                 </span>
               ) : null}
             </div>
@@ -328,10 +343,10 @@ export default function DiscountDialog({
               onChange={handleFileUpload}
             />
 
-            {proofImageUrl ? (
+            {proofImagePreviewUrl ? (
               <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-500/20 dark:bg-emerald-500/10">
                 <img
-                  src={proofImageUrl}
+                  src={proofImagePreviewUrl}
                   alt="Discount validation proof"
                   className="h-48 w-full rounded-lg object-cover"
                 />
@@ -339,7 +354,7 @@ export default function DiscountDialog({
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setProofImageUrl(null)}
+                    onClick={clearProofImage}
                     className="border-gray-200 dark:border-slate-700"
                   >
                     <X className="w-4 h-4 mr-2" />
@@ -349,7 +364,7 @@ export default function DiscountDialog({
                     type="button"
                     variant="outline"
                     onClick={() => {
-                      setProofImageUrl(null);
+                      clearProofImage();
                       startCamera();
                     }}
                     className="border-gray-200 dark:border-slate-700"
@@ -361,7 +376,7 @@ export default function DiscountDialog({
                     type="button"
                     variant="outline"
                     onClick={() => {
-                      setProofImageUrl(null);
+                      clearProofImage();
                       fileInputRef.current?.click();
                     }}
                     className="border-gray-200 dark:border-slate-700"

@@ -61,6 +61,35 @@ const PRODUCT_BADGE_CLASSES = {
 const isImageUrl = (url = "") =>
   /\.(jpg|jpeg|png|webp|gif|bmp|svg)(\?|$)/i.test(url);
 
+const resolveDocumentUrl = (value) => {
+  if (!value) {
+    return null;
+  }
+
+  const raw = String(value).trim();
+  if (!raw) {
+    return null;
+  }
+
+  if (/^https?:\/\//i.test(raw)) {
+    return raw;
+  }
+
+  if (raw.startsWith("/storage/")) {
+    return raw;
+  }
+
+  if (raw.startsWith("storage/")) {
+    return `/${raw}`;
+  }
+
+  if (raw.startsWith("pos-documents/")) {
+    return `/storage/${raw}`;
+  }
+
+  return raw.startsWith("/") ? raw : `/${raw}`;
+};
+
 const cleanText = (value) => {
   const text = value === null || value === undefined ? "" : String(value).trim();
 
@@ -151,6 +180,12 @@ const getItemSpecLines = (item) => {
     [cpuValue, gpuValue].filter(Boolean).join(" | "),
   ].filter(Boolean);
 };
+
+const getItemDisplayName = (item) =>
+  [item.brand_name, item.model].map(cleanText).filter(Boolean).join(" ") ||
+  [item.product_name, item.variant_name].map(cleanText).filter(Boolean).join(" ") ||
+  cleanText(item.display_name) ||
+  "Unnamed Item";
 
 const getQRStickerPreviewItems = (items) =>
   items
@@ -250,7 +285,8 @@ function DocumentsSection({ transaction, onSelectDocument }) {
       const supportingDocs = payment?.payment_details?.supporting_doc_urls || [];
 
       supportingDocs.forEach((document, documentIndex) => {
-        const url = typeof document === "string" ? document : document?.url;
+        const rawUrl = typeof document === "string" ? document : document?.url;
+        const url = resolveDocumentUrl(rawUrl);
         const name = typeof document === "string" ? null : document?.name;
 
         paymentDocuments.push({
@@ -265,22 +301,22 @@ function DocumentsSection({ transaction, onSelectDocument }) {
       {
         key: "official_receipt_url",
         label: "Official Receipt",
-        url: transaction?.supporting_documents?.official_receipt_url,
+        url: resolveDocumentUrl(transaction?.supporting_documents?.official_receipt_url),
       },
       {
         key: "customer_id_url",
         label: "Customer ID",
-        url: transaction?.supporting_documents?.customer_id_url,
+        url: resolveDocumentUrl(transaction?.supporting_documents?.customer_id_url),
       },
       {
         key: "customer_agreement_url",
         label: "Customer Agreement",
-        url: transaction?.supporting_documents?.customer_agreement_url,
+        url: resolveDocumentUrl(transaction?.supporting_documents?.customer_agreement_url),
       },
       ...((transaction?.supporting_documents?.other_supporting_documents || []).map((document, index) => ({
         key: `other_supporting_document_${index}`,
         label: document?.name || `Other Supporting Document ${index + 1}`,
-        url: document?.url,
+        url: resolveDocumentUrl(document?.url),
       }))),
       ...paymentDocuments,
     ];
@@ -366,6 +402,80 @@ function DocumentsSection({ transaction, onSelectDocument }) {
   );
 }
 
+function DiscountValidationSection({ items, onSelectDocument }) {
+  const discountProofs = useMemo(
+    () =>
+      (items || [])
+        .map((item, index) => ({
+          key: `discount_proof_${item.inventory_item_id || item.inventory_id || index}`,
+          itemName: getItemDisplayName(item),
+          proofUrl: resolveDocumentUrl(item.discount_proof_image_url),
+          discountAmount: Number(item.discount_amount || 0),
+          validatedAt: item.discount_validated_at || null,
+          validatedAtDisplay: item.discount_validated_at_server_display || null,
+        }))
+        .filter((entry) => Boolean(entry.proofUrl)),
+    [items],
+  );
+
+  return (
+    <div className="space-y-4">
+      <h4 className={SECTION_HEADING_CLASS}>
+        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-300">
+          <Receipt className="h-4 w-4" />
+        </span>
+        Discount Validation Photos
+      </h4>
+
+      {discountProofs.length ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {discountProofs.map((entry) => (
+            <div
+              key={entry.key}
+              className="overflow-hidden rounded-lg border border-slate-200/80 bg-white shadow-sm transition-colors hover:border-rose-200 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-rose-900/60"
+            >
+              <button
+                type="button"
+                onClick={() => onSelectDocument({ label: `${entry.itemName} - Discount Proof`, url: entry.proofUrl })}
+                className="group relative block h-24 w-full overflow-hidden bg-slate-100 text-left dark:bg-slate-900"
+              >
+                <img
+                  src={entry.proofUrl}
+                  alt={`${entry.itemName} discount proof`}
+                  className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.02]"
+                />
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-950/0 transition-colors group-hover:bg-slate-950/35">
+                  <span className="rounded bg-slate-950/60 px-3 py-1 text-xs font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100">
+                    View
+                  </span>
+                </div>
+              </button>
+
+              <div className="space-y-1 bg-slate-100/80 px-3 py-2 dark:bg-slate-900/80">
+                <p className="line-clamp-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                  {entry.itemName}
+                </p>
+                <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">
+                  Discount: {formatPHP(entry.discountAmount)}
+                </p>
+                {entry.validatedAt ? (
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Validated: {entry.validatedAtDisplay || format(new Date(entry.validatedAt), "MMM dd, yyyy h:mm a")}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
+          No discount validation photos uploaded.
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function TransactionDetailsDialog({
   open,
   onOpenChange,
@@ -427,7 +537,10 @@ export default function TransactionDetailsDialog({
                 <SummaryTile
                   icon={Calendar}
                   label="Transaction Date"
-                  value={transaction?.transaction_date ? format(new Date(transaction.transaction_date), "MMM dd, yyyy h:mm a") : "-"}
+                  value={
+                    transaction?.transaction_date_server_display
+                    || (transaction?.transaction_date ? format(new Date(transaction.transaction_date), "MMM dd, yyyy h:mm a") : "-")
+                  }
                   tone="blue"
                 />
                 <SummaryTile
@@ -453,7 +566,6 @@ export default function TransactionDetailsDialog({
               <div className="space-y-6 px-6 py-6">
                 {qrStickerPreviewItems.length ? (
                   <Card className={SECTION_CARD_CLASS}>
-                    <div className="h-1.5 bg-emerald-500/80 dark:bg-emerald-500/70" />
                     <CardContent className="space-y-3 pt-4">
                       <p className={TILE_LABEL_CLASS}>QR Sticker Preview</p>
                       <div className="flex flex-wrap gap-4 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-950/60">
@@ -478,7 +590,6 @@ export default function TransactionDetailsDialog({
 
                 <div className="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
                   <Card className={SECTION_CARD_CLASS}>
-                    <div className="h-1.5 bg-emerald-500/80 dark:bg-emerald-500/70" />
                     <CardContent className="space-y-4 pt-4">
                       <h4 className={SECTION_HEADING_CLASS}>
                         <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300">
@@ -517,7 +628,6 @@ export default function TransactionDetailsDialog({
                   </Card>
 
                   <Card className={SECTION_CARD_CLASS}>
-                    <div className="h-1.5 bg-sky-500/80 dark:bg-sky-500/70" />
                     <CardContent className="space-y-4 pt-4">
                       <h4 className={SECTION_HEADING_CLASS}>
                         <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-sky-50 text-sky-600 dark:bg-sky-950/40 dark:text-sky-300">
@@ -553,7 +663,6 @@ export default function TransactionDetailsDialog({
                 </div>
 
                 <Card className={SECTION_CARD_CLASS}>
-                  <div className="h-1.5 bg-violet-500/70 dark:bg-violet-500/60" />
                   <CardContent className="pt-4">
                     <h4 className={SECTION_HEADING_CLASS}>
                       <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-300">
@@ -629,7 +738,6 @@ export default function TransactionDetailsDialog({
                 </Card>
 
                 <Card className={SECTION_CARD_CLASS}>
-                  <div className="h-1.5 bg-emerald-500/70 dark:bg-emerald-500/60" />
                   <CardContent className="pt-4">
                     <h4 className={SECTION_HEADING_CLASS}>
                       <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300">
@@ -755,10 +863,18 @@ export default function TransactionDetailsDialog({
                 </Card>
 
                 <Card className={SECTION_CARD_CLASS}>
-                  <div className="h-1.5 bg-blue-500/70 dark:bg-blue-500/60" />
                   <CardContent className="pt-4">
                     <DocumentsSection
                       transaction={transaction}
+                      onSelectDocument={setSelectedDocument}
+                    />
+                  </CardContent>
+                </Card>
+
+                <Card className={SECTION_CARD_CLASS}>
+                  <CardContent className="pt-4">
+                    <DiscountValidationSection
+                      items={items}
                       onSelectDocument={setSelectedDocument}
                     />
                   </CardContent>

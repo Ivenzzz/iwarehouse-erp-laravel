@@ -2,9 +2,7 @@
 
 namespace App\Features\Pos\Actions;
 
-use App\Models\Department;
 use App\Models\Employee;
-use App\Models\JobTitle;
 use Illuminate\Support\Facades\Hash;
 
 class VerifyPosDiscountOic
@@ -18,19 +16,9 @@ class VerifyPosDiscountOic
         }
 
         return Employee::query()
-            ->with('jobTitle.department')
+            // Temporary override: accept any active employee with an OIC password hash.
             ->where('status', Employee::STATUS_ACTIVE)
             ->whereNotNull('oic_password_hash')
-            ->whereHas('jobTitle', function ($query): void {
-                $query
-                    ->where('status', JobTitle::STATUS_ACTIVE)
-                    ->whereRaw('LOWER(name) like ?', ['%oic%'])
-                    ->whereHas('department', function ($departmentQuery): void {
-                        $departmentQuery
-                            ->where('status', Department::STATUS_ACTIVE)
-                            ->whereRaw('LOWER(name) = ?', ['sales']);
-                    });
-            })
             ->get()
             ->first(fn (Employee $employee) => Hash::check($normalizedPin, $employee->oic_password_hash ?? ''));
     }

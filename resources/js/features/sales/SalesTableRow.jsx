@@ -115,24 +115,22 @@ export default function SalesTableRow({
       <td className="px-3 py-2.5">
         <div className="flex flex-wrap items-center justify-end gap-2">
           <Button
-            variant="outline"
             size="sm"
+            variant="ghost"
             onClick={() => onView(transaction)}
-            className="h-8 w-8 border-info bg-info p-0 text-info-foreground hover:border-info hover:bg-info/90 rounded-sm"
             title="View Details"
             aria-label="View Details"
           >
-            <Eye className="h-3.5 w-3.5" />
+            <Eye className="h-3.5 w-3.5 text-indigo-500" />
           </Button>
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={() => onPrint(transaction)}
-            className="h-8 w-8 border-warning bg-warning p-0 text-warning-foreground hover:border-warning hover:bg-warning/90 rounded-sm"
             title="Print Receipt"
             aria-label="Print Receipt"
           >
-            <Printer className="h-3.5 w-3.5" />
+            <Printer className="h-3.5 w-3.5 text-green-500" />
           </Button>
         </div>
       </td>

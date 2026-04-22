@@ -65,7 +65,18 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    'timezone' => env('APP_TIMEZONE', 'UTC'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Application Display Timezone
+    |--------------------------------------------------------------------------
+    |
+    | Used for server-calculated display timestamps sent to the frontend.
+    | Defaults to Asia/Manila for business-facing date/time displays.
+    |
+    */
+    'display_timezone' => env('APP_DISPLAY_TIMEZONE', 'Asia/Manila'),
 
     /*
     |--------------------------------------------------------------------------

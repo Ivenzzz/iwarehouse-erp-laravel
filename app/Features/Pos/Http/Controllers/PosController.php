@@ -175,7 +175,7 @@ class PosController extends Controller
         CreatePosTransaction $createPosTransaction,
     ): JsonResponse {
         try {
-            $transaction = $createPosTransaction->handle($request->validated());
+            $transaction = $createPosTransaction->handle($request->validated(), $request->user()?->id);
         } catch (InvalidArgumentException $exception) {
             return response()->json([
                 'message' => $exception->getMessage(),

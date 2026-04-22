@@ -23,6 +23,8 @@ class PosDataTransformer
 {
     public const VAT_RATE = 12;
 
+    private const SERVER_DATE_TIME_FORMAT = 'M d, Y g:i A';
+
     public function transformCashier(User $user, ?Employee $employee, ?string $error = null): array
     {
         return [
@@ -216,6 +218,8 @@ class PosDataTransformer
 
     public function transformTransaction(SalesTransaction $transaction): array
     {
+        $serverTimezone = (string) config('app.display_timezone', 'Asia/Manila');
+
         $transaction->loadMissing([
             'customer.contacts',
             'customer.addresses',
@@ -229,7 +233,7 @@ class PosDataTransformer
             'documents',
         ]);
 
-        $items = $transaction->items->map(function (SalesTransactionItem $item) {
+        $items = $transaction->items->map(function (SalesTransactionItem $item) use ($serverTimezone) {
             $inventoryItem = $item->inventoryItem;
             $variant = $inventoryItem?->productVariant;
             $productMaster = $variant?->productMaster;
@@ -246,6 +250,8 @@ class PosDataTransformer
                 $displayName,
                 $variant?->condition,
             );
+
+            $discountValidatedAtServer = $item->discount_validated_at?->copy()->setTimezone($serverTimezone);
 
             return [
                 'inventory_id' => $inventoryItem?->id,
@@ -275,7 +281,8 @@ class PosDataTransformer
                 'snapshot_cost_price' => (float) ($item->snapshot_cost_price ?? 0),
                 'discount_amount' => (float) ($item->discount_amount ?? 0),
                 'discount_proof_image_url' => $item->discount_proof_image_url,
-                'discount_validated_at' => optional($item->discount_validated_at)?->toDateTimeString(),
+                'discount_validated_at' => $discountValidatedAtServer?->toDateTimeString(),
+                'discount_validated_at_server_display' => $discountValidatedAtServer?->format(self::SERVER_DATE_TIME_FORMAT),
                 'line_total' => (float) $item->line_total,
                 'quantity' => 1,
                 'warranty_description' => $inventoryItem?->warranty,
@@ -348,11 +355,17 @@ class PosDataTransformer
                 ->all(),
         ];
 
+        $transactionCreatedAt = $transaction->created_at;
+        $transactionDateServer = $transactionCreatedAt?->copy()->setTimezone($serverTimezone);
+
         return [
             'id' => $transaction->id,
             'transaction_number' => $transaction->transaction_number,
             'or_number' => $transaction->or_number,
             'transaction_date' => optional($transaction->created_at)?->toDateTimeString(),
+            'transaction_date_server_local' => $transactionDateServer?->toDateTimeString(),
+            'transaction_date_server_display' => $transactionDateServer?->format(self::SERVER_DATE_TIME_FORMAT),
+            'transaction_date_server_timezone' => $serverTimezone,
             'customer_id' => $transaction->customer_id,
             'customer_name' => $customer ? $this->customerFullName($customer) : null,
             'customer_phone' => $contact?->phone,

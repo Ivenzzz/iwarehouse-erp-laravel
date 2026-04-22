@@ -11,6 +11,7 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeAccount;
 use App\Models\InventoryItem;
+use App\Models\InventoryItemLog;
 use App\Models\JobTitle;
 use App\Models\PaymentMethod;
 use App\Models\PosSession;
@@ -570,6 +571,18 @@ class PosFeatureTest extends TestCase
             'id' => $inventoryItem->id,
             'status' => 'sold',
         ]);
+
+        $log = InventoryItemLog::query()->where('inventory_item_id', $inventoryItem->id)->first();
+        $this->assertNotNull($log);
+        $this->assertSame('POS_SOLD', $log->action);
+        $this->assertSame($user->id, $log->actor_id);
+        $this->assertSame($transaction->id, data_get($log->meta, 'sales_transaction_id'));
+        $this->assertSame($transaction->transaction_number, data_get($log->meta, 'transaction_number'));
+        $this->assertSame('OR-10001', data_get($log->meta, 'or_number'));
+        $this->assertSame($customer->id, data_get($log->meta, 'customer_id'));
+        $this->assertSame('Walk In', data_get($log->meta, 'customer_name'));
+        $this->assertNotNull(data_get($log->meta, 'transaction_date'));
+        $this->assertFalse((bool) data_get($log->meta, 'is_bundle_component'));
     }
 
     public function test_pos_transaction_stores_manual_discount_proof_on_first_discounted_item(): void
@@ -671,6 +684,210 @@ class PosFeatureTest extends TestCase
             'inventory_item_id' => $secondItem->id,
             'discount_amount' => 0,
             'discount_proof_image_url' => null,
+        ]);
+    }
+
+    public function test_pos_transaction_logs_main_and_bundle_component_items_as_sold(): void
+    {
+        [$user, $employee] = $this->createCashierUserAndEmployee();
+        $this->createCustomerDefaults();
+        [$variant, $warehouse] = $this->createInventoryGraph();
+        $paymentMethod = PaymentMethod::create([
+            'name' => 'Cash',
+            'type' => 'cash',
+        ]);
+
+        $customer = Customer::create([
+            'firstname' => 'Bundle',
+            'lastname' => 'Buyer',
+        ]);
+
+        $session = PosSession::create([
+            'employee_id' => $employee->id,
+            'warehouse_id' => $warehouse->id,
+            'opening_balance' => 1000,
+            'shift_start_time' => now(),
+            'status' => PosSession::STATUS_OPENED,
+        ]);
+
+        $mainItem = InventoryItem::create([
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $warehouse->id,
+            'imei' => '333333333333333',
+            'serial_number' => 'TXN-SN-005',
+            'status' => 'available',
+            'cost_price' => 10000,
+            'cash_price' => 12000,
+            'srp_price' => 12500,
+        ]);
+
+        $bundleComponent = InventoryItem::create([
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $warehouse->id,
+            'imei' => '444444444444444',
+            'serial_number' => 'TXN-SN-006',
+            'status' => 'available',
+            'cost_price' => 2000,
+            'cash_price' => 2500,
+            'srp_price' => 3000,
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('pos.transactions.store'), [
+                'pos_session_id' => $session->id,
+                'customer_id' => $customer->id,
+                'sales_representative_id' => null,
+                'or_number' => 'OR-10004',
+                'mode_of_release' => SalesTransaction::MODE_PICKUP,
+                'remarks' => 'Bundle transaction',
+                'total_amount' => 12000,
+                'items' => [
+                    [
+                        'inventory_item_id' => $mainItem->id,
+                        'price_basis' => 'cash',
+                        'snapshot_cash_price' => 12000,
+                        'snapshot_srp' => 12500,
+                        'snapshot_cost_price' => 10000,
+                        'discount_amount' => 0,
+                        'line_total' => 12000,
+                        'is_bundle' => true,
+                        'bundle_serial' => 'BUNDLE-0001',
+                        'bundle_components' => [
+                            [
+                                'inventory_id' => $bundleComponent->id,
+                            ],
+                        ],
+                    ],
+                ],
+                'payments' => [
+                    [
+                        'payment_method_id' => $paymentMethod->id,
+                        'amount' => 12000,
+                    ],
+                ],
+            ])
+            ->assertOk();
+
+        $transaction = SalesTransaction::firstOrFail();
+        $lineItem = SalesTransactionItem::firstOrFail();
+
+        $this->assertDatabaseHas('inventory_items', [
+            'id' => $mainItem->id,
+            'status' => 'sold',
+        ]);
+        $this->assertDatabaseHas('inventory_items', [
+            'id' => $bundleComponent->id,
+            'status' => 'sold',
+        ]);
+
+        $mainLog = InventoryItemLog::query()->where('inventory_item_id', $mainItem->id)->first();
+        $componentLog = InventoryItemLog::query()->where('inventory_item_id', $bundleComponent->id)->first();
+
+        $this->assertNotNull($mainLog);
+        $this->assertNotNull($componentLog);
+
+        $this->assertSame('POS_SOLD', $mainLog->action);
+        $this->assertSame('POS_SOLD', $componentLog->action);
+        $this->assertSame($transaction->id, data_get($mainLog->meta, 'sales_transaction_id'));
+        $this->assertSame($transaction->id, data_get($componentLog->meta, 'sales_transaction_id'));
+        $this->assertSame($lineItem->id, data_get($mainLog->meta, 'line_item_id'));
+        $this->assertSame($lineItem->id, data_get($componentLog->meta, 'line_item_id'));
+        $this->assertFalse((bool) data_get($mainLog->meta, 'is_bundle_component'));
+        $this->assertTrue((bool) data_get($componentLog->meta, 'is_bundle_component'));
+    }
+
+    public function test_pos_transaction_fails_when_any_component_item_is_not_available_and_rolls_back_all_writes(): void
+    {
+        [$user, $employee] = $this->createCashierUserAndEmployee();
+        $this->createCustomerDefaults();
+        [$variant, $warehouse] = $this->createInventoryGraph();
+        $paymentMethod = PaymentMethod::create([
+            'name' => 'Cash',
+            'type' => 'cash',
+        ]);
+
+        $customer = Customer::create([
+            'firstname' => 'Rollback',
+            'lastname' => 'Buyer',
+        ]);
+
+        $session = PosSession::create([
+            'employee_id' => $employee->id,
+            'warehouse_id' => $warehouse->id,
+            'opening_balance' => 1000,
+            'shift_start_time' => now(),
+            'status' => PosSession::STATUS_OPENED,
+        ]);
+
+        $mainItem = InventoryItem::create([
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $warehouse->id,
+            'imei' => '666666666666666',
+            'serial_number' => 'TXN-SN-007',
+            'status' => 'available',
+            'cost_price' => 10000,
+            'cash_price' => 12000,
+            'srp_price' => 12500,
+        ]);
+
+        $unavailableComponent = InventoryItem::create([
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $warehouse->id,
+            'imei' => '777777777777777',
+            'serial_number' => 'TXN-SN-008',
+            'status' => 'sold',
+            'cost_price' => 2000,
+            'cash_price' => 2500,
+            'srp_price' => 3000,
+        ]);
+
+        $this->actingAs($user)
+            ->postJson(route('pos.transactions.store'), [
+                'pos_session_id' => $session->id,
+                'customer_id' => $customer->id,
+                'sales_representative_id' => null,
+                'or_number' => 'OR-10005',
+                'mode_of_release' => SalesTransaction::MODE_PICKUP,
+                'remarks' => 'Should fail',
+                'total_amount' => 12000,
+                'items' => [
+                    [
+                        'inventory_item_id' => $mainItem->id,
+                        'price_basis' => 'cash',
+                        'snapshot_cash_price' => 12000,
+                        'snapshot_srp' => 12500,
+                        'snapshot_cost_price' => 10000,
+                        'discount_amount' => 0,
+                        'line_total' => 12000,
+                        'is_bundle' => true,
+                        'bundle_components' => [
+                            [
+                                'inventory_id' => $unavailableComponent->id,
+                            ],
+                        ],
+                    ],
+                ],
+                'payments' => [
+                    [
+                        'payment_method_id' => $paymentMethod->id,
+                        'amount' => 12000,
+                    ],
+                ],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'One or more inventory items are no longer available.');
+
+        $this->assertDatabaseCount('sales_transactions', 0);
+        $this->assertDatabaseCount('sales_transaction_items', 0);
+        $this->assertDatabaseCount('sales_transaction_item_components', 0);
+        $this->assertDatabaseCount('inventory_item_logs', 0);
+        $this->assertDatabaseHas('inventory_items', [
+            'id' => $mainItem->id,
+            'status' => 'available',
+        ]);
+        $this->assertDatabaseHas('inventory_items', [
+            'id' => $unavailableComponent->id,
+            'status' => 'sold',
         ]);
     }
 

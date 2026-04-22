@@ -72,46 +72,40 @@ export default function CustomerDetailsPanel({
           <CollapsibleContent>
             <CardContent className="bg-white dark:bg-slate-950 p-4 space-y-4">
               <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Customer</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Select or create the customer for this sale.</p>
-                </div>
+                <Combobox
+                  value={selectedCustomer?.id ? String(selectedCustomer.id) : ""}
+                  onValueChange={(value) => {
+                    onSelectedCustomerChange(customerOptionsById.get(value) || null);
+                  }}
+                  options={customerComboOptions}
+                  placeholder="Select customer"
+                  searchPlaceholder="Search customers..."
+                  emptyText="No customer found"
+                />
                 <Button size="sm" variant="outline" onClick={onShowCustomerDialog}>
                   Add Customer
                 </Button>
               </div>
 
-              <Combobox
-                value={selectedCustomer?.id ? String(selectedCustomer.id) : ""}
-                onValueChange={(value) => {
-                  onSelectedCustomerChange(customerOptionsById.get(value) || null);
-                }}
-                options={customerComboOptions}
-                placeholder="Select customer"
-                searchPlaceholder="Search customers..."
-                emptyText="No customer found"
-              />
+
 
               <div className="flex items-center justify-between gap-3 pt-2">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Sales Representative</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Optional per transaction.</p>
-                </div>
+                <Combobox
+                  value={selectedSalesRep?.id ? String(selectedSalesRep.id) : ""}
+                  onValueChange={(value) => {
+                    onSelectedSalesRepChange(salesRepOptionsById.get(value) || null);
+                  }}
+                  options={salesRepOptions}
+                  placeholder="Select sales representative"
+                  searchPlaceholder="Search sales reps..."
+                  emptyText="No sales representative found"
+                />
                 <Button size="sm" variant="outline" onClick={onShowAddSalesRepDialog}>
                   Add Sales Rep
                 </Button>
               </div>
 
-              <Combobox
-                value={selectedSalesRep?.id ? String(selectedSalesRep.id) : ""}
-                onValueChange={(value) => {
-                  onSelectedSalesRepChange(salesRepOptionsById.get(value) || null);
-                }}
-                options={salesRepOptions}
-                placeholder="Select sales representative"
-                searchPlaceholder="Search sales reps..."
-                emptyText="No sales representative found"
-              />
+
 
               <CustomerInsights customer={selectedCustomer} />
             </CardContent>

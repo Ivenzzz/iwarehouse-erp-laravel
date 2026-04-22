@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Upload, X, FileText, Image } from 'lucide-react';
-import axios from 'axios';
 import { toast } from '@/shared/hooks/use-toast';
 import CreatableBankCombobox from './CreatableBankCombobox';
 
@@ -20,7 +19,6 @@ export default function PaymentMethodModal({
   onConfirm,
 }) {
   const fileInputRef = useRef(null);
-  const [uploading, setUploading] = React.useState(false);
 
   if (!methodDetails) return null;
 
@@ -33,7 +31,7 @@ export default function PaymentMethodModal({
     onOpenChange(false);
   };
 
-  const handleFileUpload = async (e) => {
+  const handleFileUpload = (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
@@ -44,29 +42,18 @@ export default function PaymentMethodModal({
       return;
     }
 
-    const filesToUpload = files.slice(0, remaining);
-    setUploading(true);
+    const filesToStore = files.slice(0, remaining).map((file) => ({
+      file,
+      name: file.name,
+      type: file.type,
+    }));
 
-    try {
-      const uploaded = [];
-      for (const file of filesToUpload) {
-        const formData = new FormData();
-        formData.append('file', file);
-        const { data } = await axios.post(route('pos.uploads.store'), formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        uploaded.push({ url: data.file_url, name: file.name, type: file.type });
-      }
-      setPaymentData(prev => ({
-        ...prev,
-        supportingDocUrls: [...(prev.supportingDocUrls || []), ...uploaded]
-      }));
-    } catch (err) {
-      toast({ variant: 'destructive', description: 'Failed to upload document' });
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
+    setPaymentData(prev => ({
+      ...prev,
+      supportingDocUrls: [...(prev.supportingDocUrls || []), ...filesToStore]
+    }));
+
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const removeDoc = (index) => {
@@ -131,7 +118,6 @@ export default function PaymentMethodModal({
               type="button"
               variant="outline"
               size="sm"
-              disabled={uploading}
               onClick={() => fileInputRef.current?.click()}
               className="
                 w-full text-xs
@@ -139,17 +125,10 @@ export default function PaymentMethodModal({
                 dark:border-slate-800 dark:text-slate-100 dark:hover:bg-slate-800/40
               "
             >
-              {uploading ? (
-                <span className="flex items-center gap-2">
-                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-slate-500 dark:border-slate-400" />
-                  Uploading...
-                </span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  <Upload className="w-3.5 h-3.5" />
-                  Upload Document (Images / PDF)
-                </span>
-              )}
+              <span className="flex items-center gap-2">
+                <Upload className="w-3.5 h-3.5" />
+                Upload Document (Images / PDF)
+              </span>
             </Button>
           </div>
         )}

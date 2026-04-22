@@ -28,7 +28,7 @@ export default function POSHeader({
         <div className="bg-black px-2 lg:px-4 py-1 lg:py-2 rounded flex flex-col items-center shadow-md shrink-0">
           <div className="flex items-baseline">
             <span className="text-orange-500 text-lg lg:text-2xl font-bold">i</span>
-            <span className="text-white text-lg lg:text-2xl font-bold">Warehouse</span>
+            <span className="text-white text-lg lg:text-2xl font-extrabold">Warehouse</span>
           </div>
           <span className="text-white text-[0.3rem] lg:text-[0.4rem] tracking-widest uppercase hidden lg:block">
             MAKING TECHNOLOGY AFFORDABLE FOR EVERYONE

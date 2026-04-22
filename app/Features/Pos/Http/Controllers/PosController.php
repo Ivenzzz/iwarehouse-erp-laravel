@@ -16,6 +16,7 @@ use App\Features\Pos\Http\Requests\StorePosSalesRepRequest;
 use App\Features\Pos\Http\Requests\StorePosSessionRequest;
 use App\Features\Pos\Http\Requests\StorePosTransactionRequest;
 use App\Features\Pos\Queries\ListPosPageData;
+use App\Features\Pos\Queries\SearchPosPriceCheck;
 use App\Features\Pos\Queries\ListPosTransactions;
 use App\Features\Pos\Queries\SearchPosInventory;
 use App\Features\Pos\Support\PosDataTransformer;
@@ -48,6 +49,21 @@ class PosController extends Controller
                 $validated['search'],
                 (int) $validated['warehouse_id'],
                 (int) ($validated['limit'] ?? 20),
+            ),
+        );
+    }
+
+    public function priceCheckSearch(Request $request, SearchPosPriceCheck $searchPosPriceCheck): JsonResponse
+    {
+        $validated = $request->validate([
+            'search' => ['required', 'string'],
+            'warehouse_id' => ['nullable', 'integer', 'exists:warehouses,id'],
+        ]);
+
+        return response()->json(
+            $searchPosPriceCheck->handle(
+                $validated['search'],
+                isset($validated['warehouse_id']) ? (int) $validated['warehouse_id'] : null,
             ),
         );
     }

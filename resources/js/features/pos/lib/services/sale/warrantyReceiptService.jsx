@@ -32,6 +32,26 @@ function normalizeReceiptItem(item) {
   };
 }
 
+function toNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatPeso(value) {
+  return `${PHP_SYMBOL}${toNumber(value).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`;
+}
+
+function formatDateSafe(value) {
+  if (!value) return "N/A";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "N/A";
+  }
+
+  return format(date, "MM/dd/yyyy, h:mm:ss a");
+}
+
 /**
  * Generates the warranty receipt HTML string (no window management).
  * Used by both the legacy popup flow and the new in-tab print page.
@@ -54,8 +74,10 @@ export function generateWarrantyReceiptHTML({
     <head>
       <title>Warranty Receipt - ${transaction.or_number || "N/A"}</title>
       <style>
+        :root { color-scheme: light; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         @page { size: letter; margin: 10mm; margin-top: 0; margin-bottom: 0; }
+        html, body { background: #fff !important; color: #000 !important; }
         body { font-family: Arial, sans-serif; padding: 15px; font-size: 10px; line-height: 1.3; max-width: 210mm; margin: 0 auto; }
         .header { text-align: center; margin-bottom: 12px; }
         .company-logo { max-height: 50px; max-width: 180px; margin-bottom: 8px; }
@@ -77,8 +99,19 @@ export function generateWarrantyReceiptHTML({
         .signature-line { border-bottom: 1px solid #000; margin: 20px 0 3px 0; }
         .signature-label { font-size: 8px; }
         .footer { margin-top: 15px; text-align: center; font-size: 8px; }
-        @media print { body { padding: 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact; } button, .no-print { display: none !important; } }
+        @media print {
+          html, body { background: #fff !important; color: #000 !important; }
+          body { padding: 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          button, .no-print { display: none !important; }
+        }
       </style>
+      <script>
+        window.addEventListener("load", function () {
+          setTimeout(function () {
+            window.print();
+          }, 150);
+        });
+      </script>
     </head>
     <body>
       <div class="header">
@@ -92,7 +125,7 @@ export function generateWarrantyReceiptHTML({
       <div class="section">
         OR Number: ${transaction.or_number || "N/A"}<br>
         Sale ID: ${transaction.transaction_number}<br>
-        Date: ${transaction.transaction_date ? format(new Date(transaction.transaction_date), "MM/dd/yyyy, h:mm:ss a") : "N/A"}<br>
+        Date: ${formatDateSafe(transaction.transaction_date)}<br>
         Sales Associate: ${transaction.sales_representative_name || "N/A"}
       </div>
       <div class="section">
@@ -110,16 +143,16 @@ export function generateWarrantyReceiptHTML({
               <tr>
                 <td>${item.displayLabel}${item.warrantyDescription ? `<br><em style="font-size:8px;color:#555;">${item.warrantyDescription}</em>` : ""}</td>
                 <td class="text-right">${item.quantity}</td>
-                <td class="text-right">${PHP_SYMBOL}${item.value.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td>
+                <td class="text-right">${formatPeso(item.value)}</td>
               </tr>
             `).join("")}
           </tbody>
         </table>
         <table class="totals-table">
-          <tr><td class="label">Total</td><td class="text-right">${PHP_SYMBOL}${(transaction.subtotal || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td></tr>
-          <tr><td class="label">Surcharges</td><td class="text-right">${PHP_SYMBOL}${(transaction.tax_amount || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td></tr>
-          <tr><td class="label">Discount</td><td class="text-right">-${PHP_SYMBOL}${transactionDiscount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td></tr>
-          <tr class="grand-total"><td class="label">Grand Total</td><td class="text-right">${PHP_SYMBOL}${(transaction.total_amount || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td></tr>
+          <tr><td class="label">Total</td><td class="text-right">${formatPeso(transaction.subtotal)}</td></tr>
+          <tr><td class="label">Surcharges</td><td class="text-right">${formatPeso(transaction.tax_amount)}</td></tr>
+          <tr><td class="label">Discount</td><td class="text-right">-${formatPeso(transactionDiscount)}</td></tr>
+          <tr class="grand-total"><td class="label">Grand Total</td><td class="text-right">${formatPeso(transaction.total_amount)}</td></tr>
         </table>
       </div>
       <div class="section">
@@ -128,11 +161,11 @@ export function generateWarrantyReceiptHTML({
           <thead><tr><th>Payment Type</th><th class="text-right">Amount</th></tr></thead>
           <tbody>
             ${(transaction.payments_json?.payments || []).map((payment) => `
-              <tr><td>${payment.payment_method || "N/A"}</td><td class="text-right">${PHP_SYMBOL}${(payment.amount || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td></tr>
+              <tr><td>${payment.payment_method || "N/A"}</td><td class="text-right">${formatPeso(payment.amount)}</td></tr>
             `).join("")}
-            <tr><td><strong>Total Payment</strong></td><td class="text-right"><strong>${PHP_SYMBOL}${(transaction.amount_paid || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</strong></td></tr>
-            <tr><td><strong>Grand Total</strong></td><td class="text-right"><strong>${PHP_SYMBOL}${(transaction.total_amount || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</strong></td></tr>
-            <tr><td><strong>Change</strong></td><td class="text-right"><strong>${PHP_SYMBOL}${(transaction.change_amount || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</strong></td></tr>
+            <tr><td><strong>Total Payment</strong></td><td class="text-right"><strong>${formatPeso(transaction.amount_paid)}</strong></td></tr>
+            <tr><td><strong>Grand Total</strong></td><td class="text-right"><strong>${formatPeso(transaction.total_amount)}</strong></td></tr>
+            <tr><td><strong>Change</strong></td><td class="text-right"><strong>${formatPeso(transaction.change_amount)}</strong></td></tr>
           </tbody>
         </table>
       </div>
@@ -160,7 +193,11 @@ export function printWarrantyReceipt(params) {
   if (!printWindow) return false;
 
   const html = generateWarrantyReceiptHTML(params);
-  printWindow.document.write(html + `<script>window.onload = function() { window.print(); };</script>`);
-  printWindow.document.close();
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const receiptUrl = URL.createObjectURL(blob);
+  printWindow.location.replace(receiptUrl);
+  printWindow.addEventListener("load", () => {
+    setTimeout(() => URL.revokeObjectURL(receiptUrl), 60000);
+  }, { once: true });
   return true;
 }

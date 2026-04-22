@@ -23,7 +23,10 @@ import StartShiftCard from "@/features/pos/components/session/StartShiftCard";
 import BarcodeSearchPanel from "@/features/pos/components/sale/BarcodeSearchPanel";
 import EmptyCartState from "@/features/pos/components/sale/EmptyCartState";
 import CustomerDetailsPanel from "@/features/pos/components/customer/CustomerDetailsPanel";
+import PriceCheckView from "@/features/pos/components/tools/PriceCheckView";
+import POSReturnsView from "@/features/pos/components/tools/POSReturnsView";
 import AppShell from "@/shared/layouts/AppShell";
+import { ArchiveRestore, Search, Tag } from "lucide-react";
 
 function createEmptyCustomerForm() {
   return {
@@ -67,7 +70,6 @@ export default function POS(props) {
 
   const searchInputRef = useRef(null);
   const searchTimerRef = useRef(null);
-  const didAttemptAutoFullscreenRef = useRef(false);
 
   const [currentSession, setCurrentSession] = useState(activeSession);
   const [customers, setCustomers] = useState(initialCustomers || []);
@@ -245,6 +247,14 @@ export default function POS(props) {
         event.preventDefault();
         setCurrentView((current) => current === "search" ? "pos" : "search");
       }
+      if (event.key === "F3") {
+        event.preventDefault();
+        setCurrentView((current) => current === "price_check" ? "pos" : "price_check");
+      }
+      if (event.key === "F5") {
+        event.preventDefault();
+        setCurrentView((current) => current === "returns" ? "pos" : "returns");
+      }
 
       if (event.key === "Escape" && currentView !== "pos") {
         event.preventDefault();
@@ -262,11 +272,9 @@ export default function POS(props) {
   }, [currentView]);
 
   useEffect(() => {
-    if (didAttemptAutoFullscreenRef.current) {
+    if (currentView !== "pos") {
       return;
     }
-
-    didAttemptAutoFullscreenRef.current = true;
 
     if (document.fullscreenElement) {
       setIsFullscreen(true);
@@ -274,7 +282,7 @@ export default function POS(props) {
     }
 
     document.documentElement.requestFullscreen?.().catch(() => { });
-  }, []);
+  }, [currentView]);
 
   useEffect(() => {
     if (selectedCustomer?.id && selectedSalesRep?.id) {
@@ -307,7 +315,7 @@ export default function POS(props) {
     setIsCollapsed(false);
   };
 
-  const openPrintWindow = (transaction) => {
+  const openPrintWindow = (transaction, existingWindow = null) => {
     if (!transaction) {
       return;
     }
@@ -317,14 +325,20 @@ export default function POS(props) {
       companyInfo,
     });
 
-    const printWindow = window.open("", "_blank", "noopener,noreferrer");
+    const printWindow = existingWindow && !existingWindow.closed
+      ? existingWindow
+      : window.open("", "_blank");
     if (!printWindow) {
       toast({ variant: "destructive", description: "Unable to open print window." });
       return;
     }
 
-    printWindow.document.write(`${html}<script>window.onload = function() { window.print(); };</script>`);
-    printWindow.document.close();
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const receiptUrl = URL.createObjectURL(blob);
+    printWindow.location.replace(receiptUrl);
+    printWindow.addEventListener("load", () => {
+      setTimeout(() => URL.revokeObjectURL(receiptUrl), 60000);
+    }, { once: true });
   };
 
   const handleAddToCart = (inventoryItem, priceType = "cash") => {
@@ -542,6 +556,14 @@ export default function POS(props) {
       return;
     }
 
+    const queuedPrintWindow = window.open("", "_blank");
+    if (queuedPrintWindow) {
+      queuedPrintWindow.document.write("<title>Preparing Warranty Receipt...</title><p style=\"font-family: Arial, sans-serif; padding: 16px;\">Preparing warranty receipt...</p>");
+      queuedPrintWindow.document.close();
+    } else {
+      toast({ variant: "destructive", description: "Automatic print was blocked. You can still print from the receipt dialog." });
+    }
+
     setProcessingTransaction(true);
 
     try {
@@ -596,6 +618,25 @@ export default function POS(props) {
           throw new Error(firstFieldErrors?.[0] || error?.response?.data?.message || "Failed to upload discount proof image.");
         }
       };
+      const uploadPaymentSupportingDoc = async (file, fieldLabel) => {
+        try {
+          const formData = new FormData();
+          formData.append("file", file);
+
+          const { data } = await axios.post(route("pos.uploads.store"), formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+          });
+
+          return normalizeToStoragePath(data.path || data.file_url, fieldLabel);
+        } catch (error) {
+          const validationErrors = error?.response?.data?.errors;
+          const firstFieldErrors = validationErrors && typeof validationErrors === "object"
+            ? Object.values(validationErrors).find((messages) => Array.isArray(messages) && messages.length > 0)
+            : null;
+
+          throw new Error(firstFieldErrors?.[0] || error?.response?.data?.message || `Failed to upload ${fieldLabel}.`);
+        }
+      };
 
       const itemDiscountProofUrls = new Map();
       for (let index = 0; index < cart.length; index += 1) {
@@ -648,6 +689,49 @@ export default function POS(props) {
         payloadItems[0].line_total = Math.max(0, payloadItems[0].line_total - manualDiscount.amount);
       }
 
+      const payloadPayments = [];
+      for (let paymentIndex = 0; paymentIndex < payments.length; paymentIndex += 1) {
+        const payment = payments[paymentIndex];
+        const details = payment.payment_details || {};
+        const supportingDocUrls = details.supporting_doc_urls || details.supportingDocUrls || [];
+        const uploadedSupportingDocs = [];
+
+        for (let documentIndex = 0; documentIndex < supportingDocUrls.length; documentIndex += 1) {
+          const document = supportingDocUrls[documentIndex] || {};
+          const fieldLabel = `${payment.payment_method} supporting doc ${documentIndex + 1}`;
+          const normalizedUrl = document.file instanceof File
+            ? await uploadPaymentSupportingDoc(document.file, fieldLabel)
+            : normalizeToStoragePath(document.url, fieldLabel);
+
+          uploadedSupportingDocs.push({
+            name: document.name || `${payment.payment_method}-${documentIndex + 1}`,
+            url: normalizedUrl,
+            type: document.type || "supporting_document",
+          });
+        }
+
+        payloadPayments.push({
+          payment_method_id: parseInt(payment.payment_method_id, 10),
+          amount: parseFloat(payment.amount) || 0,
+          payment_details: {
+            reference_number: payment.reference_number || details.reference_number || null,
+            downpayment: details.downpayment !== undefined && details.downpayment !== null
+              ? String(details.downpayment)
+              : details.downpayment_amount !== undefined && details.downpayment_amount !== null
+                ? String(details.downpayment_amount)
+                : null,
+            bank: details.bank || null,
+            terminal_used: details.terminal_used || details.terminalUsed || null,
+            card_holder_name: details.card_holder_name || details.cardHolderName || null,
+            loan_term_months: details.loan_term_months ? parseInt(details.loan_term_months, 10) : null,
+            sender_mobile: details.sender_mobile || details.sender_mobile_number || null,
+            contract_id: details.contract_id || null,
+            registered_mobile: details.registered_mobile || null,
+            supporting_doc_urls: uploadedSupportingDocs,
+          },
+        });
+      }
+
       const payload = {
         pos_session_id: currentSession.id,
         customer_id: selectedCustomer.id,
@@ -657,31 +741,7 @@ export default function POS(props) {
         remarks: remarks || null,
         total_amount: effectiveTotal,
         items: payloadItems,
-        payments: payments.map((payment) => {
-          const details = payment.payment_details || {};
-          const supportingDocUrls = details.supporting_doc_urls || details.supportingDocUrls || [];
-
-          return {
-            payment_method_id: parseInt(payment.payment_method_id, 10),
-            amount: parseFloat(payment.amount) || 0,
-            payment_details: {
-              reference_number: payment.reference_number || details.reference_number || null,
-              downpayment: details.downpayment ?? details.downpayment_amount ?? null,
-              bank: details.bank || null,
-              terminal_used: details.terminal_used || details.terminalUsed || null,
-              card_holder_name: details.card_holder_name || details.cardHolderName || null,
-              loan_term_months: details.loan_term_months ? parseInt(details.loan_term_months, 10) : null,
-              sender_mobile: details.sender_mobile || details.sender_mobile_number || null,
-              contract_id: details.contract_id || null,
-              registered_mobile: details.registered_mobile || null,
-              supporting_doc_urls: supportingDocUrls.map((document, index) => ({
-                name: document.name || `${payment.payment_method}-${index + 1}`,
-                url: normalizeToStoragePath(document.url, `${payment.payment_method} supporting doc ${index + 1}`),
-                type: document.type || "supporting_document",
-              })),
-            },
-          };
-        }),
+        payments: payloadPayments,
         documents: Object.entries(documentUrls)
           .filter(([, url]) => Boolean(url))
           .map(([documentType, documentUrl]) => ({
@@ -697,6 +757,7 @@ export default function POS(props) {
       setShowPaymentDialog(false);
       setShowDocumentDialog(false);
       setShowReceiptDialog(true);
+      openPrintWindow(data.transaction, queuedPrintWindow);
       resetTransactionState();
       await Promise.all([
         loadTransactions(currentSession.id),
@@ -705,6 +766,10 @@ export default function POS(props) {
 
       toast({ description: "Transaction completed successfully." });
     } catch (error) {
+      if (queuedPrintWindow && !queuedPrintWindow.closed) {
+        queuedPrintWindow.close();
+      }
+
       const validationErrors = error?.response?.data?.errors;
       const firstFieldErrors = validationErrors && typeof validationErrors === "object"
         ? Object.values(validationErrors).find((messages) => Array.isArray(messages) && messages.length > 0)
@@ -782,6 +847,27 @@ export default function POS(props) {
     );
   }
 
+  if (currentView === "price_check") {
+    return (
+      <>
+        <Head title="POS" />
+        <PriceCheckView
+          currentWarehouseId={currentSession?.warehouse_id}
+          onClose={() => setCurrentView("pos")}
+        />
+      </>
+    );
+  }
+
+  if (currentView === "returns") {
+    return (
+      <>
+        <Head title="POS" />
+        <POSReturnsView onClose={() => setCurrentView("pos")} />
+      </>
+    );
+  }
+
   return (
     <>
       <Head title="POS" />
@@ -845,6 +931,37 @@ export default function POS(props) {
                   </div>
                 </>
               )}
+            </div>
+
+            <div className="shrink-0 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2">
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                <button
+                  type="button"
+                  onClick={() => setCurrentView("search")}
+                  className="inline-flex items-center justify-center gap-2 rounded border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.02em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-100 dark:hover:bg-slate-800"
+                >
+                  <Search className="h-3.5 w-3.5" />
+                  Transactions (F2)
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCurrentView("price_check")}
+                  className="inline-flex items-center justify-center gap-2 rounded border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.02em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-100 dark:hover:bg-slate-800"
+                >
+                  <Tag className="h-3.5 w-3.5" />
+                  Price Check (F3)
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCurrentView("returns")}
+                  className="inline-flex items-center justify-center gap-2 rounded border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.02em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-100 dark:hover:bg-slate-800"
+                >
+                  <ArchiveRestore className="h-3.5 w-3.5" />
+                  Return (F5)
+                </button>
+              </div>
             </div>
           </div>
 

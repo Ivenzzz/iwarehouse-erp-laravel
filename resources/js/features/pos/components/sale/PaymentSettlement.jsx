@@ -371,7 +371,7 @@ export default function PaymentSettlement({
     <div className="bg-slate-200 dark:bg-slate-900 border-b border-slate-300 dark:border-slate-800 overflow-x-auto scrollbar-hide">
       {/* HEADER */}
       <div className="bg-[#002060] dark:bg-slate-950 text-white px-6 py-2 font-bold text-xs flex justify-between items-center border-b border-transparent dark:border-slate-800">
-        <span>Payments</span>
+        <span className='uppercase text-slate-300'>Payments</span>
       </div>
 
       <div className="p-3 space-y-3">

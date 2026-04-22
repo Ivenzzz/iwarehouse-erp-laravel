@@ -1,30 +1,28 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { Head } from "@inertiajs/react";
-import { Search, Clock, DollarSign, Store, User, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 
 import { toast } from "@/shared/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Combobox } from "@/components/ui/combobox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/shared/components/ui/collapsible";
 
-import CustomerDialog from "@/features/pos/sale/dialogs/CustomerDialog";
-import DocumentDialog from "@/features/pos/sale/dialogs/DocumentDialog";
-import PaymentDialog from "@/features/pos/sale/dialogs/PaymentDialog";
-import ReceiptDialog from "@/features/pos/sale/dialogs/ReceiptDialog";
-import EndShiftDialog from "@/features/pos/EndShiftDialog";
-import PaymentSettlement from "@/features/pos/sale/PaymentSettlement";
-import CustomerInsights from "@/features/pos/CustomerInsights";
-import AddSalesRepDialog from "@/features/pos/sale/dialogs/AddSalesRepDialog";
-import POSSessionTransactionsView from "@/features/pos/sale/POSSessionTransactionsView";
-import DiscountDialog from "@/features/pos/sale/dialogs/DiscountDialog";
-import POSHeader from "@/features/pos/sale/POSHeader";
-import POSCartTable from "@/features/pos/sale/POSCartTable";
-import POSCartItemCard from "@/features/pos/sale/POSCartItemCard";
-import { generateWarrantyReceiptHTML } from "@/features/pos/sale/services/warrantyReceiptService";
+import CustomerDialog from "@/features/pos/components/dialogs/CustomerDialog";
+import DocumentDialog from "@/features/pos/components/dialogs/DocumentDialog";
+import PaymentDialog from "@/features/pos/components/dialogs/PaymentDialog";
+import ReceiptDialog from "@/features/pos/components/dialogs/ReceiptDialog";
+import EndShiftDialog from "@/features/pos/components/session/EndShiftDialog";
+import PaymentSettlement from "@/features/pos/components/sale/PaymentSettlement";
+import AddSalesRepDialog from "@/features/pos/components/dialogs/AddSalesRepDialog";
+import POSSessionTransactionsView from "@/features/pos/components/session/POSSessionTransactionsView";
+import DiscountDialog from "@/features/pos/components/dialogs/DiscountDialog";
+import POSHeader from "@/features/pos/components/session/POSHeader";
+import POSCartTable from "@/features/pos/components/sale/POSCartTable";
+import POSCartItemCard from "@/features/pos/components/sale/POSCartItemCard";
+import { generateWarrantyReceiptHTML } from "@/features/pos/lib/services/sale/warrantyReceiptService";
+import StartShiftCard from "@/features/pos/components/session/StartShiftCard";
+import BarcodeSearchPanel from "@/features/pos/components/sale/BarcodeSearchPanel";
+import EmptyCartState from "@/features/pos/components/sale/EmptyCartState";
+import CustomerDetailsPanel from "@/features/pos/components/customer/CustomerDetailsPanel";
 import AppShell from "@/shared/layouts/AppShell";
 
 function createEmptyCustomerForm() {
@@ -69,6 +67,7 @@ export default function POS(props) {
 
   const searchInputRef = useRef(null);
   const searchTimerRef = useRef(null);
+  const didAttemptAutoFullscreenRef = useRef(false);
 
   const [currentSession, setCurrentSession] = useState(activeSession);
   const [customers, setCustomers] = useState(initialCustomers || []);
@@ -261,6 +260,21 @@ export default function POS(props) {
       window.removeEventListener("keydown", handleKeyboard);
     };
   }, [currentView]);
+
+  useEffect(() => {
+    if (didAttemptAutoFullscreenRef.current) {
+      return;
+    }
+
+    didAttemptAutoFullscreenRef.current = true;
+
+    if (document.fullscreenElement) {
+      setIsFullscreen(true);
+      return;
+    }
+
+    document.documentElement.requestFullscreen?.().catch(() => { });
+  }, []);
 
   useEffect(() => {
     if (selectedCustomer?.id && selectedSalesRep?.id) {
@@ -663,134 +677,16 @@ export default function POS(props) {
       <>
         <Head title="POS" />
         <AppShell title="POS">
-          <div className="mx-auto max-w-xl px-2">
-            <Card className="overflow-hidden rounded-lg border-0 bg-white shadow-2xl dark:bg-gray-950">
-              {/* Header */}
-              <div className="bg-indigo-600 px-6 py-6 text-white dark:bg-indigo-500">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-white/90">
-                    <Clock className="h-6 w-6" />
-                  </div>
-
-                  <div>
-                    <h2 className="text-md font-bold leading-tight">Start DSR</h2>
-                    <p className="mt-1 text-sm text-white/90">Initialize DSR</p>
-                  </div>
-                </div>
-              </div>
-
-              <CardContent className="px-8 py-6">
-                <div className="space-y-6">
-                  {/* Cashier Information */}
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-5 py-5 dark:border-slate-800 dark:bg-slate-800/60">
-                    <div className="mb-4 flex items-center gap-3">
-                      <User className="h-5 w-5 text-slate-500 dark:text-slate-400" />
-                      <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                        Cashier Information
-                      </h3>
-                    </div>
-
-                    <div className="grid gap-6 md:grid-cols-2">
-                      <div>
-                        <p className="mb-1 text-sm text-slate-500 dark:text-slate-400">Name</p>
-                        <p className="text-[15px] font-semibold text-slate-900 dark:text-slate-100">
-                          {cashier?.full_name || "Unknown User"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Store Location */}
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2 text-[15px] font-medium text-slate-800 dark:text-slate-200">
-                      <Store className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                      <span>Store Location*</span>
-                    </Label>
-
-                    <Combobox
-                      value={shiftWarehouse}
-                      onValueChange={setShiftWarehouse}
-                      options={warehouseOptions}
-                      placeholder="Select store/branch"
-                      searchPlaceholder="Search stores/branches..."
-                      emptyText="No store/branch found"
-                      className="h-12 rounded-lg border-slate-300 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                    />
-                  </div>
-
-                  {/* Opening Cash Float */}
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2 text-[15px] font-medium text-slate-800 dark:text-slate-200">
-                      <DollarSign className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                      <span>Opening Cash Float*</span>
-                    </Label>
-
-                    <div className="relative">
-                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-slate-500 dark:text-slate-400">
-                        ₱
-                      </span>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={openingBalance}
-                        onChange={(event) => setOpeningBalance(event.target.value)}
-                        placeholder="0.00"
-                        className="h-12 rounded-lg border-slate-300 bg-white pl-8 text-[15px] text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
-                      />
-                    </div>
-
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                      Amount of cash in the drawer at shift start
-                    </p>
-                  </div>
-
-                  {/* Shift Start Time */}
-                  <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-5 py-5 dark:border-indigo-900/50 dark:bg-indigo-950/40">
-                    <div className="mb-3 flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                      <p className="text-[15px] font-semibold text-indigo-900 dark:text-indigo-200">
-                        Shift Start Time
-                      </p>
-                    </div>
-
-                    <p className="text-[18px] font-bold text-indigo-950 dark:text-indigo-100">
-                      {new Date().toLocaleString("en-US", {
-                        month: "long",
-                        day: "numeric",
-                        year: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                        second: "2-digit",
-                      })}
-                    </p>
-                  </div>
-
-                  {/* Button */}
-                  <Button
-                    onClick={handleStartShift}
-                    disabled={isStartingShift}
-                    className="h-12 w-full rounded-lg bg-indigo-600 text-base font-semibold text-white hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600"
-                  >
-                    {isStartingShift ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Starting Shift...
-                      </>
-                    ) : (
-                      "Start Shift"
-                    )}
-                  </Button>
-
-                  {/* Footer Note */}
-                  <p className="text-center text-sm text-slate-500 dark:text-slate-400">
-                    By starting your shift, you confirm the opening balance and store
-                    details are correct.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <StartShiftCard
+            cashier={cashier}
+            shiftWarehouse={shiftWarehouse}
+            onShiftWarehouseChange={setShiftWarehouse}
+            warehouseOptions={warehouseOptions}
+            openingBalance={openingBalance}
+            onOpeningBalanceChange={setOpeningBalance}
+            isStartingShift={isStartingShift}
+            onStartShift={handleStartShift}
+          />
         </AppShell>
       </>
     );
@@ -816,75 +712,23 @@ export default function POS(props) {
 
         <div className="flex-1 overflow-hidden grid grid-cols-1 xl:grid-cols-[1.4fr_0.8fr]">
           <div className="min-h-0 flex flex-col border-r border-slate-200 dark:border-slate-800">
-            <div className="p-3 border-b border-slate-200 dark:border-slate-800 bg-background">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center">
-                <div className="flex flex-1 items-stretch gap-2">
-                  <div className="flex items-center justify-center px-3 sm:px-4 text-xs sm:text-sm font-semibold text-white bg-[#002060] rounded-l-md border border-[#002060] whitespace-nowrap">
-                    Scan Barcode (F1)
-                  </div>
-                  <div className="relative flex-1">
-                    <Input
-                      ref={searchInputRef}
-                      value={searchTerm}
-                      onChange={(event) => setSearchTerm(event.target.value)}
-                      placeholder="Scan IMEI, serial number, or enter search text"
-                      className="p-5"
-                    />
-                    {isSearching && (
-                      <Loader2 className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 animate-spin" />
-                    )}
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setDiscountDialogItemIndex(null);
-                    setShowItemDiscountDialog(true);
-                  }}
-                  disabled={cart.length === 0}
-                >
-                  Transaction Discount
-                </Button>
-              </div>
-
-              {barcodeMatches.length > 0 && (
-                <div className="mt-3 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
-                  {barcodeMatches.map((item) => (
-                    <button
-                      key={item.inventory_id}
-                      type="button"
-                      onClick={() => handleAddToCart(item, "cash")}
-                      className="w-full px-3 py-2 text-left border-b last:border-b-0 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800"
-                    >
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="min-w-0">
-                          <div className="font-medium text-slate-900 dark:text-slate-100 truncate">
-                            {item.displayName || [item.product_name, item.variant_name].filter(Boolean).join(" ")}
-                          </div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                            {[item.imei1, item.imei2, item.serial_number].filter(Boolean).join(" | ")}
-                          </div>
-                        </div>
-                        <div className="text-right text-xs shrink-0">
-                          <div className="font-semibold text-emerald-600 dark:text-emerald-400">
-                            P{(item.cash_price || 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
-                          </div>
-                          <div className="text-slate-500 dark:text-slate-400">
-                            SOH: {item.stock_on_hand || 0}
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <BarcodeSearchPanel
+              searchInputRef={searchInputRef}
+              searchTerm={searchTerm}
+              onSearchTermChange={setSearchTerm}
+              isSearching={isSearching}
+              cart={cart}
+              onOpenTransactionDiscount={() => {
+                setDiscountDialogItemIndex(null);
+                setShowItemDiscountDialog(true);
+              }}
+              barcodeMatches={barcodeMatches}
+              onAddToCart={handleAddToCart}
+            />
 
             <div className="flex-1 overflow-auto p-0">
               {cart.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400">
-                  <p className="font-medium">Scan or search inventory to begin</p>
-                </div>
+                <EmptyCartState />
               ) : (
                 <>
                   <div className="hidden md:block overflow-auto rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
@@ -915,112 +759,23 @@ export default function POS(props) {
           </div>
 
           <div className="min-h-0 flex flex-col bg-slate-50 dark:bg-slate-950">
-            <div className="border-b border-slate-200 dark:border-slate-800 bg-slate-200 dark:bg-slate-900">
-              <div className="bg-[#002060] px-6 py-3 text-center text-white dark:bg-slate-950 border-b border-[#00164a] dark:border-slate-800">
-                <p className="text-sm font-medium text-slate-200 dark:text-slate-300">Balance</p>
-                <p className="mt-1 text-5xl font-bold tracking-tight text-white dark:text-slate-100">
-                  ₱ {effectiveBalanceDue.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-              </div>
-
-              <Collapsible open={!isCollapsed} onOpenChange={(open) => setIsCollapsed(!open)}>
-                <Card className="overflow-hidden border-0 rounded-none bg-transparent py-0 gap-0 shadow-none">
-                  {isCollapsed ? (
-                    <CollapsibleTrigger asChild>
-                      <button
-                        type="button"
-                        className="flex min-h-[116px] w-full items-center justify-between gap-4 bg-[#002060] px-6 py-4 text-left text-white transition hover:bg-[#00164a] dark:bg-slate-950 dark:hover:bg-slate-900"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-200 dark:text-slate-300">
-                            Customer Details
-                          </p>
-                          <div className="mt-2 space-y-1">
-                            <p className="truncate text-sm font-medium text-white dark:text-slate-100">
-                              {selectedCustomerLabel}
-                            </p>
-                            <p className="truncate text-xs text-slate-200 dark:text-slate-300">
-                              {selectedSalesRepLabel}
-                            </p>
-                          </div>
-                        </div>
-                        <span className="flex items-center gap-2 text-xs font-medium text-white dark:text-slate-100">
-                          Expand
-                          <ChevronDown className="w-4 h-4 shrink-0" />
-                        </span>
-                      </button>
-                    </CollapsibleTrigger>
-                  ) : (
-                    <div className="bg-[#002060] dark:bg-slate-950 px-6 py-3 border-b border-transparent dark:border-slate-800 flex items-start justify-between gap-3 text-white">
-                      <div>
-                        <p className="text-sm font-semibold text-white dark:text-slate-100">Customer Details</p>
-                        <p className="text-xs text-slate-200 dark:text-slate-300">Select the customer and sales representative for this sale.</p>
-                      </div>
-                      <CollapsibleTrigger asChild>
-                        <Button
-                          type="button"
-                          size="icon-sm"
-                          variant="ghost"
-                          aria-label="Collapse customer details"
-                          className="border border-white/25 bg-white/10 text-white hover:bg-white/15 hover:text-white dark:border-slate-700 dark:bg-slate-900/60 dark:hover:bg-slate-800"
-                        >
-                          <ChevronUp className="w-4 h-4" />
-                        </Button>
-                      </CollapsibleTrigger>
-                    </div>
-                  )}
-
-                  <CollapsibleContent>
-                    <CardContent className="bg-white dark:bg-slate-950 p-4 space-y-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Customer</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">Select or create the customer for this sale.</p>
-                        </div>
-                        <Button size="sm" variant="outline" onClick={() => setShowCustomerDialog(true)}>
-                          Add Customer
-                        </Button>
-                      </div>
-
-                      <Combobox
-                        value={selectedCustomer?.id ? String(selectedCustomer.id) : ""}
-                        onValueChange={(value) => {
-                          setSelectedCustomer(customerOptionsById.get(value) || null);
-                        }}
-                        options={customerComboOptions}
-                        placeholder="Select customer"
-                        searchPlaceholder="Search customers..."
-                        emptyText="No customer found"
-                      />
-
-                      <div className="flex items-center justify-between gap-3 pt-2">
-                        <div>
-                          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Sales Representative</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">Optional per transaction.</p>
-                        </div>
-                        <Button size="sm" variant="outline" onClick={() => setShowAddSalesRepDialog(true)}>
-                          Add Sales Rep
-                        </Button>
-                      </div>
-
-                      <Combobox
-                        value={selectedSalesRep?.id ? String(selectedSalesRep.id) : ""}
-                        onValueChange={(value) => {
-                          setSelectedSalesRep(salesRepOptionsById.get(value) || null);
-                        }}
-                        options={salesRepOptions}
-                        placeholder="Select sales representative"
-                        searchPlaceholder="Search sales reps..."
-                        emptyText="No sales representative found"
-                      />
-
-                      <CustomerInsights customer={selectedCustomer} />
-                    </CardContent>
-                  </CollapsibleContent>
-                </Card>
-              </Collapsible>
-            </div>
-
+            <CustomerDetailsPanel
+              isCollapsed={isCollapsed}
+              onCollapsedChange={setIsCollapsed}
+              effectiveBalanceDue={effectiveBalanceDue}
+              selectedCustomerLabel={selectedCustomerLabel}
+              selectedSalesRepLabel={selectedSalesRepLabel}
+              onShowCustomerDialog={() => setShowCustomerDialog(true)}
+              onShowAddSalesRepDialog={() => setShowAddSalesRepDialog(true)}
+              selectedCustomer={selectedCustomer}
+              onSelectedCustomerChange={setSelectedCustomer}
+              customerOptionsById={customerOptionsById}
+              customerComboOptions={customerComboOptions}
+              selectedSalesRep={selectedSalesRep}
+              onSelectedSalesRepChange={setSelectedSalesRep}
+              salesRepOptionsById={salesRepOptionsById}
+              salesRepOptions={salesRepOptions}
+            />
             <div className="flex-1 overflow-auto">
               <PaymentSettlement
                 cart={cart}

@@ -5,7 +5,7 @@ import {
     fetchPsgcCitiesMunicipalitiesByRegion,
     fetchPsgcProvincesByRegion,
     fetchPsgcRegions,
-} from '@/features/pos/sale/services/psgcService';
+} from '@/features/pos/lib/services/sale/psgcService';
 import InputError from '@/shared/components/feedback/InputError';
 import { Button } from '@/shared/components/ui/button';
 import { Combobox } from '@/shared/components/ui/combobox';

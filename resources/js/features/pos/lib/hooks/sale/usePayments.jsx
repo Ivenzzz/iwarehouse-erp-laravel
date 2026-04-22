@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { calculatePaymentTotals } from "./paymentTotals";
+import { calculatePaymentTotals } from "@/features/pos/lib/utils/sale/paymentTotals";
 
 export function usePayments(grandTotal) {
   const [payments, setPayments] = useState([]);

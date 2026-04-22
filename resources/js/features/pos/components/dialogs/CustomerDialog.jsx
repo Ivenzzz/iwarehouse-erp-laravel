@@ -12,7 +12,7 @@ import {
   fetchPsgcCitiesMunicipalitiesByRegion,
   fetchPsgcProvincesByRegion,
   fetchPsgcRegions,
-} from "@/features/pos/sale/services/psgcService";
+} from "@/features/pos/lib/services/sale/psgcService";
 
 const EMPTY_LOADING_STATE = {
   regions: false,

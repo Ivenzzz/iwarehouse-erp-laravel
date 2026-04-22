@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X, ChevronRight, Eye, CheckCircle2, Trash2, Camera } from "lucide-react";
-import SequentialDocScanner from "@/features/pos/sale/dialogs/SequentialDocScanner";
+import SequentialDocScanner from "@/features/pos/components/dialogs/SequentialDocScanner";
 
 function ImagePreviewDialog({ open, onOpenChange, imageUrl, title }) {
   return (

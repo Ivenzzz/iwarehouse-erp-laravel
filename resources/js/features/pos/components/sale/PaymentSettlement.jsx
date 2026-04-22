@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
 import { toast } from '@/shared/hooks/use-toast';
 import PaymentMethodModal from './PaymentMethodModal';
-import ReplacementPaymentModal from './dialogs/ReplacementPaymentModal';
-import { calculatePaymentTotals } from './paymentTotals';
+import ReplacementPaymentModal from "@/features/pos/components/dialogs/ReplacementPaymentModal";
+import { calculatePaymentTotals } from "@/features/pos/lib/utils/sale/paymentTotals";
 
 
 const DENOMINATIONS = [

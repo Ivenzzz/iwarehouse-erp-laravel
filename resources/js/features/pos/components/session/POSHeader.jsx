@@ -1,6 +1,6 @@
 import React from "react";
 import { LogOut, Pause, Maximize, Minimize } from "lucide-react";
-import OnlineStatusIndicator from "@/features/pos/OnlineStatusIndicator";
+import OnlineStatusIndicator from "@/features/pos/components/tools/OnlineStatusIndicator";
 
 export default function POSHeader({
   displayTransactionNumber,

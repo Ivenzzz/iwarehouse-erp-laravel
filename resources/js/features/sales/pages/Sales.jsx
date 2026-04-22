@@ -10,7 +10,7 @@ import TransactionDetailsDialog from "@/features/salesreport/TransactionDetailsD
 import { Search, Package, RefreshCw, Calendar as CalendarIcon, X, ChevronUp, ChevronDown, Download } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
 import { format, getISOWeek, getYear, startOfISOWeek, endOfISOWeek, subWeeks } from "date-fns";
-import { generateWarrantyReceiptHTML } from "@/features/pos/sale/services/warrantyReceiptService";
+import { generateWarrantyReceiptHTML } from "@/features/pos/lib/services/sale/warrantyReceiptService";
 
 const Skeleton = ({ className }) => <div className={`animate-pulse rounded bg-slate-200 dark:bg-slate-800 ${className || ""}`} />;
 const PER_PAGE_OPTIONS = [10, 25, 50, 100];

@@ -57,6 +57,7 @@ class ListPosPageData
             'cashier' => $this->transformer->transformCashier($request->user(), $employee, $resolvedCashier['error']),
             'activeSession' => $this->transformer->transformActiveSession($activeSession),
             'warehouses' => Warehouse::query()
+                ->whereIn('warehouse_type', ['store', 'kiosk'])
                 ->orderBy('sort_order')
                 ->orderBy('name')
                 ->get()

@@ -6,6 +6,7 @@ use App\Features\Inventory\Support\InventoryDataTransformer;
 use App\Models\InventoryItem;
 use App\Models\ProductMaster;
 use App\Models\ProductVariant;
+use App\Models\Supplier;
 use App\Support\ProductVariantNameSql;
 use App\Models\Warehouse;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
@@ -18,7 +19,8 @@ use Illuminate\Support\Facades\DB;
 
 class PlacementReportQuery
 {
-    public const PAGE_SIZE = 50;
+    public const DEFAULT_PER_PAGE = 50;
+    public const PER_PAGE_OPTIONS = [10, 100, 500, 1000, 5000];
 
     private const REPORTABLE_STATUSES = [
         'available',
@@ -37,6 +39,7 @@ class PlacementReportQuery
 
     private ?Collection $warehouseModels = null;
     private ?Collection $warehousePayload = null;
+    private ?Collection $supplierPayload = null;
 
     public function filtersFromRequest(Request $request): array
     {
@@ -46,6 +49,12 @@ class PlacementReportQuery
             $warehouse = 'all';
         }
 
+        $supplier = trim((string) $request->query('supplier', 'all')) ?: 'all';
+
+        if ($supplier !== 'all' && (! ctype_digit($supplier) || ! Supplier::query()->whereKey((int) $supplier)->exists())) {
+            $supplier = 'all';
+        }
+
         $sort = trim((string) $request->query('sort', 'display_name'));
         if (! in_array($sort, self::ALLOWED_SORTS, true)) {
             $sort = 'display_name';
@@ -53,6 +62,11 @@ class PlacementReportQuery
 
         $direction = $request->query('direction') === 'desc' ? 'desc' : 'asc';
         $sortWarehouseId = trim((string) $request->query('sort_warehouse_id', ''));
+        $perPage = (int) $request->query('perPage', self::DEFAULT_PER_PAGE);
+
+        if (! in_array($perPage, self::PER_PAGE_OPTIONS, true)) {
+            $perPage = self::DEFAULT_PER_PAGE;
+        }
 
         if ($sort === 'warehouse') {
             if (! ctype_digit($sortWarehouseId) || ! $this->warehouseModels()->contains('id', (int) $sortWarehouseId)) {
@@ -66,10 +80,12 @@ class PlacementReportQuery
         return [
             'search' => trim((string) $request->query('search', '')),
             'warehouse' => $warehouse,
+            'supplier' => $supplier,
             'sort' => $sort,
             'sort_warehouse_id' => $sortWarehouseId,
             'direction' => $direction,
             'page' => max(1, (int) $request->query('page', 1)),
+            'perPage' => $perPage,
         ];
     }
 
@@ -84,10 +100,27 @@ class PlacementReportQuery
         return $this->warehousePayload;
     }
 
+    public function suppliers(): Collection
+    {
+        if ($this->supplierPayload === null) {
+            $this->supplierPayload = Supplier::query()
+                ->orderBy('legal_business_name')
+                ->orderBy('trade_name')
+                ->get(['id', 'legal_business_name', 'trade_name'])
+                ->map(fn (Supplier $supplier) => [
+                    'id' => $supplier->id,
+                    'name' => $supplier->trade_name ?: $supplier->legal_business_name,
+                ])
+                ->values();
+        }
+
+        return $this->supplierPayload;
+    }
+
     public function masterRowsPage(array $filters): array
     {
         $paginator = $this->masterRowsQuery($filters)->paginate(
-            self::PAGE_SIZE,
+            (int) $filters['perPage'],
             ['*'],
             'page',
             (int) $filters['page'],
@@ -122,7 +155,7 @@ class PlacementReportQuery
 
     public function variantRows(int $productMasterId, array $filters): array
     {
-        return $this->variantRowsQuery($productMasterId)
+        return $this->variantRowsQuery($productMasterId, $filters)
             ->get()
             ->map(fn (object $row) => [
                 'variant_id' => (int) $row->variant_id,
@@ -137,13 +170,24 @@ class PlacementReportQuery
             ->all();
     }
 
-    public function itemRows(int $warehouseId, ?int $variantId = null, ?int $productMasterId = null): array
+    public function itemRows(int $warehouseId, ?int $variantId = null, ?int $productMasterId = null, ?int $supplierId = null): array
     {
         $query = InventoryItem::query()
             ->with(InventoryDataTransformer::INVENTORY_RELATIONS)
             ->where('warehouse_id', $warehouseId)
             ->whereIn('status', self::REPORTABLE_STATUSES)
             ->orderByRaw('COALESCE(imei, imei2, serial_number, id)');
+
+        if ($supplierId !== null) {
+            $query->whereExists(function (QueryBuilder $builder) use ($supplierId): void {
+                $builder
+                    ->selectRaw('1')
+                    ->from('goods_receipts')
+                    ->join('delivery_receipts', 'delivery_receipts.id', '=', 'goods_receipts.delivery_receipt_id')
+                    ->whereColumn('goods_receipts.grn_number', 'inventory_items.grn_number')
+                    ->where('delivery_receipts.supplier_id', $supplierId);
+            });
+        }
 
         if ($variantId !== null) {
             $query->where('product_variant_id', $variantId);
@@ -248,7 +292,7 @@ class PlacementReportQuery
         return $query;
     }
 
-    private function variantRowsQuery(int $productMasterId): QueryBuilder
+    private function variantRowsQuery(int $productMasterId, array $filters): QueryBuilder
     {
         $query = $this->inventoryBaseQuery()
             ->where('product_masters.id', $productMasterId)
@@ -260,6 +304,8 @@ class PlacementReportQuery
             ->selectRaw('COALESCE(SUM(COALESCE(inventory_items.cost_price, 0)), 0) as total_valuation')
             ->orderByRaw(ProductVariantNameSql::expression())
             ->orderBy('product_variants.id');
+
+        $this->applySupplierFilter($query, $filters);
 
         foreach ($this->warehouseModels() as $warehouse) {
             $query->selectRaw($this->warehouseQuantityExpression((int) $warehouse->id).' as warehouse_qty_'.$warehouse->id);
@@ -315,6 +361,8 @@ class PlacementReportQuery
             ->join('product_masters', 'product_masters.id', '=', 'product_variants.product_master_id')
             ->join('product_models', 'product_models.id', '=', 'product_masters.model_id')
             ->join('product_brands', 'product_brands.id', '=', 'product_models.brand_id')
+            ->leftJoin('goods_receipts', 'goods_receipts.grn_number', '=', 'inventory_items.grn_number')
+            ->leftJoin('delivery_receipts', 'delivery_receipts.id', '=', 'goods_receipts.delivery_receipt_id')
             ->whereIn('inventory_items.status', self::REPORTABLE_STATUSES);
     }
 
@@ -330,7 +378,18 @@ class PlacementReportQuery
             $query->havingRaw($this->warehouseQuantityExpression((int) $filters['warehouse']).' > 0');
         }
 
+        $this->applySupplierFilter($query, $filters);
+
         return $query;
+    }
+
+    private function applySupplierFilter(QueryBuilder $query, array $filters): void
+    {
+        if (($filters['supplier'] ?? 'all') === 'all') {
+            return;
+        }
+
+        $query->where('delivery_receipts.supplier_id', (int) $filters['supplier']);
     }
 
     private function salesMetricsSubquery(array $filters): QueryBuilder
@@ -344,6 +403,8 @@ class PlacementReportQuery
             ->join('inventory_items as sold_inventory', 'sold_inventory.id', '=', 'sales_transaction_items.inventory_item_id')
             ->join('product_variants as sold_variants', 'sold_variants.id', '=', 'sold_inventory.product_variant_id')
             ->join('product_masters as sold_masters', 'sold_masters.id', '=', 'sold_variants.product_master_id')
+            ->leftJoin('goods_receipts as sold_goods_receipts', 'sold_goods_receipts.grn_number', '=', 'sold_inventory.grn_number')
+            ->leftJoin('delivery_receipts as sold_delivery_receipts', 'sold_delivery_receipts.id', '=', 'sold_goods_receipts.delivery_receipt_id')
             ->selectRaw('sold_masters.id as product_master_id')
             ->selectRaw('SUM(CASE WHEN sales_transactions.created_at >= ? THEN 1 ELSE 0 END) as sold_15', [$cutoff15])
             ->selectRaw('SUM(CASE WHEN sales_transactions.created_at >= ? THEN 1 ELSE 0 END) as sold_30', [$cutoff30])
@@ -351,6 +412,10 @@ class PlacementReportQuery
 
         if ($filters['warehouse'] !== 'all') {
             $query->where('pos_sessions.warehouse_id', (int) $filters['warehouse']);
+        }
+
+        if (($filters['supplier'] ?? 'all') !== 'all') {
+            $query->where('sold_delivery_receipts.supplier_id', (int) $filters['supplier']);
         }
 
         return $query;

@@ -12,7 +12,7 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 
 class InventoryListQuery
 {
-    public const PER_PAGE_OPTIONS = [10, 25, 50, 100];
+    public const PER_PAGE_OPTIONS = [10, 25, 50, 100, 500, 1000, 5000];
 
     private const ALLOWED_SORTS = [
         'productName',
@@ -44,6 +44,7 @@ class InventoryListQuery
             'status' => trim((string) $request->query('status', 'all')) ?: 'all',
             'brand' => trim((string) $request->query('brand', 'all')) ?: 'all',
             'category' => trim((string) $request->query('category', 'all')) ?: 'all',
+            'condition' => trim((string) $request->query('condition', 'all')) ?: 'all',
             'stockAge' => trim((string) $request->query('stockAge', 'all')) ?: 'all',
             'sort' => $sort,
             'direction' => $direction,
@@ -163,6 +164,10 @@ class InventoryListQuery
 
         if (($filters['category'] ?? 'all') !== 'all') {
             $query->where('categories.id', (int) $filters['category']);
+        }
+
+        if (($filters['condition'] ?? 'all') !== 'all') {
+            $query->where('product_variants.condition', $filters['condition']);
         }
 
         $this->applyStockAgeFilter($query, $filters['stockAge'] ?? 'all');

@@ -61,18 +61,32 @@ export default function InventoryPage({
     filters.status,
     filters.brand,
     filters.category,
+    filters.condition,
     filters.stockAge,
     filters.sort,
     filters.direction,
   ]);
 
   const visitInventory = (params = {}) => {
+    const requestedPerPage = params.perPage;
+    const normalizedRequestedPerPage = Number(requestedPerPage);
+
+    if (
+      requestedPerPage !== undefined
+      && Number.isFinite(normalizedRequestedPerPage)
+      && normalizedRequestedPerPage >= 500
+      && normalizedRequestedPerPage !== Number(filters.perPage)
+    ) {
+      toast({ description: "Large page size may slow loading and impact browser performance." });
+    }
+
     router.get(route("inventory.index"), {
       search: params.search ?? filters.search,
       location: params.location ?? filters.location,
       status: params.status ?? filters.status,
       brand: params.brand ?? filters.brand,
       category: params.category ?? filters.category,
+      condition: params.condition ?? filters.condition,
       stockAge: params.stockAge ?? filters.stockAge,
       sort: params.sort ?? filters.sort,
       direction: params.direction ?? filters.direction,
@@ -126,6 +140,7 @@ export default function InventoryPage({
       status: filters.status,
       brand: filters.brand,
       category: filters.category,
+      condition: filters.condition,
       stockAge: filters.stockAge,
       sort: filters.sort,
       direction: filters.direction,
@@ -279,8 +294,8 @@ export default function InventoryPage({
             </div>
           </div>
 
-          <div className="space-y-5 px-5 py-5">
-            <InventoryKPIs refreshToken={refreshToken} />
+          <div className="space-y-5 px-1 py-5">
+            <InventoryKPIs refreshToken={refreshToken} filters={filters} />
 
             <Card className="rounded-xl border-border bg-background">
               <CardContent className="p-4">

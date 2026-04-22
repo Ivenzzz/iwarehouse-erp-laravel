@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import InputError from '@/shared/components/feedback/InputError';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent } from '@/shared/components/ui/card';
@@ -8,16 +8,63 @@ import GuestShell from '@/shared/layouts/GuestShell';
 import { Head, useForm, Link } from '@inertiajs/react';
 import { User, Lock, Eye, EyeOff } from 'lucide-react'; 
 
+const SAVED_LOGIN_KEY = 'iwarehouse.saved_login_credentials';
+
 export default function LoginPage({ status }) {
     const [showPassword, setShowPassword] = useState(false);
 
     const { data, setData, post, processing, errors, reset } = useForm({
         username: '',
         password: '',
+        remember: true,
     });
+
+    useEffect(() => {
+        const root = document.documentElement;
+        const hadDarkClass = root.classList.contains('dark');
+        const previousColorScheme = root.style.colorScheme;
+
+        root.classList.remove('dark');
+        root.style.colorScheme = 'light';
+
+        return () => {
+            if (hadDarkClass) {
+                root.classList.add('dark');
+            }
+            root.style.colorScheme = previousColorScheme;
+        };
+    }, []);
+
+    useEffect(() => {
+        try {
+            const raw = window.localStorage.getItem(SAVED_LOGIN_KEY);
+            if (!raw) return;
+
+            const parsed = JSON.parse(raw);
+            if (typeof parsed?.username === 'string') {
+                setData('username', parsed.username);
+            }
+            if (typeof parsed?.password === 'string') {
+                setData('password', parsed.password);
+            }
+        } catch {
+            // Ignore invalid/blocked storage; login form still works.
+        }
+    }, [setData]);
 
     const submit = (event) => {
         event.preventDefault();
+        try {
+            window.localStorage.setItem(
+                SAVED_LOGIN_KEY,
+                JSON.stringify({
+                    username: data.username,
+                    password: data.password,
+                }),
+            );
+        } catch {
+            // Ignore storage errors and continue login.
+        }
         post(route('login'), {
             onFinish: () => reset('password'),
         });

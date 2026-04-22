@@ -1,6 +1,27 @@
 import React from 'react';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 
+function getWarehouseHeatmapClasses(qty) {
+  if (qty < 5) {
+    return {
+      cell: 'bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/40',
+      text: 'text-red-700 dark:text-red-300',
+    };
+  }
+
+  if (qty <= 15) {
+    return {
+      cell: 'bg-orange-100 dark:bg-orange-900/30 hover:bg-orange-200 dark:hover:bg-orange-900/40',
+      text: 'text-orange-700 dark:text-orange-300',
+    };
+  }
+
+  return {
+    cell: 'bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/40',
+    text: 'text-green-700 dark:text-green-300',
+  };
+}
+
 export function PlacementTableMasterRow({
   row,
   warehouses,
@@ -39,18 +60,14 @@ export function PlacementTableMasterRow({
       {warehouses.map((warehouse) => {
         const stock = row.warehouses[warehouse.id] || 0;
         const valuation = row.warehouseValuations?.[warehouse.id] || 0;
-        const isLowStock = stock > 0 && stock < 5;
         const hasStock = stock > 0;
+        const heatmap = getWarehouseHeatmapClasses(stock);
 
         return (
           <td
             key={warehouse.id}
             className={`px-3 py-2 text-center cursor-pointer transition-colors ${
-              hasStock
-                ? isLowStock
-                  ? 'bg-red-100 dark:bg-red-900/30 hover:bg-red-200'
-                  : 'bg-green-100 dark:bg-green-900/30 hover:bg-green-200'
-                : 'bg-gray-50 dark:bg-gray-800'
+              heatmap.cell
             }`}
             onClick={(event) => {
               event.stopPropagation();
@@ -64,13 +81,7 @@ export function PlacementTableMasterRow({
           >
             <div className="flex flex-col items-center">
               <span
-                className={`font-semibold ${
-                  hasStock
-                    ? isLowStock
-                      ? 'text-red-700 dark:text-red-400'
-                      : 'text-green-700 dark:text-green-400'
-                    : 'text-gray-400'
-                }`}
+                className={`font-semibold ${heatmap.text}`}
               >
                 {stock}
               </span>
@@ -155,13 +166,12 @@ export function PlacementTableVariantRow({
         const qty = data?.qty || 0;
         const valuation = data?.valuation || 0;
         const hasStock = qty > 0;
+        const heatmap = getWarehouseHeatmapClasses(qty);
 
         return (
           <td
             key={warehouse.id}
-            className={`px-3 py-1.5 text-center cursor-pointer transition-colors ${
-              hasStock ? 'hover:bg-blue-100 dark:hover:bg-blue-900/30' : ''
-            }`}
+            className={`px-3 py-1.5 text-center cursor-pointer transition-colors ${heatmap.cell}`}
             onClick={() => {
               if (hasStock) {
                 onOpenItems({
@@ -173,11 +183,7 @@ export function PlacementTableVariantRow({
           >
             <div className="flex flex-col items-center">
               <span
-                className={`text-[10px] font-medium ${
-                  hasStock
-                    ? 'text-gray-700 dark:text-gray-300'
-                    : 'text-gray-300 dark:text-gray-600'
-                }`}
+                className={`text-[10px] font-medium ${heatmap.text}`}
               >
                 {qty}
               </span>

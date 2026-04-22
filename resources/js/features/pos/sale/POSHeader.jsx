@@ -37,7 +37,7 @@ export default function POSHeader({
 
         <div className="flex-1 min-w-0 text-center">
           <div className="text-xs lg:text-sm font-bold text-gray-900 dark:text-white flex items-center justify-center gap-1.5">
-            <span className="truncate">Txn#: {displayTransactionNumber}</span>
+            <span className="truncate">Transaction #: {displayTransactionNumber}</span>
           </div>
           <div className="text-[10px] lg:text-xs text-gray-600 dark:text-gray-400 mt-0.5 truncate">
             {currentUser?.full_name || "Unknown"} | {branchName}

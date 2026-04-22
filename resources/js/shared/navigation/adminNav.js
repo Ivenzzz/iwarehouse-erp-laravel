@@ -1,18 +1,34 @@
 import {
+    BarChart3,
+    Boxes,
     ChartColumn,
+    ClipboardCheck,
+    ClipboardList,
+    Cog,
+    FileCheck2,
+    FileSpreadsheet,
+    FileText,
+    FolderCog,
+    HandCoins,
     Home,
     LayoutDashboard,
     Mail,
+    PackageCheck,
     Package2,
+    ReceiptText,
+    ShoppingBag,
     Settings,
     ShieldCheck,
     ShoppingCart,
+    Store,
     Tags,
     CreditCard,
     Truck,
+    Users,
     User,
     UserCog,
     Warehouse,
+    Waypoints,
 } from 'lucide-react';
 
 export function getAdminNavSections({ permissions = [] } = {}) {
@@ -24,19 +40,19 @@ export function getAdminNavSections({ permissions = [] } = {}) {
             icon: Home,
             active: route().current('dashboard'),
             defaultOpen: true,
-            links: [{ label: 'Dashboard', href: route('dashboard'), active: true }],
+            links: [{ label: 'Dashboard', href: route('dashboard'), active: route().current('dashboard'), icon: LayoutDashboard }],
         },
         {
             label: 'OPERATIONS',
             icon: ChartColumn,
             defaultOpen: false,
             links: [
-                { label: 'POS', href: route('pos.index'), active: route().current('pos.*') },
-                { label: 'Daily Sales Reports', href: route('sales-report.index'), active: route().current('sales-report.*') },
-                { label: 'Sales', href: route('sales.index'), active: route().current('sales.*') },
-                { label: 'Product Reports', href: route('dashboard') },
-                { label: 'Placement Reports', href: route('placement-reports.index'), active: route().current('placement-reports.*') },
-                { label: 'Customers', href: route('dashboard') },
+                { label: 'POS', href: route('pos.index'), active: route().current('pos.*'), icon: Store },
+                { label: 'Daily Sales Reports', href: route('sales-report.index'), active: route().current('sales-report.*'), icon: FileSpreadsheet },
+                { label: 'Sales', href: route('sales.index'), active: route().current('sales.*'), icon: ShoppingBag },
+                { label: 'Product Reports', href: route('dashboard'), icon: BarChart3 },
+                { label: 'Placement Reports', href: route('placement-reports.index'), active: route().current('placement-reports.*'), icon: FileText },
+                { label: 'Customers', href: route('dashboard'), icon: Users },
             ],
         },
         {
@@ -44,8 +60,8 @@ export function getAdminNavSections({ permissions = [] } = {}) {
             icon: Warehouse,
             defaultOpen: false,
             links: [
-                { label: 'Inventory', href: route('inventory.index'), active: route().current('inventory.*') },
-                { label: 'Stock Transfers', href: route('stock-transfers.index'), active: route().current('stock-transfers.*') },
+                { label: 'Inventory', href: route('inventory.index'), active: route().current('inventory.*'), icon: Boxes },
+                { label: 'Stock Transfers', href: route('stock-transfers.index'), active: route().current('stock-transfers.*'), icon: Waypoints },
             ],
         },
         {
@@ -53,12 +69,12 @@ export function getAdminNavSections({ permissions = [] } = {}) {
             icon: ShoppingCart,
             defaultOpen: false,
             links: [
-                { label: 'Stock Requests', href: route('stock-requests.index'), active: route().current('stock-requests.*') },
-                { label: 'SR Approval', href: route('stock-request-approvals.index'), active: route().current('stock-request-approvals.*') },
-                { label: 'RFQs', href: route('request-for-quotations.index'), active: route().current('request-for-quotations.*') },
-                { label: 'Purchase Orders', href: route('purchase-orders.index'), active: route().current('purchase-orders.*') },
-                { label: 'Delivery Receipts', href: route('delivery-receipts.index'), active: route().current('delivery-receipts.*') },
-                { label: 'GRNs', href: route('goods-receipts.index'), active: route().current('goods-receipts.*') },
+                { label: 'Stock Requests', href: route('stock-requests.index'), active: route().current('stock-requests.*'), icon: ClipboardList },
+                { label: 'SR Approval', href: route('stock-request-approvals.index'), active: route().current('stock-request-approvals.*'), icon: ClipboardCheck },
+                { label: 'RFQs', href: route('request-for-quotations.index'), active: route().current('request-for-quotations.*'), icon: FileText },
+                { label: 'Purchase Orders', href: route('purchase-orders.index'), active: route().current('purchase-orders.*'), icon: ShoppingCart },
+                { label: 'Delivery Receipts', href: route('delivery-receipts.index'), active: route().current('delivery-receipts.*'), icon: ReceiptText },
+                { label: 'GRNs', href: route('goods-receipts.index'), active: route().current('goods-receipts.*'), icon: PackageCheck },
             ],
         },
         {
@@ -66,8 +82,8 @@ export function getAdminNavSections({ permissions = [] } = {}) {
             icon: Mail,
             defaultOpen: false,
             links: [
-                { label: '3 Way Matching', href: route('dashboard') },
-                { label: 'Price Control', href: route('price-control.index'), active: route().current('price-control.*') },
+                { label: '3 Way Matching', href: route('dashboard'), icon: FileCheck2 },
+                { label: 'Price Control', href: route('price-control.index'), active: route().current('price-control.*'), icon: HandCoins },
             ],
         },
         {
@@ -124,8 +140,8 @@ export function getAdminNavSections({ permissions = [] } = {}) {
             icon: Settings,
             defaultOpen: false,
             links: [
-                { label: 'General', href: route('dashboard') },
-                { label: 'Companies', href: route('dashboard') },
+                { label: 'General', href: route('dashboard'), icon: Cog },
+                { label: 'Companies', href: route('dashboard'), icon: FolderCog },
                 ...(can('users.view')
                     ? [{
                         label: 'Users',

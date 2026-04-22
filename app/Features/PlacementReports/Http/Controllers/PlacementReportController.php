@@ -42,6 +42,8 @@ class PlacementReportController extends Controller
 
     public function items(Request $request, PlacementReportQuery $placementReportQuery): JsonResponse
     {
+        $filters = $placementReportQuery->filtersFromRequest($request);
+
         $validated = $request->validate([
             'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
             'variant_id' => ['nullable', 'integer', 'exists:product_variants,id', 'required_without:product_master_id'],
@@ -53,6 +55,7 @@ class PlacementReportController extends Controller
                 (int) $validated['warehouse_id'],
                 isset($validated['variant_id']) ? (int) $validated['variant_id'] : null,
                 isset($validated['product_master_id']) ? (int) $validated['product_master_id'] : null,
+                $filters['supplier'] !== 'all' ? (int) $filters['supplier'] : null,
             ),
         );
     }

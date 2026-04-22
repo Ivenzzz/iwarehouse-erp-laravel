@@ -23,7 +23,7 @@ export default function InventoryItemDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl">
+      <DialogContent className="max-w-7xl">
         <DialogHeader>
           <DialogTitle className="text-sm font-semibold">
             {variantName} - {warehouseName}
@@ -62,7 +62,7 @@ export default function InventoryItemDialog({
                     <tr key={item.id || idx} className="border-b hover:bg-slate-50 dark:hover:bg-slate-900/60">
                       <td className="px-3 py-2 font-medium">{item.productName || '-'}</td>
                       <td className="px-3 py-2">
-                        <Badge variant="outline" className="text-[10px]">
+                        <Badge className="text-xs">
                           {item.variantCondition || 'N/A'}
                         </Badge>
                       </td>

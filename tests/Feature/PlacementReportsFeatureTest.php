@@ -6,7 +6,9 @@ use App\Models\Customer;
 use App\Models\CustomerGroup;
 use App\Models\CustomerType;
 use App\Models\Department;
+use App\Models\DeliveryReceipt;
 use App\Models\Employee;
+use App\Models\GoodsReceipt;
 use App\Models\InventoryItem;
 use App\Models\JobTitle;
 use App\Models\PosSession;
@@ -17,6 +19,7 @@ use App\Models\ProductModel;
 use App\Models\ProductVariant;
 use App\Models\SalesTransaction;
 use App\Models\SalesTransactionItem;
+use App\Models\Supplier;
 use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -64,9 +67,11 @@ class PlacementReportsFeatureTest extends TestCase
                 ->component('PlacementReports')
                 ->where('filters.search', '')
                 ->where('filters.warehouse', 'all')
+                ->where('filters.supplier', 'all')
                 ->where('filters.sort', 'display_name')
                 ->where('filters.direction', 'asc')
                 ->has('warehouses', 1)
+                ->has('suppliers')
                 ->has('rows', 1)
                 ->where('pagination.page', 1)
                 ->where('pagination.hasMore', false)
@@ -137,6 +142,46 @@ class PlacementReportsFeatureTest extends TestCase
             );
     }
 
+    public function test_placement_reports_supplier_filter_is_server_side(): void
+    {
+        $user = User::factory()->create();
+        $warehouse = Warehouse::create([
+            'name' => 'Main Branch',
+            'warehouse_type' => 'store',
+            'sort_order' => 1,
+        ]);
+
+        $supplierA = $this->createSupplier('SUP-A', 'Supplier Alpha');
+        $supplierB = $this->createSupplier('SUP-B', 'Supplier Beta');
+
+        [$variantA] = $this->createProductGraph('Apple', 'iPhone 17', 'APPLE-IPHONE17', [
+            ['name' => '256GB Black', 'sku' => 'APPLE-IPHONE17-256-BLK'],
+        ]);
+        [$variantB] = $this->createProductGraph('Samsung', 'Galaxy Tab', 'SAMSUNG-TAB', [
+            ['name' => '256GB Gray', 'sku' => 'SAMSUNG-TAB-256-GRY'],
+        ]);
+
+        $itemA1 = $this->createInventoryItem($variantA, $warehouse, status: 'available', cost: 15000);
+        $itemA2 = $this->createInventoryItem($variantA, $warehouse, status: 'available', cost: 15100);
+        $itemB1 = $this->createInventoryItem($variantB, $warehouse, status: 'available', cost: 11000);
+
+        $this->attachInventoryItemToSupplier($itemA1, $supplierA, 'GRN-A-001');
+        $this->attachInventoryItemToSupplier($itemA2, $supplierA, 'GRN-A-002');
+        $this->attachInventoryItemToSupplier($itemB1, $supplierB, 'GRN-B-001');
+
+        $this->actingAs($user)
+            ->get(route('placement-reports.index', ['supplier' => $supplierA->id]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('filters.supplier', (string) $supplierA->id)
+                ->where('rows.0.display_name', 'Apple iPhone 17')
+                ->where('rows.0.total', 2)
+                ->where('summary.totalUniqueProducts', 1)
+                ->where('summary.totalItems', 2)
+                ->where('footerTotals.grandTotal', 2)
+            );
+    }
+
     public function test_placement_reports_lazy_rows_endpoint_returns_page_two_without_duplicates(): void
     {
         $user = User::factory()->create();
@@ -161,9 +206,20 @@ class PlacementReportsFeatureTest extends TestCase
         $response->assertOk();
         $response->assertInertia(fn (Assert $page) => $page
             ->has('rows', 50)
+            ->where('pagination.page', 1)
             ->where('pagination.hasMore', true)
             ->where('pagination.total', 55)
         );
+
+        $this->actingAs($user)
+            ->get(route('placement-reports.index', ['page' => 2]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('rows', 5)
+                ->where('pagination.page', 2)
+                ->where('pagination.hasMore', false)
+                ->where('pagination.total', 55)
+            );
 
         $pageTwo = $this->actingAs($user)
             ->getJson(route('placement-reports.rows', ['page' => 2]))
@@ -388,6 +444,35 @@ class PlacementReportsFeatureTest extends TestCase
             'cash_price' => $cash ?? ($cost + 2000),
             'srp_price' => ($cash ?? ($cost + 2000)) + 500,
         ]);
+    }
+
+    private function createSupplier(string $code, string $legalName): Supplier
+    {
+        return Supplier::create([
+            'supplier_code' => $code,
+            'legal_business_name' => $legalName,
+            'trade_name' => $legalName,
+            'status' => 'Active',
+        ]);
+    }
+
+    private function attachInventoryItemToSupplier(InventoryItem $item, Supplier $supplier, string $grnNumber): void
+    {
+        $deliveryReceipt = DeliveryReceipt::create([
+            'supplier_id' => $supplier->id,
+            'dr_number' => 'DR-'.$grnNumber,
+            'date_received' => now(),
+            'date_encoded' => now(),
+            'has_goods_receipt' => true,
+        ]);
+
+        GoodsReceipt::create([
+            'grn_number' => $grnNumber,
+            'delivery_receipt_id' => $deliveryReceipt->id,
+            'status' => 'completed',
+        ]);
+
+        $item->forceFill(['grn_number' => $grnNumber])->save();
     }
 
     private function createSaleForInventory(InventoryItem $inventoryItem, Warehouse $warehouse, Carbon $createdAt): void

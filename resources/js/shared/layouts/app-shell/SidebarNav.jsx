@@ -4,7 +4,7 @@ import {
     CollapsibleTrigger,
 } from '@/shared/components/ui/collapsible';
 import { Link } from '@inertiajs/react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 const SIDEBAR_STATE_KEY = 'iwarehouse:admin-sidebar:sections';
@@ -108,8 +108,8 @@ export default function SidebarNav({ sections, onNavigate, onLayoutChange }) {
     };
 
     return (
-        <div className="px-4">
-            <div className="space-y-1.5">
+        <div className="px-2.5">
+            <div className="space-y-2">
                 {sections.map((section) => {
                     const Icon = section.icon;
                     const isOpen =
@@ -125,21 +125,21 @@ export default function SidebarNav({ sections, onNavigate, onLayoutChange }) {
                             <CollapsibleTrigger asChild>
                                 <button
                                     type="button"
-                                    className="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left text-xs font-medium text-sidebar-foreground/85 transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold uppercase text-muted-foreground transition-colors hover:bg-muted dark:text-gray-400 dark:hover:bg-gray-800"
                                 >
-                                    <Icon className="size-[15px] shrink-0 text-current" />
+                                    <Icon className="hidden size-4 shrink-0 text-current/75" />
                                     <span className="flex-1">{section.label}</span>
-                                    {isOpen ? (
-                                        <ChevronDown className="size-4 shrink-0 text-current/75" />
-                                    ) : (
-                                        <ChevronRight className="size-4 shrink-0 text-current/75" />
-                                    )}
+                                    <ChevronDown
+                                        className={`size-3.5 shrink-0 text-muted-foreground/70 transition-transform duration-300 ease-out dark:text-sidebar-foreground/55 ${isOpen ? '' : '-rotate-90'}`}
+                                    />
                                 </button>
                             </CollapsibleTrigger>
 
-                            <CollapsibleContent className="px-1 pb-1 pt-2">
-                                <div className="ml-3 rounded-l-2xl border-sidebar-border pl-2">
-                                    <div className="space-y-1">
+                            <CollapsibleContent
+                                className={`grid transition-[grid-template-rows,opacity] duration-300 ease-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
+                            >
+                                <div className="min-h-0 overflow-hidden pl-1 pb-1 pt-1">
+                                    <div className="space-y-0.5">
                                         {section.links.map((link) => {
                                             const LinkIcon = link.icon;
 
@@ -148,15 +148,15 @@ export default function SidebarNav({ sections, onNavigate, onLayoutChange }) {
                                                     key={link.label}
                                                     href={link.href}
                                                     onBefore={onNavigate}
-                                                    className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs transition-all duration-200 ${link.active
-                                                            ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                                                            : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                                                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-xs transition-colors ${link.active
+                                                            ? 'bg-muted text-foreground dark:bg-gray-700 dark:text-gray-300'
+                                                            : 'text-muted-foreground hover:bg-muted hover:text-foreground dark:text-sidebar-foreground/75 dark:hover:bg-sidebar-accent dark:hover:text-sidebar-accent-foreground'
                                                         }`}
                                                 >
                                                     {LinkIcon ? (
-                                                        <LinkIcon className="size-3.5 shrink-0 text-current/80" />
+                                                        <LinkIcon className="h-[18px] w-[18px] shrink-0 text-muted-foreground dark:text-gray-300" />
                                                     ) : null}
-                                                    <span className={`truncate ${link.active ? 'font-semibold' : 'font-medium'}`}>
+                                                    <span className={`truncate leading-tight ${link.active ? 'font-semibold' : 'font-medium'}`}>
                                                         {link.label}
                                                     </span>
                                                 </Link>

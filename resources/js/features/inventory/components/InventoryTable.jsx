@@ -35,6 +35,11 @@ const STOCK_AGE_OPTIONS = [
   { value: "90+", label: "90+ days" },
 ];
 
+const CONDITION_LABELS = {
+  "Brand New": "Brand New",
+  "Certified Pre-Owned": "Certified Pre-Owned",
+};
+
 function SortableHeader({ label, active, direction, onClick, align = "left" }) {
   return (
     <button
@@ -111,6 +116,23 @@ export default function InventoryTable({
     })),
   ]), [categories]);
 
+  const conditionOptions = useMemo(() => {
+    const foundConditions = [...new Set(items
+      .map((item) => String(item.variantCondition ?? "").trim())
+      .filter(Boolean))];
+
+    const normalizedConditions = ["Brand New", "Certified Pre-Owned", ...foundConditions]
+      .filter((value, index, arr) => arr.indexOf(value) === index);
+
+    return [
+      { value: "all", label: "All Conditions" },
+      ...normalizedConditions.map((condition) => ({
+        value: condition,
+        label: CONDITION_LABELS[condition] ?? condition,
+      })),
+    ];
+  }, [items]);
+
   const allVisibleSelected = items.length > 0 && items.every((item) => selectedItems.includes(item.id));
 
   const updateFilter = (key, value) => {
@@ -140,7 +162,7 @@ export default function InventoryTable({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_repeat(5,minmax(0,0.8fr))]">
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_repeat(6,minmax(0,0.8fr))]">
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -201,7 +223,15 @@ export default function InventoryTable({
         />
 
         <Combobox
-          value={String(filters.stockAge)}
+          value={String(filters.condition ?? "all")}
+          onValueChange={(value) => updateFilter("condition", value || "all")}
+          options={conditionOptions}
+          placeholder="All Conditions"
+          className="h-10"
+        />
+
+        <Combobox
+          value={String(filters.stockAge ?? "all")}
           onValueChange={(value) => updateFilter("stockAge", value || "all")}
           options={STOCK_AGE_OPTIONS}
           placeholder="All Stock Age"
@@ -231,7 +261,7 @@ export default function InventoryTable({
           </thead>
           <tbody className="divide-y divide-border bg-background">
             {items.length ? items.map((item) => (
-              <tr key={item.id} className="align-top hover:bg-muted/30 transition-colors">
+              <tr key={item.id} className="align-top hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                 <td className="px-4 py-4">
                   <Checkbox checked={selectedItems.includes(item.id)} onCheckedChange={(checked) => toggleRow(item.id, checked)} />
                 </td>

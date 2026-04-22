@@ -3,7 +3,9 @@ import axios from "axios";
 import { Head, router } from "@inertiajs/react";
 import {
   Box,
+  ChevronLeft,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
   FileSpreadsheet,
   Package,
@@ -23,6 +25,7 @@ import AppShell from "@/shared/layouts/AppShell";
 const RELOAD_PROPS = [
   "filters",
   "warehouses",
+  "suppliers",
   "summary",
   "footerTotals",
   "rows",
@@ -39,39 +42,42 @@ const EMPTY_DIALOG = {
 };
 
 function SortIndicator({ filters, columnKey, warehouseId = "" }) {
-  const active = columnKey === "warehouse"
-    ? filters.sort === "warehouse" && String(filters.sort_warehouse_id) === String(warehouseId)
-    : filters.sort === columnKey;
+  const active =
+    columnKey === "warehouse"
+      ? filters.sort === "warehouse" &&
+        String(filters.sort_warehouse_id) === String(warehouseId)
+      : filters.sort === columnKey;
 
   if (!active) {
     return <ChevronUp className="w-3 h-3 opacity-30" />;
   }
 
-  return filters.direction === "asc"
-    ? <ChevronUp className="w-3 h-3" />
-    : <ChevronDown className="w-3 h-3" />;
+  return filters.direction === "asc" ? (
+    <ChevronUp className="w-3 h-3" />
+  ) : (
+    <ChevronDown className="w-3 h-3" />
+  );
 }
 
 export default function PlacementReports({
   filters,
   warehouses,
+  suppliers,
   summary,
   footerTotals,
   rows,
   pagination,
 }) {
   const [searchTerm, setSearchTerm] = useState(filters.search ?? "");
-  const [loadedRows, setLoadedRows] = useState(rows ?? []);
-  const [loadedPagination, setLoadedPagination] = useState(
-    pagination ?? { page: 1, hasMore: false, total: 0, perPage: 50 }
-  );
   const [expandedRows, setExpandedRows] = useState({});
   const [variantRowsByMaster, setVariantRowsByMaster] = useState({});
   const [loadingVariants, setLoadingVariants] = useState({});
   const [variantErrorsByMaster, setVariantErrorsByMaster] = useState({});
-  const [loadingMore, setLoadingMore] = useState(false);
   const [itemDialog, setItemDialog] = useState(EMPTY_DIALOG);
   const tableContainerRef = useRef(null);
+  const tableRef = useRef(null);
+  const topScrollRef = useRef(null);
+  const topScrollInnerRef = useRef(null);
   const expandedRowsRef = useRef({});
   const variantRowsByMasterRef = useRef({});
   const loadingVariantsRef = useRef({});
@@ -92,18 +98,30 @@ export default function PlacementReports({
     loadingVariantsRef.current = loadingVariants;
   }, [loadingVariants]);
 
-  useEffect(() => {
-    setLoadedRows(rows ?? []);
-    setLoadedPagination(pagination ?? { page: 1, hasMore: false, total: 0, perPage: 50 });
-  }, [rows, pagination]);
-
-  const queryStateKey = useMemo(() => JSON.stringify({
-    search: filters.search ?? "",
-    warehouse: String(filters.warehouse ?? "all"),
-    sort: filters.sort ?? "display_name",
-    direction: filters.direction ?? "asc",
-    sort_warehouse_id: String(filters.sort_warehouse_id ?? ""),
-  }), [filters.direction, filters.search, filters.sort, filters.sort_warehouse_id, filters.warehouse]);
+  const queryStateKey = useMemo(
+    () =>
+      JSON.stringify({
+        search: filters.search ?? "",
+        warehouse: String(filters.warehouse ?? "all"),
+        supplier: String(filters.supplier ?? "all"),
+        sort: filters.sort ?? "display_name",
+        direction: filters.direction ?? "asc",
+        sort_warehouse_id: String(filters.sort_warehouse_id ?? ""),
+        page: Number(filters.page ?? 1),
+        perPage: Number(filters.perPage ?? pagination.perPage ?? 50),
+      }),
+    [
+      filters.direction,
+      filters.page,
+      filters.perPage,
+      filters.search,
+      filters.supplier,
+      filters.sort,
+      filters.sort_warehouse_id,
+      filters.warehouse,
+      pagination.perPage,
+    ]
+  );
 
   useEffect(() => {
     setExpandedRows({});
@@ -113,22 +131,44 @@ export default function PlacementReports({
     tableContainerRef.current?.scrollTo({ top: 0 });
   }, [queryStateKey]);
 
-  const currentQuery = useCallback((overrides = {}) => ({
-    search: overrides.search ?? filters.search,
-    warehouse: overrides.warehouse ?? filters.warehouse,
-    sort: overrides.sort ?? filters.sort,
-    sort_warehouse_id: overrides.sort_warehouse_id ?? filters.sort_warehouse_id,
-    direction: overrides.direction ?? filters.direction,
-    page: overrides.page ?? 1,
-  }), [filters.direction, filters.search, filters.sort, filters.sort_warehouse_id, filters.warehouse]);
+  const currentQuery = useCallback(
+    (overrides = {}) => ({
+      search: overrides.search ?? filters.search,
+      warehouse: overrides.warehouse ?? filters.warehouse,
+      supplier: overrides.supplier ?? filters.supplier,
+      sort: overrides.sort ?? filters.sort,
+      sort_warehouse_id:
+        overrides.sort_warehouse_id ?? filters.sort_warehouse_id,
+      direction: overrides.direction ?? filters.direction,
+      page: overrides.page ?? 1,
+      perPage: overrides.perPage ?? filters.perPage ?? pagination.perPage ?? 50,
+    }),
+    [
+      filters.direction,
+      filters.perPage,
+      filters.search,
+      filters.supplier,
+      filters.sort,
+      filters.sort_warehouse_id,
+      filters.warehouse,
+      pagination.perPage,
+    ]
+  );
 
-  const visitPlacementReports = useCallback((params = {}) => {
-    router.get(route("placement-reports.index"), currentQuery(params), {
-      preserveState: true,
-      preserveScroll: true,
-      replace: true,
-    });
-  }, [currentQuery]);
+  const visitPlacementReports = useCallback(
+    (params = {}) => {
+      router.get(
+        route("placement-reports.index"),
+        currentQuery(params),
+        {
+          preserveState: true,
+          preserveScroll: true,
+          replace: true,
+        }
+      );
+    },
+    [currentQuery]
+  );
 
   useEffect(() => {
     const normalized = searchTerm.trim();
@@ -144,27 +184,51 @@ export default function PlacementReports({
     return () => window.clearTimeout(timeoutId);
   }, [filters.search, searchTerm, visitPlacementReports]);
 
-  const warehouseOptions = useMemo(() => ([
-    { value: "all", label: "All Stores" },
-    ...warehouses.map((warehouse) => ({
-      value: String(warehouse.id),
-      label: warehouse.name,
-    })),
-  ]), [warehouses]);
+  const warehouseOptions = useMemo(
+    () => [
+      { value: "all", label: "All Stores" },
+      ...warehouses.map((warehouse) => ({
+        value: String(warehouse.id),
+        label: warehouse.name,
+      })),
+    ],
+    [warehouses]
+  );
 
-  const handleSort = useCallback((sort, sortWarehouseId = "") => {
-    const isSameSort =
-      filters.sort === sort
-      && String(filters.sort_warehouse_id || "") === String(sortWarehouseId || "");
-    const direction = isSameSort && filters.direction === "asc" ? "desc" : "asc";
+  const supplierOptions = useMemo(
+    () => [
+      { value: "all", label: "All Suppliers" },
+      ...(suppliers || []).map((supplier) => ({
+        value: String(supplier.id),
+        label: supplier.name,
+      })),
+    ],
+    [suppliers]
+  );
 
-    visitPlacementReports({
-      sort,
-      sort_warehouse_id: sort === "warehouse" ? String(sortWarehouseId) : "",
-      direction,
-      page: 1,
-    });
-  }, [filters.direction, filters.sort, filters.sort_warehouse_id, visitPlacementReports]);
+  const handleSort = useCallback(
+    (sort, sortWarehouseId = "") => {
+      const isSameSort =
+        filters.sort === sort &&
+        String(filters.sort_warehouse_id || "") ===
+          String(sortWarehouseId || "");
+      const direction =
+        isSameSort && filters.direction === "asc" ? "desc" : "asc";
+
+      visitPlacementReports({
+        sort,
+        sort_warehouse_id: sort === "warehouse" ? String(sortWarehouseId) : "",
+        direction,
+        page: 1,
+      });
+    },
+    [
+      filters.direction,
+      filters.sort,
+      filters.sort_warehouse_id,
+      visitPlacementReports,
+    ]
+  );
 
   const handleRefresh = useCallback(() => {
     router.reload({
@@ -174,151 +238,204 @@ export default function PlacementReports({
     });
   }, []);
 
-  const loadMoreRows = useCallback(async () => {
-    if (loadingMore || !loadedPagination.hasMore) {
-      return;
-    }
+  const handleToggleExpand = useCallback(
+    async (row) => {
+      const masterId = row.product_master_id;
+      const nextExpanded = !expandedRowsRef.current[masterId];
 
-    setLoadingMore(true);
-
-    try {
-      const response = await axios.get(route("placement-reports.rows"), {
-        params: currentQuery({ page: loadedPagination.page + 1 }),
-      });
-
-      setLoadedRows((current) => [...current, ...(response.data.rows || [])]);
-      setLoadedPagination(response.data.pagination || loadedPagination);
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [currentQuery, loadedPagination, loadingMore]);
-
-  const maybeLoadMoreRows = useCallback(() => {
-    const container = tableContainerRef.current;
-
-    if (!container || loadingMore || !loadedPagination.hasMore) {
-      return;
-    }
-
-    const nearBottom =
-      container.scrollHeight - container.scrollTop - container.clientHeight < 600;
-
-    if (nearBottom) {
-      loadMoreRows();
-    }
-  }, [loadMoreRows, loadedPagination.hasMore, loadingMore]);
-
-  useEffect(() => {
-    maybeLoadMoreRows();
-  }, [loadedRows.length, maybeLoadMoreRows]);
-
-  const handleToggleExpand = useCallback(async (row) => {
-    const masterId = row.product_master_id;
-    const nextExpanded = !expandedRowsRef.current[masterId];
-
-    setExpandedRows((current) => ({
-      ...current,
-      [masterId]: nextExpanded,
-    }));
-
-    if (!nextExpanded) {
-      return;
-    }
-
-    if (variantRowsByMasterRef.current[masterId] || loadingVariantsRef.current[masterId]) {
-      return;
-    }
-
-    setVariantErrorsByMaster((current) => ({
-      ...current,
-      [masterId]: "",
-    }));
-    setLoadingVariants((current) => ({
-      ...current,
-      [masterId]: true,
-    }));
-
-    try {
-      const response = await axios.get(route("placement-reports.variants", masterId), {
-        params: currentQuery(),
-      });
-
-      setVariantRowsByMaster((current) => ({
+      setExpandedRows((current) => ({
         ...current,
-        [masterId]: Array.isArray(response.data?.variants) ? response.data.variants : [],
+        [masterId]: nextExpanded,
       }));
-    } catch (error) {
-      setVariantErrorsByMaster((current) => ({
-        ...current,
-        [masterId]: error.response?.data?.message || error.message || "Failed to load variants.",
-      }));
-    } finally {
-      setLoadingVariants((current) => ({
-        ...current,
-        [masterId]: false,
-      }));
-    }
-  }, [currentQuery]);
 
-  const handleOpenItems = useCallback(async ({ warehouseId, variantId = null, productMasterId = null }) => {
-    const warehouseName = warehouses.find((warehouse) => String(warehouse.id) === String(warehouseId))?.name || "Warehouse";
+      if (!nextExpanded) return;
 
-    setItemDialog({
-      open: true,
-      isLoading: true,
-      error: "",
-      items: [],
-      warehouseName,
-      variantName: "",
-    });
+      if (
+        variantRowsByMasterRef.current[masterId] ||
+        loadingVariantsRef.current[masterId]
+      ) {
+        return;
+      }
 
-    try {
-      const response = await axios.get(route("placement-reports.items"), {
-        params: {
-          warehouse_id: warehouseId,
-          ...(variantId ? { variant_id: variantId } : {}),
-          ...(productMasterId ? { product_master_id: productMasterId } : {}),
-        },
-      });
+      setVariantErrorsByMaster((current) => ({ ...current, [masterId]: "" }));
+      setLoadingVariants((current) => ({ ...current, [masterId]: true }));
+
+      try {
+        const response = await axios.get(
+          route("placement-reports.variants", masterId),
+          { params: currentQuery() }
+        );
+
+        setVariantRowsByMaster((current) => ({
+          ...current,
+          [masterId]: Array.isArray(response.data?.variants)
+            ? response.data.variants
+            : [],
+        }));
+      } catch (error) {
+        setVariantErrorsByMaster((current) => ({
+          ...current,
+          [masterId]:
+            error.response?.data?.message ||
+            error.message ||
+            "Failed to load variants.",
+        }));
+      } finally {
+        setLoadingVariants((current) => ({ ...current, [masterId]: false }));
+      }
+    },
+    [currentQuery]
+  );
+
+  const handleOpenItems = useCallback(
+    async ({ warehouseId, variantId = null, productMasterId = null }) => {
+      const warehouseName =
+        warehouses.find(
+          (warehouse) => String(warehouse.id) === String(warehouseId)
+        )?.name || "Warehouse";
 
       setItemDialog({
         open: true,
-        isLoading: false,
+        isLoading: true,
         error: "",
-        items: response.data.items || [],
-        warehouseName: response.data.warehouseName || warehouseName,
-        variantName: response.data.variantName || "",
-      });
-    } catch (error) {
-      setItemDialog({
-        open: true,
-        isLoading: false,
-        error: error.response?.data?.message || error.message || "Failed to load items.",
         items: [],
         warehouseName,
         variantName: "",
       });
-    }
-  }, [warehouses]);
 
-  const visibleProductTotal = loadedRows.length;
-  const totalProducts = loadedPagination.total ?? loadedRows.length;
+      try {
+        const response = await axios.get(route("placement-reports.items"), {
+          params: {
+            warehouse_id: warehouseId,
+            supplier: filters.supplier ?? "all",
+            ...(variantId ? { variant_id: variantId } : {}),
+            ...(productMasterId
+              ? { product_master_id: productMasterId }
+              : {}),
+          },
+        });
+
+        setItemDialog({
+          open: true,
+          isLoading: false,
+          error: "",
+          items: response.data.items || [],
+          warehouseName: response.data.warehouseName || warehouseName,
+          variantName: response.data.variantName || "",
+        });
+      } catch (error) {
+        setItemDialog({
+          open: true,
+          isLoading: false,
+          error:
+            error.response?.data?.message ||
+            error.message ||
+            "Failed to load items.",
+          items: [],
+          warehouseName,
+          variantName: "",
+        });
+      }
+    },
+    [filters.supplier, warehouses]
+  );
+
+  const visibleProductTotal = rows.length;
+  const totalProducts = pagination.total ?? rows.length;
+  const currentPage = Number(pagination.page || 1);
+  const selectedPerPage = Number(filters.perPage ?? pagination.perPage ?? 50);
+  const lastPage = Math.max(
+    1,
+    Math.ceil(Number(totalProducts || 0) / Number(selectedPerPage || 50))
+  );
+  const perPageOptions = useMemo(
+    () => [
+      { value: "10", label: "10" },
+      { value: "100", label: "100" },
+      { value: "500", label: "500" },
+      { value: "1000", label: "1k" },
+      { value: "5000", label: "5k" },
+    ],
+    []
+  );
+
+  useEffect(() => {
+    const tableContainer = tableContainerRef.current;
+    const table = tableRef.current;
+    const topScroll = topScrollRef.current;
+    const topScrollInner = topScrollInnerRef.current;
+
+    if (!tableContainer || !table || !topScroll || !topScrollInner) {
+      return undefined;
+    }
+
+    let syncingFromTop = false;
+    let syncingFromBottom = false;
+
+    const syncWidths = () => {
+      topScrollInner.style.width = `${table.scrollWidth}px`;
+      topScroll.scrollLeft = tableContainer.scrollLeft;
+    };
+
+    const onTopScroll = () => {
+      if (syncingFromBottom) return;
+      syncingFromTop = true;
+      tableContainer.scrollLeft = topScroll.scrollLeft;
+      syncingFromTop = false;
+    };
+
+    const onBottomScroll = () => {
+      if (syncingFromTop) return;
+      syncingFromBottom = true;
+      topScroll.scrollLeft = tableContainer.scrollLeft;
+      syncingFromBottom = false;
+    };
+
+    syncWidths();
+    topScroll.addEventListener("scroll", onTopScroll, { passive: true });
+    tableContainer.addEventListener("scroll", onBottomScroll, {
+      passive: true,
+    });
+
+    const resizeObserver = new ResizeObserver(syncWidths);
+    resizeObserver.observe(tableContainer);
+    resizeObserver.observe(table);
+    window.addEventListener("resize", syncWidths);
+
+    return () => {
+      topScroll.removeEventListener("scroll", onTopScroll);
+      tableContainer.removeEventListener("scroll", onBottomScroll);
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", syncWidths);
+    };
+  }, [rows.length, warehouses.length]);
 
   return (
     <AppShell title="Placement Reports">
       <Head title="Placement Reports" />
 
       <div className="mx-auto flex w-full flex-col gap-6">
-        <section className="rounded-xl bg-white shadow-[0_14px_40px_rgba(15,23,42,0.08)] dark:bg-slate-950">
-          <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-5 dark:border-slate-800 lg:flex-row lg:items-center lg:justify-between">
+        {/*
+          ┌─────────────────────────────────────────┐
+          │  MAIN CARD                               │
+          │  bg-card   — adapts light / soft-dark    │
+          │  Shadow: visible in light, subtle dark    │
+          └─────────────────────────────────────────┘
+        */}
+        <section className="rounded-xl border border-border bg-card shadow-sm dark:shadow-none">
+
+          {/* ── Header bar ─────────────────────────────────── */}
+          <div className="flex flex-col gap-4 border-b border-border px-5 py-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+              <h1 className="text-2xl font-semibold text-foreground">
                 Placement Reports
               </h1>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              <p className="mt-1 text-sm text-muted-foreground">
                 Track inventory distribution across all stores
               </p>
             </div>
+
+            {/* ── Toolbar buttons ── */}
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={handleRefresh}>
                 <RefreshCw className="w-4 h-4 mr-2" />
@@ -327,7 +444,10 @@ export default function PlacementReports({
               <Button
                 variant="outline"
                 onClick={() => {
-                  window.location.href = route("placement-reports.export.csv", currentQuery());
+                  window.location.href = route(
+                    "placement-reports.export.csv",
+                    currentQuery()
+                  );
                 }}
               >
                 <FileSpreadsheet className="w-4 h-4 mr-2" />
@@ -336,7 +456,10 @@ export default function PlacementReports({
               <Button
                 variant="outline"
                 onClick={() => {
-                  window.location.href = route("placement-reports.export.xlsx", currentQuery());
+                  window.location.href = route(
+                    "placement-reports.export.xlsx",
+                    currentQuery()
+                  );
                 }}
               >
                 <FileSpreadsheet className="w-4 h-4 mr-2" />
@@ -346,244 +469,453 @@ export default function PlacementReports({
           </div>
 
           <div className="space-y-6 px-5 py-5">
+
+            {/* ── Summary cards ───────────────────────────── */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card className="bg-blue-50 border border-blue-200 shadow-none">
-                <CardContent className="pt-6">
+
+              {/* Total Stores */}
+              <Card className="bg-card border border-border shadow-sm rounded-xl">
+                <CardContent className="p-6">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-blue-600 font-medium">Total Stores</p>
-                      <p className="text-3xl font-bold text-blue-900">{summary.totalStores}</p>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Total Stores
+                      </p>
+                      <p className="text-3xl font-bold text-foreground">
+                        {summary.totalStores}
+                      </p>
                     </div>
-                    <Store className="w-10 h-10 text-blue-600 opacity-50" />
+                    {/*
+                      Alpha-based icon container:
+                      bg-blue-500/10 renders as a soft blue tint on ANY background
+                      — no separate dark: class needed.
+                    */}
+                    <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-blue-500/10">
+                      <Store className="w-6 h-6 text-blue-500 dark:text-blue-400" />
+                    </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="bg-green-50 border border-green-200 shadow-none">
-                <CardContent className="pt-6">
+              {/* Total Unique Products */}
+              <Card className="bg-card border border-border shadow-sm rounded-xl">
+                <CardContent className="p-6">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-green-600 font-medium">Total Unique Products</p>
-                      <p className="text-3xl font-bold text-green-900">{summary.totalUniqueProducts}</p>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Total Unique Products
+                      </p>
+                      <p className="text-3xl font-bold text-foreground">
+                        {summary.totalUniqueProducts}
+                      </p>
                     </div>
-                    <Box className="w-10 h-10 text-green-600 opacity-50" />
+                    <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-emerald-500/10">
+                      <Box className="w-6 h-6 text-emerald-500 dark:text-emerald-400" />
+                    </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="bg-purple-50 border border-purple-200 shadow-none">
-                <CardContent className="pt-6">
+              {/* Total Items */}
+              <Card className="bg-card border border-border shadow-sm rounded-xl">
+                <CardContent className="p-6">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-purple-600 font-medium">Total Items</p>
-                      <p className="text-3xl font-bold text-purple-900">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Total Items
+                      </p>
+                      <p className="text-3xl font-bold text-foreground">
                         {Number(summary.totalItems || 0).toLocaleString()}
                       </p>
                     </div>
-                    <Package className="w-10 h-10 text-purple-600 opacity-50" />
+                    <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-violet-500/10">
+                      <Package className="w-6 h-6 text-violet-500 dark:text-violet-400" />
+                    </div>
                   </div>
                 </CardContent>
               </Card>
+
             </div>
 
-            <Card className="shadow-none border border-slate-200 dark:border-slate-800">
-              <CardContent className="pt-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="md:col-span-2 relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      placeholder="Search by product name or brand..."
-                      value={searchTerm}
-                      onChange={(event) => setSearchTerm(event.target.value)}
-                      className="pl-10"
+            {/* ── Search + store + supplier filter ─────────── */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="md:col-span-2">
+                <Input
+                  placeholder="Search by product name or brand..."
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  className="px-4 py-5"
+                />
+              </div>
+              <Combobox
+                value={String(filters.warehouse)}
+                onValueChange={(value) =>
+                  visitPlacementReports({ warehouse: value || "all", page: 1 })
+                }
+                options={warehouseOptions}
+                placeholder="All Stores"
+                searchPlaceholder="Search stores..."
+                className="h-10"
+              />
+              <Combobox
+                value={String(filters.supplier ?? "all")}
+                onValueChange={(value) =>
+                  visitPlacementReports({ supplier: value || "all", page: 1 })
+                }
+                options={supplierOptions}
+                placeholder="All Suppliers"
+                searchPlaceholder="Search suppliers..."
+                className="h-10"
+              />
+            </div>
+
+            {/* ── Table ───────────────────────────────────── */}
+            <div className="relative">
+              <div
+                ref={topScrollRef}
+                className="sticky top-0 z-30 h-4 overflow-x-auto overflow-y-hidden rounded-t-lg border border-border bg-background"
+              >
+                <div ref={topScrollInnerRef} className="h-px" />
+              </div>
+              <div
+                ref={tableContainerRef}
+                className="overflow-x-auto overflow-y-visible rounded-b-lg border border-border border-t-0"
+              >
+              <table ref={tableRef} className="w-full min-w-max text-xs bg-background">
+
+                {/*
+                  ── Table head ──────────────────────────────
+                  Sticky, sits on bg-card so it matches the card surface.
+
+                  Column accent strategy — alpha-based:
+                    • bg-blue-500/10   → "Total Items" column  (soft blue)
+                    • bg-amber-500/10  → Valuation
+                    • bg-orange-500/10 → 15/30 Day Sell Out
+                    • bg-teal-500/10   → Avg Sell Out/Day
+                    • bg-indigo-500/10 → Inventory Life
+                    • bg-rose-500/10   → Suggested PO Qty
+
+                  These are single declarations — no dark: needed.
+                  Hover uses /15 or /20 to give a subtle lift.
+                */}
+                <thead className="sticky top-0 z-20 border-b-2 border-border bg-background">
+                  <tr>
+                    {/* Product Name */}
+                    <th
+                      className="min-w-[250px] cursor-pointer px-3 py-2.5 text-left font-semibold text-muted-foreground hover:bg-muted/60 transition-colors"
+                      onClick={() => handleSort("display_name")}
+                    >
+                      <div className="flex items-center gap-1">
+                        Product Name
+                        <SortIndicator filters={filters} columnKey="display_name" />
+                      </div>
+                    </th>
+
+                    {/* Total Items — blue accent */}
+                    <th
+                      className="min-w-[80px] cursor-pointer px-3 py-2.5 text-center font-semibold text-muted-foreground bg-blue-500/10 hover:bg-blue-500/15 transition-colors"
+                      onClick={() => handleSort("total")}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        Total Items
+                        <SortIndicator filters={filters} columnKey="total" />
+                      </div>
+                    </th>
+
+                    {/* Per-warehouse columns */}
+                    {warehouses.map((warehouse) => (
+                      <th
+                        key={warehouse.id}
+                        className="min-w-[80px] cursor-pointer px-3 py-2.5 text-center font-semibold text-muted-foreground hover:bg-muted/60 transition-colors"
+                        onClick={() => handleSort("warehouse", warehouse.id)}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          {warehouse.name}
+                          <SortIndicator
+                            filters={filters}
+                            columnKey="warehouse"
+                            warehouseId={warehouse.id}
+                          />
+                        </div>
+                      </th>
+                    ))}
+
+                    {/* Valuation — amber accent */}
+                    <th className="min-w-[100px] px-3 py-2.5 text-center font-semibold text-muted-foreground bg-amber-500/10">
+                      Valuation
+                    </th>
+
+                    {/* 15-Day Sell Out — orange accent */}
+                    <th className="min-w-[80px] px-3 py-2.5 text-center font-semibold text-muted-foreground bg-orange-500/10">
+                      15 Day Sell Out
+                    </th>
+
+                    {/* 30-Day Sell Out — orange accent */}
+                    <th className="min-w-[80px] px-3 py-2.5 text-center font-semibold text-muted-foreground bg-orange-500/10">
+                      30 Day Sell Out
+                    </th>
+
+                    {/* Avg Sell Out/Day — teal accent */}
+                    <th className="min-w-[90px] px-3 py-2.5 text-center font-semibold text-muted-foreground bg-teal-500/10">
+                      Avg Sell Out/Day
+                    </th>
+
+                    {/* Inventory Life — indigo accent */}
+                    <th className="min-w-[90px] px-3 py-2.5 text-center font-semibold text-muted-foreground bg-indigo-500/10">
+                      Inventory Life
+                    </th>
+
+                    {/* Suggested PO Qty — rose accent */}
+                    <th className="min-w-[100px] px-3 py-2.5 text-center font-semibold text-muted-foreground bg-rose-500/10">
+                      Suggested PO Qty
+                    </th>
+                  </tr>
+                </thead>
+
+                {/* ── Body ─────────────────────────────────── */}
+                <tbody>
+                  {rows.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={warehouses.length + 8}
+                        className="py-16 text-center text-muted-foreground"
+                      >
+                        <Package className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                        <p className="text-sm">No placement data found</p>
+                        {filters.search || filters.warehouse !== "all" ? (
+                          <Button
+                            variant="outline"
+                            className="mt-4 text-[11px] h-8"
+                            onClick={() =>
+                              visitPlacementReports({
+                                search: "",
+                                warehouse: "all",
+                                supplier: "all",
+                                sort: "display_name",
+                                sort_warehouse_id: "",
+                                direction: "asc",
+                                page: 1,
+                              })
+                            }
+                          >
+                            Clear Filters
+                          </Button>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ) : (
+                    rows.map((row) => {
+                      const masterId = row.product_master_id;
+                      const expanded = !!expandedRows[masterId];
+                      const variants = variantRowsByMaster[masterId] || [];
+                      const loadingVariantRows = !!loadingVariants[masterId];
+                      const variantError = variantErrorsByMaster[masterId] || "";
+
+                      return (
+                        <Fragment key={masterId}>
+                          <PlacementTableRow
+                            virtualRow={{ type: "master", row }}
+                            warehouses={warehouses}
+                            isExpanded={expanded}
+                            onToggleExpand={() => handleToggleExpand(row)}
+                            onOpenItems={handleOpenItems}
+                          />
+
+                          {/* Loading variants */}
+                          {expanded && loadingVariantRows ? (
+                            <tr className="border-b border-border bg-background">
+                              <td
+                                colSpan={warehouses.length + 8}
+                                className="px-6 py-3 text-[11px] text-muted-foreground"
+                              >
+                                Loading variants...
+                              </td>
+                            </tr>
+                          ) : null}
+
+                          {/* Variant error */}
+                          {expanded && variantError ? (
+                            <tr className="border-b border-border bg-red-500/10">
+                              <td
+                                colSpan={warehouses.length + 8}
+                                className="px-6 py-3 text-[11px] text-red-600 dark:text-red-400"
+                              >
+                                {variantError}
+                              </td>
+                            </tr>
+                          ) : null}
+
+                          {/* Variant rows */}
+                          {expanded &&
+                            !loadingVariantRows &&
+                            !variantError &&
+                            variants.map((variant) => (
+                              <PlacementTableRow
+                                key={variant.variant_id}
+                                virtualRow={{ type: "variant", variant }}
+                                warehouses={warehouses}
+                                onOpenItems={handleOpenItems}
+                              />
+                            ))}
+                        </Fragment>
+                      );
+                    })
+                  )}
+                </tbody>
+
+                {/*
+                  ── Footer (Grand Total row) ─────────────────
+                  bg-muted/50 gives a neutral tinted surface.
+                  Accent cells use the same /15 alpha tokens as headers
+                  but slightly stronger so they read as "totals".
+                */}
+                {rows.length > 0 ? (
+                  <tfoot className="sticky bottom-0 z-20 border-t-2 border-border bg-muted/60 text-[11px]">
+                    <tr>
+                      {/* Label */}
+                      <td className="px-3 py-2.5 text-right font-semibold text-foreground">
+                        Grand Total:
+                      </td>
+
+                      {/* Grand total — blue accent */}
+                      <td className="px-3 py-2.5 text-center bg-blue-500/15">
+                        <span className="font-bold text-blue-600 dark:text-blue-400">
+                          {Number(footerTotals.grandTotal || 0).toLocaleString()}
+                        </span>
+                      </td>
+
+                      {/* Per-warehouse totals */}
+                      {warehouses.map((warehouse) => (
+                        <td
+                          key={warehouse.id}
+                          className="px-3 py-2.5 text-center bg-muted"
+                        >
+                          <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                            {Number(
+                              footerTotals.warehouses?.[warehouse.id] || 0
+                            ).toLocaleString()}
+                          </span>
+                        </td>
+                      ))}
+
+                      {/* Valuation — amber */}
+                      <td className="px-3 py-2.5 text-center bg-amber-500/15">
+                        <span className="font-bold text-amber-600 dark:text-amber-400">—</span>
+                      </td>
+
+                      {/* 15-Day — orange */}
+                      <td className="px-3 py-2.5 text-center bg-orange-500/15">
+                        <span className="font-bold text-orange-600 dark:text-orange-400">—</span>
+                      </td>
+
+                      {/* 30-Day — orange */}
+                      <td className="px-3 py-2.5 text-center bg-orange-500/15">
+                        <span className="font-bold text-orange-600 dark:text-orange-400">—</span>
+                      </td>
+
+                      {/* Avg Sell Out — teal */}
+                      <td className="px-3 py-2.5 text-center bg-teal-500/15">
+                        <span className="font-bold text-teal-600 dark:text-teal-400">—</span>
+                      </td>
+
+                      {/* Inventory Life — indigo */}
+                      <td className="px-3 py-2.5 text-center bg-indigo-500/15">
+                        <span className="font-bold text-indigo-600 dark:text-indigo-400">—</span>
+                      </td>
+
+                      {/* Suggested PO — rose */}
+                      <td className="px-3 py-2.5 text-center bg-rose-500/15">
+                        <span className="font-bold text-rose-600 dark:text-rose-400">—</span>
+                      </td>
+                    </tr>
+                  </tfoot>
+                ) : null}
+
+              </table>
+              </div>
+            </div>
+
+            {/* ── Pagination ──────────────────────────────── */}
+            {rows.length > 0 ? (
+              <div className="flex items-center justify-between border-t border-border pt-4">
+                <p className="text-[11px] text-muted-foreground">
+                  Showing{" "}
+                  <span className="font-medium text-foreground">
+                    {visibleProductTotal.toLocaleString()}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-medium text-foreground">
+                    {Number(totalProducts || 0).toLocaleString()}
+                  </span>{" "}
+                  products
+                </p>
+
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-muted-foreground">
+                      Rows
+                    </span>
+                    <Combobox
+                      value={String(selectedPerPage)}
+                      onValueChange={(value) =>
+                        visitPlacementReports({
+                          perPage: Number(value || 50),
+                          page: 1,
+                        })
+                      }
+                      options={perPageOptions}
+                      placeholder="Rows"
+                      searchPlaceholder="Search rows..."
+                      className="h-8 min-w-[84px]"
                     />
                   </div>
-
-                  <Combobox
-                    value={String(filters.warehouse)}
-                    onValueChange={(value) => visitPlacementReports({ warehouse: value || "all", page: 1 })}
-                    options={warehouseOptions}
-                    placeholder="All Stores"
-                    searchPlaceholder="Search stores..."
-                    className="h-10"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-none border border-slate-200 dark:border-slate-800">
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <div
-                    ref={tableContainerRef}
-                    onScroll={maybeLoadMoreRows}
-                    className="overflow-auto"
-                    style={{ height: "calc(100vh - 360px)", minHeight: "420px" }}
+                  <Button
+                    variant="outline"
+                    className="h-8 px-2 text-[11px]"
+                    disabled={currentPage <= 1}
+                    onClick={() =>
+                      visitPlacementReports({ page: currentPage - 1 })
+                    }
                   >
-                    <table className="w-full min-w-max text-[11px]">
-                      <thead className="sticky top-0 z-20 bg-gray-50 border-b-2 border-gray-200">
-                        <tr>
-                          <th
-                            className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300 min-w-[250px] cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                            onClick={() => handleSort("display_name")}
-                          >
-                            <div className="flex items-center gap-1">
-                              Product Name
-                              <SortIndicator filters={filters} columnKey="display_name" />
-                            </div>
-                          </th>
-                          <th
-                            className="px-3 py-2 text-center font-semibold text-gray-600 dark:text-gray-300 bg-blue-50 dark:bg-blue-900/20 min-w-[80px] cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/40"
-                            onClick={() => handleSort("total")}
-                          >
-                            <div className="flex items-center justify-center gap-1">
-                              Total Items
-                              <SortIndicator filters={filters} columnKey="total" />
-                            </div>
-                          </th>
-                          {warehouses.map((warehouse) => (
-                            <th
-                              key={warehouse.id}
-                              className="px-3 py-2 text-center font-semibold text-gray-600 dark:text-gray-300 min-w-[80px] cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                              onClick={() => handleSort("warehouse", warehouse.id)}
-                            >
-                              <div className="flex items-center justify-center gap-1">
-                                {warehouse.name}
-                                <SortIndicator filters={filters} columnKey="warehouse" warehouseId={warehouse.id} />
-                              </div>
-                            </th>
-                          ))}
-                          <th className="px-3 py-2 text-center font-semibold text-gray-600 dark:text-gray-300 bg-amber-50 dark:bg-amber-900/20 min-w-[100px]">Valuation</th>
-                          <th className="px-3 py-2 text-center font-semibold text-gray-600 dark:text-gray-300 bg-orange-50 dark:bg-orange-900/20 min-w-[80px]">15 Day Sell Out</th>
-                          <th className="px-3 py-2 text-center font-semibold text-gray-600 dark:text-gray-300 bg-orange-50 dark:bg-orange-900/20 min-w-[80px]">30 Day Sell Out</th>
-                          <th className="px-3 py-2 text-center font-semibold text-gray-600 dark:text-gray-300 bg-teal-50 dark:bg-teal-900/20 min-w-[90px]">Avg Sell Out/Day</th>
-                          <th className="px-3 py-2 text-center font-semibold text-gray-600 dark:text-gray-300 bg-indigo-50 dark:bg-indigo-900/20 min-w-[90px]">Inventory Life</th>
-                          <th className="px-3 py-2 text-center font-semibold text-gray-600 dark:text-gray-300 bg-rose-50 dark:bg-rose-900/20 min-w-[100px]">Suggested PO Qty</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {loadedRows.length === 0 ? (
-                          <tr>
-                            <td colSpan={warehouses.length + 8} className="text-center py-12 text-gray-500 dark:text-gray-400">
-                              <Package className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                              <p>No placement data found</p>
-                              {(filters.search || filters.warehouse !== "all") ? (
-                                <Button
-                                  variant="outline"
-                                  className="mt-4 text-[11px] h-8"
-                                  onClick={() => visitPlacementReports({
-                                    search: "",
-                                    warehouse: "all",
-                                    sort: "display_name",
-                                    sort_warehouse_id: "",
-                                    direction: "asc",
-                                    page: 1,
-                                  })}
-                                >
-                                  Clear Filters
-                                </Button>
-                              ) : null}
-                            </td>
-                          </tr>
-                        ) : (
-                          loadedRows.map((row) => {
-                            const masterId = row.product_master_id;
-                            const expanded = !!expandedRows[masterId];
-                            const variants = variantRowsByMaster[masterId] || [];
-                            const loadingVariantRows = !!loadingVariants[masterId];
-                            const variantError = variantErrorsByMaster[masterId] || "";
+                    <ChevronLeft className="mr-1 h-3.5 w-3.5" />
+                    Prev
+                  </Button>
 
-                            return (
-                              <Fragment key={masterId}>
-                                <PlacementTableRow
-                                  virtualRow={{ type: "master", row }}
-                                  warehouses={warehouses}
-                                  isExpanded={expanded}
-                                  onToggleExpand={() => handleToggleExpand(row)}
-                                  onOpenItems={handleOpenItems}
-                                />
-                                {expanded && loadingVariantRows ? (
-                                  <tr className="border-b bg-slate-50/60 dark:bg-slate-900/40">
-                                    <td colSpan={warehouses.length + 8} className="px-6 py-3 text-[11px] text-slate-500 dark:text-slate-400">
-                                      Loading variants...
-                                    </td>
-                                  </tr>
-                                ) : null}
-                                {expanded && variantError ? (
-                                  <tr className="border-b bg-red-50/80 dark:bg-red-950/30">
-                                    <td colSpan={warehouses.length + 8} className="px-6 py-3 text-[11px] text-red-600 dark:text-red-300">
-                                      {variantError}
-                                    </td>
-                                  </tr>
-                                ) : null}
-                                {expanded && !loadingVariantRows && !variantError && variants.map((variant) => (
-                                  <PlacementTableRow
-                                    key={variant.variant_id}
-                                    virtualRow={{ type: "variant", variant }}
-                                    warehouses={warehouses}
-                                    onOpenItems={handleOpenItems}
-                                  />
-                                ))}
-                              </Fragment>
-                            );
-                          })
-                        )}
-                        {loadingMore ? (
-                          <tr>
-                            <td colSpan={warehouses.length + 8} className="px-6 py-3 text-[11px] text-slate-500 dark:text-slate-400">
-                              Loading more products...
-                            </td>
-                          </tr>
-                        ) : null}
-                      </tbody>
-                      {loadedRows.length > 0 ? (
-                        <tfoot className="sticky bottom-0 z-20 bg-gray-50 dark:bg-gray-800 border-t-2 border-gray-200 dark:border-gray-700 text-[11px]">
-                          <tr>
-                            <td className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">Grand Total:</td>
-                            <td className="px-3 py-2 text-center bg-green-100 dark:bg-green-900/30">
-                              <span className="font-bold text-green-600 dark:text-green-400">
-                                {Number(footerTotals.grandTotal || 0).toLocaleString()}
-                              </span>
-                            </td>
-                            {warehouses.map((warehouse) => (
-                              <td key={warehouse.id} className="px-3 py-2 text-center bg-gray-100 dark:bg-gray-700">
-                                <span className="font-bold text-green-600 dark:text-green-400">
-                                  {Number(footerTotals.warehouses?.[warehouse.id] || 0).toLocaleString()}
-                                </span>
-                              </td>
-                            ))}
-                            <td className="px-3 py-2 text-center bg-amber-100 dark:bg-amber-900/30"><span className="font-bold text-amber-700 dark:text-amber-400">-</span></td>
-                            <td className="px-3 py-2 text-center bg-orange-100 dark:bg-orange-900/30"><span className="font-bold text-orange-600">-</span></td>
-                            <td className="px-3 py-2 text-center bg-orange-100 dark:bg-orange-900/30"><span className="font-bold text-orange-600">-</span></td>
-                            <td className="px-3 py-2 text-center bg-teal-100 dark:bg-teal-900/30"><span className="font-bold text-teal-600">-</span></td>
-                            <td className="px-3 py-2 text-center bg-indigo-100 dark:bg-indigo-900/30"><span className="font-bold text-indigo-600">-</span></td>
-                            <td className="px-3 py-2 text-center bg-rose-100 dark:bg-rose-900/30"><span className="font-bold text-rose-600">-</span></td>
-                          </tr>
-                        </tfoot>
-                      ) : null}
-                    </table>
-                  </div>
+                  <span className="text-[11px] text-muted-foreground tabular-nums">
+                    Page{" "}
+                    <span className="font-medium text-foreground">
+                      {currentPage}
+                    </span>{" "}
+                    of{" "}
+                    <span className="font-medium text-foreground">
+                      {lastPage}
+                    </span>
+                  </span>
+
+                  <Button
+                    variant="outline"
+                    className="h-8 px-2 text-[11px]"
+                    disabled={!pagination.hasMore}
+                    onClick={() =>
+                      visitPlacementReports({ page: currentPage + 1 })
+                    }
+                  >
+                    Next
+                    <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                  </Button>
                 </div>
+              </div>
+            ) : null}
 
-                {loadedRows.length > 0 ? (
-                  <div className="flex items-center justify-between p-4 border-t">
-                    <div className="text-[11px] text-gray-600">
-                      Showing {visibleProductTotal.toLocaleString()} of {Number(totalProducts || 0).toLocaleString()} products
-                    </div>
-                    {loadedPagination.hasMore ? (
-                      <div className="text-[11px] text-gray-500">Scroll to load more</div>
-                    ) : null}
-                  </div>
-                ) : null}
-              </CardContent>
-            </Card>
           </div>
         </section>
       </div>
 
       <InventoryItemDialog
         open={itemDialog.open}
-        onOpenChange={(open) => setItemDialog((current) => ({ ...current, open }))}
+        onOpenChange={(open) =>
+          setItemDialog((current) => ({ ...current, open }))
+        }
         items={itemDialog.items}
         warehouseName={itemDialog.warehouseName}
         variantName={itemDialog.variantName}

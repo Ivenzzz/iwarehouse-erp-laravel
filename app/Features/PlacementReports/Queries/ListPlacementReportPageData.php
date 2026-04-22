@@ -20,6 +20,7 @@ class ListPlacementReportPageData
         return [
             'filters' => $filters,
             'warehouses' => $this->placementReportQuery->warehouses(),
+            'suppliers' => $this->placementReportQuery->suppliers(),
             'summary' => $this->placementReportQuery->summary($filters),
             'footerTotals' => $this->placementReportQuery->footerTotals($filters),
             'rows' => $page['rows'],

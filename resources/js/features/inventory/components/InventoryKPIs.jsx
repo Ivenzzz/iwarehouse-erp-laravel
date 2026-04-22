@@ -1,18 +1,28 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { CheckCircle, DollarSign, Package } from "lucide-react";
 
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { formatCurrency } from "@/features/inventory/lib/inventoryUtils";
 
-export default function InventoryKPIs({ refreshToken = 0 }) {
+export default function InventoryKPIs({ refreshToken = 0, filters = {} }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const filterParams = useMemo(() => ({
+    search: filters.search ?? "",
+    location: filters.location ?? "all",
+    status: filters.status ?? "all",
+    brand: filters.brand ?? "all",
+    category: filters.category ?? "all",
+    condition: filters.condition ?? "all",
+    stockAge: filters.stockAge ?? "all",
+  }), [filters.brand, filters.category, filters.condition, filters.location, filters.search, filters.status, filters.stockAge]);
 
   useEffect(() => {
     let active = true;
+    setLoading(true);
 
-    axios.get(route("inventory.kpis"))
+    axios.get(route("inventory.kpis"), { params: filterParams })
       .then((response) => {
         if (active) setData(response.data);
       })
@@ -23,7 +33,7 @@ export default function InventoryKPIs({ refreshToken = 0 }) {
     return () => {
       active = false;
     };
-  }, [refreshToken]);
+  }, [refreshToken, filterParams]);
 
   const kpis = [
     {

@@ -1,5 +1,6 @@
 import SidebarNav from '@/shared/layouts/app-shell/SidebarNav';
 import { Link, router, usePage } from '@inertiajs/react';
+import { Box } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 const SIDEBAR_SCROLL_KEY_PREFIX = 'iwarehouse:admin-sidebar:scroll-top';
@@ -165,29 +166,31 @@ export default function SidebarContent({ sections, storageKey = 'default' }) {
     }, [scheduleRestoreScrollTop]);
 
     return (
-        <div className="flex h-full flex-col overflow-hidden bg-gradient-to-b from-sidebar via-sidebar/95 to-accent/30 dark:text-slate-300 border-r border-sidebar-border">
-            {/* Header Section */}
-            <div className="border-b border-sidebar-border/50 px-5 py-6 bg-transparent">
+        <div className="flex h-full flex-col overflow-hidden border-r border-border bg-background text-foreground dark:border-sidebar-border dark:bg-gray-900 dark:text-gray-300">
+            <div className="border-b border-border px-4 py-5 dark:border-sidebar-border">
                 <Link
                     href={route('dashboard')}
                     onBefore={persistScrollTop}
-                    className="flex items-center gap-3 group"
+                    className="flex items-center gap-3"
                 >
+                    <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-muted text-foreground dark:bg-sidebar-accent dark:text-sidebar-accent-foreground">
+                        <Box className="h-5 w-5 stroke-[1.8]" />
+                    </div>
                     <div className="min-w-0">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/60 group-hover:text-sidebar-foreground transition-colors">
-                            <span className="text-orange-500">i</span>Warehouse ERP 2026
+                        <p className="truncate text-lg font-semibold leading-none tracking-[-0.01em] text-foreground dark:text-foreground">
+                            <span className="text-muted-foreground dark:text-muted-foreground">i</span>Warehouse
                         </p>
+                        <p className="mt-1 text-xs font-medium text-muted-foreground dark:text-muted-foreground">ERP v2.0.0</p>
                     </div>
                 </Link>
             </div>
 
-            {/* Scrollable Nav Area */}
             <div
                 ref={scrollContainerRef}
                 scroll-region={isDesktopSidebar ? undefined : 'true'}
                 onClickCapture={persistScrollTop}
                 onPointerDownCapture={persistScrollTop}
-                className="sidebar-scroll min-h-0 flex-1 overflow-y-auto py-6"
+                className="sidebar-scroll min-h-0 flex-1 overflow-y-auto py-5"
             >
                 <SidebarNav
                     sections={sections}
@@ -195,9 +198,6 @@ export default function SidebarContent({ sections, storageKey = 'default' }) {
                     onLayoutChange={handleSidebarLayoutChange}
                 />
             </div>
-
-            {/* Optional: Subtle bottom fade to indicate more content */}
-            <div className="h-4 bg-gradient-to-t from-accent/10 to-transparent pointer-events-none" />
         </div>
     );
 }

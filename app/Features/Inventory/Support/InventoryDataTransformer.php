@@ -79,9 +79,14 @@ class InventoryDataTransformer
             'subcategoryId' => $productMaster?->subcategory?->id,
             'subcategoryName' => $productMaster?->subcategory?->name ?? '',
             'variantCondition' => $variant?->condition,
+            'model_code' => self::nullableString($variant?->model_code) ?? '',
             'attrRAM' => $attributes['ram'] ?? '',
             'attrROM' => $attributes['rom'] ?? '',
             'attrColor' => $attributes['color'] ?? '',
+            'ram_type' => self::nullableString($variant?->ram_type) ?? '',
+            'rom_type' => self::nullableString($variant?->rom_type) ?? '',
+            'operating_system' => self::nullableString($variant?->operating_system) ?? '',
+            'screen' => self::nullableString($variant?->screen) ?? '',
             '_variantAttributes' => $attributes,
         ];
     }

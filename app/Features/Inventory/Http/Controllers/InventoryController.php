@@ -13,6 +13,7 @@ use App\Features\Inventory\Queries\FindExactInventoryMatches;
 use App\Features\Inventory\Queries\ListInventoryItemLogs;
 use App\Features\Inventory\Queries\ListInventoryPageData;
 use App\Features\Inventory\Queries\ListInventoryVariantOptions;
+use App\Features\Inventory\Support\InventoryListQuery;
 use App\Http\Controllers\Controller;
 use App\Models\InventoryItem;
 use Illuminate\Http\JsonResponse;
@@ -30,9 +31,9 @@ class InventoryController extends Controller
         return Inertia::render('Inventory', $listInventoryPageData($request));
     }
 
-    public function kpis(GetInventoryKpis $getInventoryKpis): JsonResponse
+    public function kpis(Request $request, GetInventoryKpis $getInventoryKpis, InventoryListQuery $inventoryListQuery): JsonResponse
     {
-        return response()->json($getInventoryKpis->handle());
+        return response()->json($getInventoryKpis->handle($inventoryListQuery->filtersFromRequest($request)));
     }
 
     public function exactLookup(Request $request, FindExactInventoryMatches $findExactInventoryMatches): JsonResponse

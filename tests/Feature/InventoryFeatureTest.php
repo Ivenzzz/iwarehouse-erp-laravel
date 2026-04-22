@@ -4,11 +4,14 @@ namespace Tests\Feature;
 
 use App\Models\InventoryItem;
 use App\Models\InventoryItemLog;
+use App\Models\DeliveryReceipt;
+use App\Models\GoodsReceipt;
 use App\Models\ProductBrand;
 use App\Models\ProductCategory;
 use App\Models\ProductMaster;
 use App\Models\ProductModel;
 use App\Models\ProductVariant;
+use App\Models\Supplier;
 use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -33,6 +36,14 @@ class InventoryFeatureTest extends TestCase
             'status' => 'available',
             'cost_price' => 10000,
         ]);
+        InventoryItem::create([
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $warehouse->id,
+            'imei' => '123456789012346',
+            'serial_number' => 'INV-SN-002',
+            'status' => 'sold',
+            'cost_price' => 8000,
+        ]);
 
         $this->actingAs($user)->get(route('inventory.index'))
             ->assertOk()
@@ -50,6 +61,7 @@ class InventoryFeatureTest extends TestCase
                 ->missing('inventory.data.0.purchase_file_data')
                 ->where('filters.search', '')
                 ->where('filters.location', 'all')
+                ->where('filters.condition', 'all')
                 ->where('filters.sort', 'encoded_date')
                 ->where('filters.direction', 'desc')
                 ->where('filters.perPage', 50)
@@ -64,8 +76,15 @@ class InventoryFeatureTest extends TestCase
         $this->actingAs($user)->getJson(route('inventory.kpis'))
             ->assertOk()
             ->assertJson([
+                'totalItems' => 2,
+                'availableStock' => 1,
+            ]);
+        $this->actingAs($user)->getJson(route('inventory.kpis', ['status' => 'available']))
+            ->assertOk()
+            ->assertJson([
                 'totalItems' => 1,
                 'availableStock' => 1,
+                'totalValuation' => 10000,
             ]);
         $this->actingAs($user)->getJson(route('inventory.exact-lookup', ['search' => '123456789012345']))
             ->assertOk()
@@ -129,6 +148,7 @@ class InventoryFeatureTest extends TestCase
                 'status' => 'sold',
                 'brand' => $samsungBrand->id,
                 'category' => $samsungCategory->id,
+                'condition' => 'Brand New',
                 'stockAge' => '1-7',
                 'sort' => 'cost_price',
                 'direction' => 'asc',
@@ -142,6 +162,7 @@ class InventoryFeatureTest extends TestCase
                 ->where('filters.status', 'sold')
                 ->where('filters.brand', (string) $samsungBrand->id)
                 ->where('filters.category', (string) $samsungCategory->id)
+                ->where('filters.condition', 'Brand New')
                 ->where('filters.stockAge', '1-7')
                 ->where('filters.sort', 'cost_price')
                 ->where('filters.direction', 'asc')
@@ -167,6 +188,24 @@ class InventoryFeatureTest extends TestCase
                 ->where('inventory.total', 12)
                 ->where('inventory.current_page', 2)
                 ->where('inventory.per_page', 10)
+            );
+
+        foreach ([500, 1000, 5000] as $perPage) {
+            $this->actingAs($user)
+                ->get(route('inventory.index', ['perPage' => $perPage]))
+                ->assertOk()
+                ->assertInertia(fn (Assert $page) => $page
+                    ->where('filters.perPage', $perPage)
+                    ->where('inventory.per_page', $perPage)
+                );
+        }
+
+        $this->actingAs($user)
+            ->get(route('inventory.index', ['perPage' => 999]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('filters.perPage', 50)
+                ->where('inventory.per_page', 50)
             );
     }
 
@@ -239,10 +278,158 @@ class InventoryFeatureTest extends TestCase
 
         $content = $response->streamedContent();
 
+        $expectedHeader = 'Brand,Model,"Model Code",Category,Subcategory,RAM,ROM,Color,Condition,CPU,GPU,"RAM Type","ROM Type","Operating System",Screen,"Warehouse Name",IMEI1,IMEI2,"Serial Number",Status,"Cost Price","Cash Price","SRP Price",Warranty,"Encoded At","GRN Number",Supplier';
+        $this->assertStringStartsWith($expectedHeader, $content);
         $this->assertStringContainsString('APPLE-002', $content);
         $this->assertStringNotContainsString('APPLE-001', $content);
         $this->assertStringContainsString('Branch Warehouse', $content);
         $this->assertStringNotContainsString('Purchase Reference', $content);
+    }
+
+    public function test_inventory_export_includes_spec_columns_and_supplier_by_grn_with_fallback(): void
+    {
+        $user = User::factory()->create();
+        [$variant, $warehouse] = $this->createInventoryGraph();
+
+        $variant->update([
+            'model_code' => 'A2890',
+            'ram' => '8GB',
+            'rom' => '256GB',
+            'color' => 'Midnight',
+            'condition' => 'Brand New',
+            'cpu' => 'A17 Pro',
+            'gpu' => 'Apple GPU',
+            'ram_type' => 'LPDDR5',
+            'rom_type' => 'NVMe',
+            'operating_system' => 'iOS',
+            'screen' => '6.1-inch',
+        ]);
+
+        $supplierWithLegalName = Supplier::create([
+            'supplier_code' => 'SUP-LGL',
+            'legal_business_name' => 'Acme Devices Incorporated',
+            'trade_name' => 'Acme Gadgets',
+            'address' => 'Manila',
+            'status' => 'active',
+        ]);
+        $supplierTradeOnly = Supplier::create([
+            'supplier_code' => 'SUP-TRD',
+            'legal_business_name' => '',
+            'trade_name' => 'Trade Only Supplier',
+            'address' => 'Cebu',
+            'status' => 'active',
+        ]);
+
+        $deliveryReceiptWithLegalName = DeliveryReceipt::create([
+            'supplier_id' => $supplierWithLegalName->id,
+            'dr_number' => 'DR-LEGAL',
+            'date_received' => now(),
+            'date_encoded' => now(),
+        ]);
+        $deliveryReceiptTradeOnly = DeliveryReceipt::create([
+            'supplier_id' => $supplierTradeOnly->id,
+            'dr_number' => 'DR-TRADE',
+            'date_received' => now(),
+            'date_encoded' => now(),
+        ]);
+
+        GoodsReceipt::create([
+            'grn_number' => 'GRN-LEGAL',
+            'delivery_receipt_id' => $deliveryReceiptWithLegalName->id,
+            'status' => 'completed',
+        ]);
+        GoodsReceipt::create([
+            'grn_number' => 'GRN-TRADE',
+            'delivery_receipt_id' => $deliveryReceiptTradeOnly->id,
+            'status' => 'completed',
+        ]);
+
+        InventoryItem::create([
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $warehouse->id,
+            'imei' => '900000000000001',
+            'imei2' => '900000000000002',
+            'serial_number' => 'INV-EXPORT-001',
+            'status' => 'available',
+            'cost_price' => 10000,
+            'cash_price' => 12000,
+            'srp_price' => 14000,
+            'warranty' => '12 months',
+            'grn_number' => 'GRN-LEGAL',
+        ]);
+        InventoryItem::create([
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $warehouse->id,
+            'imei' => '900000000000011',
+            'imei2' => '900000000000012',
+            'serial_number' => 'INV-EXPORT-002',
+            'status' => 'available',
+            'grn_number' => 'GRN-TRADE',
+        ]);
+        InventoryItem::create([
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $warehouse->id,
+            'imei' => '900000000000021',
+            'imei2' => '900000000000022',
+            'serial_number' => 'INV-EXPORT-003',
+            'status' => 'available',
+            'grn_number' => 'GRN-NO-MATCH',
+        ]);
+
+        $response = $this->actingAs($user)->get(route('inventory.export'));
+
+        $response->assertOk();
+        $response->assertDownload('inventory.csv');
+
+        $csvRows = str_getcsv($response->streamedContent(), "\n");
+        $header = str_getcsv($csvRows[0]);
+
+        $this->assertSame([
+            'Brand',
+            'Model',
+            'Model Code',
+            'Category',
+            'Subcategory',
+            'RAM',
+            'ROM',
+            'Color',
+            'Condition',
+            'CPU',
+            'GPU',
+            'RAM Type',
+            'ROM Type',
+            'Operating System',
+            'Screen',
+            'Warehouse Name',
+            'IMEI1',
+            'IMEI2',
+            'Serial Number',
+            'Status',
+            'Cost Price',
+            'Cash Price',
+            'SRP Price',
+            'Warranty',
+            'Encoded At',
+            'GRN Number',
+            'Supplier',
+        ], $header);
+
+        $rowsBySerial = collect(array_slice($csvRows, 1))
+            ->map(fn (string $line) => str_getcsv($line))
+            ->mapWithKeys(fn (array $row) => [$row[18] => $row]);
+
+        $this->assertSame('A2890', $rowsBySerial['INV-EXPORT-001'][2]);
+        $this->assertSame('8GB', $rowsBySerial['INV-EXPORT-001'][5]);
+        $this->assertSame('256GB', $rowsBySerial['INV-EXPORT-001'][6]);
+        $this->assertSame('Midnight', $rowsBySerial['INV-EXPORT-001'][7]);
+        $this->assertSame('LPDDR5', $rowsBySerial['INV-EXPORT-001'][11]);
+        $this->assertSame('NVMe', $rowsBySerial['INV-EXPORT-001'][12]);
+        $this->assertSame('iOS', $rowsBySerial['INV-EXPORT-001'][13]);
+        $this->assertSame('6.1-inch', $rowsBySerial['INV-EXPORT-001'][14]);
+        $this->assertSame('GRN-LEGAL', $rowsBySerial['INV-EXPORT-001'][25]);
+        $this->assertSame('Acme Devices Incorporated', $rowsBySerial['INV-EXPORT-001'][26]);
+        $this->assertSame('Trade Only Supplier', $rowsBySerial['INV-EXPORT-002'][26]);
+        $this->assertSame('', $rowsBySerial['INV-EXPORT-003'][26]);
     }
 
     public function test_inventory_import_validation_rejects_missing_required_columns(): void

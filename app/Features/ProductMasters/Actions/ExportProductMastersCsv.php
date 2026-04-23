@@ -30,7 +30,7 @@ class ExportProductMastersCsv
                 'GPU',
                 'RAM Type',
                 'ROM Type',
-                'OS',
+                'Operating System',
                 'Screen',
             ]);
 

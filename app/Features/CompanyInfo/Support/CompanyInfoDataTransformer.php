@@ -3,7 +3,6 @@
 namespace App\Features\CompanyInfo\Support;
 
 use App\Models\CompanyInfo;
-use Illuminate\Support\Facades\Storage;
 
 class CompanyInfoDataTransformer
 {
@@ -22,7 +21,7 @@ class CompanyInfoDataTransformer
             'phone' => $companyInfo->phone,
             'email' => $companyInfo->email,
             'website' => $companyInfo->website,
-            'logo_url' => $companyInfo->logo_path ? Storage::disk('public')->url($companyInfo->logo_path) : null,
+            'logo_url' => $companyInfo->logo_path ? '/storage/'.ltrim($companyInfo->logo_path, '/') : null,
         ];
     }
 }

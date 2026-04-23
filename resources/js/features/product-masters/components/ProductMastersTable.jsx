@@ -117,9 +117,9 @@ export default function ProductMastersTable({
                                             className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                                         >
                                             <Badge
-                                                variant="outline"
-                                                className="border-info/30 bg-info/10 px-2.5 py-1 text-xs font-semibold text-info"
+                                                className="px-2 py-1 text-xs font-medium rounded-md"
                                             >
+
                                                 {productMaster.variants_count} variant
                                                 {productMaster.variants_count === 1 ? '' : 's'}
                                             </Badge>

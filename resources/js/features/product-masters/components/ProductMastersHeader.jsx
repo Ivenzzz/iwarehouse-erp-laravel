@@ -1,6 +1,7 @@
 import { Button } from '@/shared/components/ui/button';
 import { Download, FileUp, Plus } from 'lucide-react';
 
+
 export default function ProductMastersHeader({ onImport, onCreate }) {
     return (
         <div className="px-5 py-5 bg-accent mb-2">
@@ -9,9 +10,8 @@ export default function ProductMastersHeader({ onImport, onCreate }) {
                     <h1 className="text-2xl font-semibold">
                         Product Masters
                     </h1>
-                    <p className="text-sm">
-                        Manage normalized catalog masters, images, specifications, and
-                        CSV import/export flows.
+                    <p className="text-xs">
+                        Manage product masters and their variants
                     </p>
                 </div>
 

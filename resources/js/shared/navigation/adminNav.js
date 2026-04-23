@@ -36,7 +36,7 @@ export function getAdminNavSections({ permissions = [] } = {}) {
 
     return [
         {
-            label: 'OVERVIEW',
+            label: 'MAIN',
             icon: Home,
             active: route().current('dashboard'),
             defaultOpen: true,
@@ -48,8 +48,8 @@ export function getAdminNavSections({ permissions = [] } = {}) {
             defaultOpen: false,
             links: [
                 { label: 'POS', href: route('pos.index'), active: route().current('pos.*'), icon: Store },
-                { label: 'Daily Sales Reports', href: route('sales-report.index'), active: route().current('sales-report.*'), icon: FileSpreadsheet },
                 { label: 'Sales', href: route('sales.index'), active: route().current('sales.*'), icon: ShoppingBag },
+                { label: 'Sales Reports', href: route('sales-report.index'), active: route().current('sales-report.*'), icon: FileSpreadsheet },
                 { label: 'Product Reports', href: route('dashboard'), icon: BarChart3 },
                 { label: 'Placement Reports', href: route('placement-reports.index'), active: route().current('placement-reports.*'), icon: FileText },
                 { label: 'Customers', href: route('dashboard'), icon: Users },
@@ -140,14 +140,28 @@ export function getAdminNavSections({ permissions = [] } = {}) {
             icon: Settings,
             defaultOpen: false,
             links: [
-                { label: 'General', href: route('dashboard'), icon: Cog },
-                { label: 'Companies', href: route('dashboard'), icon: FolderCog },
+                ...(can('companies.view')
+                    ? [{
+                        label: 'Companies',
+                        href: route('settings.companies.index'),
+                        active: route().current('settings.companies.*'),
+                        icon: FolderCog,
+                    }]
+                    : []),
                 ...(can('users.view')
                     ? [{
                         label: 'Users',
                         href: route('settings.users.index'),
                         active: route().current('settings.users.*'),
                         icon: UserCog,
+                    }]
+                    : []),
+                ...(can('roles-permissions.view')
+                    ? [{
+                        label: 'Roles and Permissions',
+                        href: route('settings.roles-permissions.index'),
+                        active: route().current('settings.roles-permissions.*'),
+                        icon: ShieldCheck,
                     }]
                     : []),
                 {
@@ -159,3 +173,4 @@ export function getAdminNavSections({ permissions = [] } = {}) {
         },
     ];
 }
+

@@ -46,7 +46,7 @@ export default function UserProfileDialog({ open, onOpenChange, user = null }) {
                 </DialogHeader>
 
                 <DialogBody className="max-h-[70vh] space-y-6 overflow-y-auto">
-                    {loading ? <p className="text-sm text-slate-500">Loading profile...</p> : null}
+                    {loading ? <p className="text-sm text-muted-foreground">Loading profile...</p> : null}
                     {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
                     {profileUser ? (
@@ -58,7 +58,7 @@ export default function UserProfileDialog({ open, onOpenChange, user = null }) {
                                 <Info label="Created By" value={profileUser.created_by_label} />
                                 <Info label="Last Login" value={profileUser.last_login_at || 'Never'} />
                                 <div className="space-y-1">
-                                    <p className="text-xs font-semibold uppercase text-slate-500">Status</p>
+                                    <p className="text-xs font-semibold uppercase text-muted-foreground">Status</p>
                                     <div className="flex flex-wrap gap-2">
                                         <Badge variant="outline">{profileUser.status}</Badge>
                                         <Badge variant={profileUser.is_online ? 'default' : 'secondary'}>
@@ -69,7 +69,7 @@ export default function UserProfileDialog({ open, onOpenChange, user = null }) {
                             </section>
 
                             <section className="space-y-2">
-                                <h3 className="text-sm font-semibold text-slate-800">Roles</h3>
+                                <h3 className="text-sm font-semibold text-foreground">Roles</h3>
                                 <div className="flex flex-wrap gap-2">
                                     {(profileUser.roles ?? []).map((role) => (
                                         <Badge key={role} variant="outline">{role}</Badge>
@@ -78,7 +78,7 @@ export default function UserProfileDialog({ open, onOpenChange, user = null }) {
                             </section>
 
                             <section className="space-y-2">
-                                <h3 className="text-sm font-semibold text-slate-800">Linked Employee</h3>
+                                <h3 className="text-sm font-semibold text-foreground">Linked Employee</h3>
                                 {profileUser.employee ? (
                                     <div className="grid gap-3 text-sm md:grid-cols-2">
                                         <Info label="Employee" value={`${profileUser.employee.employee_id} - ${profileUser.employee.full_name}`} />
@@ -87,16 +87,16 @@ export default function UserProfileDialog({ open, onOpenChange, user = null }) {
                                         <Info label="Job Title" value={profileUser.employee.job_title || 'None'} />
                                     </div>
                                 ) : (
-                                    <p className="text-sm text-slate-500">No employee linked.</p>
+                                    <p className="text-sm text-muted-foreground">No employee linked.</p>
                                 )}
                             </section>
 
                             <section className="space-y-3">
-                                <h3 className="text-sm font-semibold text-slate-800">Recent Login History</h3>
+                                <h3 className="text-sm font-semibold text-foreground">Recent Login History</h3>
                                 {loginHistory.length > 0 ? (
                                     <div className="overflow-x-auto">
                                         <table className="min-w-full text-sm">
-                                            <thead className="bg-slate-50 text-slate-700">
+                                            <thead className="bg-muted text-foreground">
                                                 <tr>
                                                     <th className="px-3 py-2 text-left font-semibold">Time</th>
                                                     <th className="px-3 py-2 text-left font-semibold">IP</th>
@@ -105,7 +105,7 @@ export default function UserProfileDialog({ open, onOpenChange, user = null }) {
                                             </thead>
                                             <tbody>
                                                 {loginHistory.map((item) => (
-                                                    <tr key={item.id} className="border-b border-slate-200">
+                                                    <tr key={item.id} className="border-b border-border">
                                                         <td className="px-3 py-2">{item.logged_in_at}</td>
                                                         <td className="px-3 py-2">{item.ip_address || 'N/A'}</td>
                                                         <td className="max-w-md truncate px-3 py-2">{item.user_agent || 'N/A'}</td>
@@ -115,7 +115,7 @@ export default function UserProfileDialog({ open, onOpenChange, user = null }) {
                                         </table>
                                     </div>
                                 ) : (
-                                    <p className="text-sm text-slate-500">No successful login activity recorded.</p>
+                                    <p className="text-sm text-muted-foreground">No successful login activity recorded.</p>
                                 )}
                             </section>
                         </>
@@ -133,8 +133,8 @@ export default function UserProfileDialog({ open, onOpenChange, user = null }) {
 function Info({ label, value }) {
     return (
         <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase text-slate-500">{label}</p>
-            <p className="text-sm font-medium text-slate-800">{value}</p>
+            <p className="text-xs font-semibold uppercase text-muted-foreground">{label}</p>
+            <p className="text-sm font-medium text-foreground">{value}</p>
         </div>
     );
 }

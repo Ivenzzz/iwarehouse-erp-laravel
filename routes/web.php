@@ -24,3 +24,6 @@ require __DIR__.'/web/sales.php';
 require __DIR__.'/web/sales-report.php';
 require __DIR__.'/web/price-control.php';
 require __DIR__.'/web/users.php';
+require __DIR__.'/web/companies.php';
+require __DIR__.'/web/roles-permissions.php';
+

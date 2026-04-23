@@ -3,11 +3,13 @@ import ProductVariantsDialog from '@/features/product-masters/components/Product
 import ProductMasterDetailsDialog from '@/features/product-masters/components/ProductMasterDetailsDialog';
 import ProductMasterDialog from '@/features/product-masters/components/ProductMasterDialog';
 import ProductMastersHeader from '@/features/product-masters/components/ProductMastersHeader';
+import ProductMastersImportDialog from '@/features/product-masters/components/ProductMastersImportDialog';
+import ProductMastersImportSummaryDialog from '@/features/product-masters/components/ProductMastersImportSummaryDialog';
 import ProductMastersTable from '@/features/product-masters/components/ProductMastersTable';
 import { usePageToasts } from '@/shared/hooks/use-page-toasts';
 import AppShell from '@/shared/layouts/AppShell';
 import { Head, router, usePage } from '@inertiajs/react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export default function ProductMastersPage({
     productMasters,
@@ -17,11 +19,13 @@ export default function ProductMastersPage({
     variantDefinitions,
     filters,
 }) {
-    const { errors } = usePage().props;
+    const { errors, flash } = usePage().props;
     const [dialogOpen, setDialogOpen] = useState(false);
     const [detailsOpen, setDetailsOpen] = useState(false);
     const [generateOpen, setGenerateOpen] = useState(false);
     const [variantsOpen, setVariantsOpen] = useState(false);
+    const [importGuideOpen, setImportGuideOpen] = useState(false);
+    const [importSummaryOpen, setImportSummaryOpen] = useState(false);
     const [editingProductMaster, setEditingProductMaster] = useState(null);
     const [viewingProductMaster, setViewingProductMaster] = useState(null);
     const [generatingProductMaster, setGeneratingProductMaster] = useState(null);
@@ -29,7 +33,13 @@ export default function ProductMastersPage({
     const [search, setSearch] = useState(filters.search ?? '');
     const fileInputRef = useRef(null);
 
-    usePageToasts([errors?.file, errors?.category, errors?.brand], 'destructive');
+    usePageToasts([errors?.category, errors?.brand], 'destructive');
+
+    useEffect(() => {
+        if (flash?.import_summary) {
+            setImportSummaryOpen(true);
+        }
+    }, [flash?.import_summary]);
 
     const visitProductMasters = (params) => {
         router.get(
@@ -169,6 +179,18 @@ export default function ProductMastersPage({
                 }}
             />
 
+            <ProductMastersImportDialog
+                open={importGuideOpen}
+                onOpenChange={setImportGuideOpen}
+                onUpload={() => fileInputRef.current?.click()}
+            />
+
+            <ProductMastersImportSummaryDialog
+                open={importSummaryOpen}
+                onOpenChange={setImportSummaryOpen}
+                summary={flash?.import_summary ?? null}
+            />
+
             <input
                 ref={fileInputRef}
                 type="file"
@@ -180,7 +202,7 @@ export default function ProductMastersPage({
             <div className="mx-auto flex w-full max-w-full flex-col gap-4">
                 <section className="bg-background">
                     <ProductMastersHeader
-                        onImport={() => fileInputRef.current?.click()}
+                        onImport={() => setImportGuideOpen(true)}
                         onCreate={openCreate}
                     />
 

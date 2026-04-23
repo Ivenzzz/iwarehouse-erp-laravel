@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Features\RolesPermissions\Support\RolesPermissionsCatalog;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -16,21 +17,11 @@ class RolesAndPermissionsSeeder extends Seeder
         'Stockman',
     ];
 
-    private const USER_PERMISSIONS = [
-        'users.view',
-        'users.create',
-        'users.update',
-        'users.delete',
-        'users.activate',
-        'users.reset-password',
-        'users.link-employees',
-    ];
-
     public function run(): void
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        $permissions = collect(self::USER_PERMISSIONS)
+        $permissions = collect(RolesPermissionsCatalog::allPermissions())
             ->map(fn (string $permission) => Permission::findOrCreate($permission, 'web'));
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();

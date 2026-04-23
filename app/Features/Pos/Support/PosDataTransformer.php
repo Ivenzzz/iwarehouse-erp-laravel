@@ -17,7 +17,6 @@ use App\Models\SalesTransactionPayment;
 use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Storage;
 
 class PosDataTransformer
 {
@@ -165,7 +164,7 @@ class PosDataTransformer
             'phone' => $companyInfo?->phone,
             'email' => $companyInfo?->email,
             'website' => $companyInfo?->website,
-            'logo_url' => $companyInfo?->logo_path ? Storage::disk('public')->url($companyInfo->logo_path) : null,
+            'logo_url' => $companyInfo?->logo_path ? '/storage/'.ltrim($companyInfo->logo_path, '/') : null,
             'tax_rate' => self::VAT_RATE,
         ];
     }

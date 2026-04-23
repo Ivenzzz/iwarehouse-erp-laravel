@@ -10,10 +10,11 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/shared/components/ui/dialog';
+import { Combobox } from '@/shared/components/ui/combobox';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { useForm } from '@inertiajs/react';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
 export default function UserDialog({
     open,
@@ -61,6 +62,24 @@ export default function UserDialog({
         form.setData('roles', nextRoles);
     };
 
+    const statusOptions = useMemo(
+        () => statuses.map((status) => ({ value: status, label: status })),
+        [statuses],
+    );
+
+    const employeeOptions = useMemo(
+        () => [
+            { value: '', label: 'No linked employee' },
+            ...employees
+                .filter((employee) => !employee.linked_user_id || employee.linked_user_id === user?.id)
+                .map((employee) => ({
+                    value: String(employee.id),
+                    label: `${employee.employee_id} - ${employee.full_name}${employee.department ? ` (${employee.department})` : ''}`,
+                })),
+        ],
+        [employees, user?.id],
+    );
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-2xl">
@@ -80,18 +99,16 @@ export default function UserDialog({
 
                             <div className="space-y-2">
                                 <Label htmlFor="user-status">Status</Label>
-                                <select
+                                <Combobox
                                     id="user-status"
                                     value={form.data.status}
-                                    onChange={(event) => form.setData('status', event.target.value)}
-                                    className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                                >
-                                    {statuses.map((status) => (
-                                        <option key={status} value={status}>
-                                            {status}
-                                        </option>
-                                    ))}
-                                </select>
+                                    onValueChange={(nextValue) => form.setData('status', nextValue ?? '')}
+                                    options={statusOptions}
+                                    placeholder="Select status"
+                                    searchPlaceholder="Search status..."
+                                    emptyText="No statuses found."
+                                    className="h-8 w-full border-input bg-background py-1 text-sm"
+                                />
                                 <InputError message={form.errors.status} />
                             </div>
 
@@ -105,12 +122,12 @@ export default function UserDialog({
 
                         <section className="space-y-3">
                             <div>
-                                <h3 className="text-sm font-semibold text-slate-800">Roles</h3>
-                                <p className="text-xs text-slate-500">Select one or more roles for this account.</p>
+                                <h3 className="text-sm font-semibold text-foreground">Roles</h3>
+                                <p className="text-xs text-muted-foreground">Select one or more roles for this account.</p>
                             </div>
                             <div className="grid gap-2 md:grid-cols-2">
                                 {roles.map((role) => (
-                                    <label key={role.id} className="flex items-center gap-2 border border-slate-200 px-3 py-2 text-sm">
+                                    <label key={role.id} className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-foreground">
                                         <input
                                             type="checkbox"
                                             checked={form.data.roles.includes(role.name)}
@@ -125,24 +142,16 @@ export default function UserDialog({
 
                         <section className="space-y-2">
                             <Label htmlFor="employee-link">Linked Employee</Label>
-                            <select
+                            <Combobox
                                 id="employee-link"
                                 value={form.data.employee_id}
-                                onChange={(event) => form.setData('employee_id', event.target.value)}
-                                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                            >
-                                <option value="">No linked employee</option>
-                                {employees.map((employee) => {
-                                    const linkedToOtherUser = employee.linked_user_id && employee.linked_user_id !== user?.id;
-                                    return (
-                                        <option key={employee.id} value={String(employee.id)} disabled={linkedToOtherUser}>
-                                            {employee.employee_id} - {employee.full_name}
-                                            {employee.department ? ` (${employee.department})` : ''}
-                                            {linkedToOtherUser ? ` - linked to ${employee.linked_user_name}` : ''}
-                                        </option>
-                                    );
-                                })}
-                            </select>
+                                onValueChange={(nextValue) => form.setData('employee_id', nextValue ?? '')}
+                                options={employeeOptions}
+                                placeholder="Select linked employee"
+                                searchPlaceholder="Search employee..."
+                                emptyText="No employees found."
+                                className="h-8 w-full border-input bg-background py-1 text-sm"
+                            />
                             <InputError message={form.errors.employee_id} />
                         </section>
                     </DialogBody>

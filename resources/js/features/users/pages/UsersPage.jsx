@@ -148,12 +148,12 @@ export default function UsersPage({
             />
 
             <div className="mx-auto flex w-full max-w-full flex-col gap-4">
-                <section className="bg-white shadow-[0_14px_40px_rgba(15,23,42,0.08)]">
-                    <div className="border-b border-slate-200 px-5 py-5">
+                <section className="bg-card shadow-[0_14px_40px_rgba(15,23,42,0.08)]">
+                    <div className="border-b border-border px-5 py-5">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                             <div className="space-y-1">
-                                <h1 className="text-2xl font-semibold text-slate-800">Users</h1>
-                                <p className="text-sm text-slate-500">
+                                <h1 className="text-2xl font-semibold text-foreground">Users</h1>
+                                <p className="text-sm text-muted-foreground">
                                     Manage account access, roles, employee links, password resets, and login monitoring.
                                 </p>
                             </div>
@@ -168,7 +168,7 @@ export default function UsersPage({
                     </div>
 
                     <div className="space-y-5 px-5 py-5">
-                        <section className="bg-white shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+                        <section className="bg-card shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
                             <div className="px-5 py-5">
                                 <UsersTable
                                     users={users.data}

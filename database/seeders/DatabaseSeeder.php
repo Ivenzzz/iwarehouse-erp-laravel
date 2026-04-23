@@ -23,12 +23,11 @@ class DatabaseSeeder extends Seeder
         ], [
             'name' => 'ERP Administrator',
             'email' => null,
-            'password' => 'Password123!',
+            'password' => 'admin',
             'status' => User::STATUS_ACTIVE,
         ]);
 
         $admin->assignRole('SuperAdmin');
 
-        $this->call(PosSeeder::class);
     }
 }

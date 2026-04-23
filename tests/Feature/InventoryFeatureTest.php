@@ -624,6 +624,129 @@ class InventoryFeatureTest extends TestCase
         ]);
     }
 
+    public function test_inventory_import_auto_creates_brand_model_master_and_variant_with_model_code_cleanup(): void
+    {
+        $user = User::factory()->create();
+        Warehouse::create([
+            'name' => 'Main Warehouse',
+            'warehouse_type' => 'main_warehouse',
+        ]);
+        $noCategory = ProductCategory::create([
+            'name' => 'No Category',
+            'parent_category_id' => null,
+        ]);
+        ProductCategory::create([
+            'name' => 'No Subcategory',
+            'parent_category_id' => $noCategory->id,
+        ]);
+
+        $csv = implode("\n", [
+            'Brand,Model,Model Code,Warehouse,Condition,RAM,ROM,Color,CPU,GPU,RAM Type,ROM Type,Operating System,Screen,IMEI 1,Serial Number',
+            'Apple,iPhone 17 A2890,A2890,Main Warehouse,Brand New,8,256,Black,M3,Integrated,LPDDR5,NVMe,iOS,6.1-inch,988888888888881,SN-AUTO-GRAPH-001',
+        ]);
+        $file = UploadedFile::fake()->createWithContent('inventory.csv', $csv);
+
+        $brandCount = ProductBrand::count();
+        $modelCount = ProductModel::count();
+        $masterCount = ProductMaster::count();
+        $variantCount = ProductVariant::count();
+        $inventoryCount = InventoryItem::count();
+
+        $validationResponse = $this->actingAs($user)
+            ->post(route('inventory.import.validate'), ['file' => $file], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->json();
+
+        $this->assertSame(1, $validationResponse['variantsCreated']);
+        $this->assertSame($brandCount, ProductBrand::count());
+        $this->assertSame($modelCount, ProductModel::count());
+        $this->assertSame($masterCount, ProductMaster::count());
+        $this->assertSame($variantCount, ProductVariant::count());
+        $this->assertSame($inventoryCount, InventoryItem::count());
+
+        $this->actingAs($user)
+            ->postJson(route('inventory.import'), [
+                'importToken' => $validationResponse['importToken'],
+            ])
+            ->assertOk()
+            ->assertJson([
+                'created' => 1,
+                'failed' => 0,
+            ]);
+
+        $brand = ProductBrand::query()->where('name', 'APPLE')->first();
+        $this->assertNotNull($brand);
+        $model = ProductModel::query()
+            ->where('brand_id', $brand->id)
+            ->where('model_name', 'IPHONE 17')
+            ->first();
+        $this->assertNotNull($model);
+        $master = ProductMaster::query()->where('model_id', $model->id)->first();
+        $this->assertNotNull($master);
+        $this->assertDatabaseHas('product_variants', [
+            'product_master_id' => $master->id,
+            'model_code' => 'A2890',
+            'operating_system' => 'iOS',
+            'screen' => '6.1-inch',
+        ]);
+    }
+
+    public function test_inventory_import_validation_fails_when_fallback_no_subcategory_is_missing(): void
+    {
+        $user = User::factory()->create();
+        Warehouse::create([
+            'name' => 'Main Warehouse',
+            'warehouse_type' => 'main_warehouse',
+        ]);
+        ProductCategory::create([
+            'name' => 'No Category',
+            'parent_category_id' => null,
+        ]);
+
+        $csv = implode("\n", [
+            'Brand,Model,Warehouse,Condition,IMEI 1,Serial Number',
+            'New Brand,New Model,Main Warehouse,Brand New,977777777777771,SN-NO-FALLBACK-001',
+        ]);
+        $file = UploadedFile::fake()->createWithContent('inventory.csv', $csv);
+
+        $this->actingAs($user)
+            ->post(route('inventory.import.validate'), ['file' => $file], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->assertJsonPath('skippedItems.0.reason', 'Fallback subcategory containing "No Subcategory" was not found under "No Category".');
+    }
+
+    public function test_inventory_import_validation_fails_when_fallback_no_subcategory_is_ambiguous(): void
+    {
+        $user = User::factory()->create();
+        Warehouse::create([
+            'name' => 'Main Warehouse',
+            'warehouse_type' => 'main_warehouse',
+        ]);
+        $noCategory = ProductCategory::create([
+            'name' => 'No Category',
+            'parent_category_id' => null,
+        ]);
+        ProductCategory::create([
+            'name' => 'No Subcategory',
+            'parent_category_id' => $noCategory->id,
+        ]);
+        ProductCategory::create([
+            'name' => 'No Subcategory Default',
+            'parent_category_id' => $noCategory->id,
+        ]);
+
+        $csv = implode("\n", [
+            'Brand,Model,Warehouse,Condition,IMEI 1,Serial Number',
+            'New Brand,New Model,Main Warehouse,Brand New,966666666666661,SN-AMBIG-FALLBACK-001',
+        ]);
+        $file = UploadedFile::fake()->createWithContent('inventory.csv', $csv);
+
+        $this->actingAs($user)
+            ->post(route('inventory.import.validate'), ['file' => $file], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->assertJsonPath('skippedItems.0.reason', 'Fallback subcategory containing "No Subcategory" is ambiguous under "No Category".');
+    }
+
     public function test_inventory_import_validation_detects_duplicate_identifier(): void
     {
         $user = User::factory()->create();

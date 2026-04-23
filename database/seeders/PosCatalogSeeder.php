@@ -15,7 +15,7 @@ class PosCatalogSeeder extends Seeder
     public function run(): void
     {
         $phonesCategory = ProductCategory::query()->updateOrCreate(
-            ['name' => 'Phones', 'parent_category_id' => null],
+            ['name' => 'Mobile Devices', 'parent_category_id' => null],
             [],
         );
 
@@ -25,52 +25,52 @@ class PosCatalogSeeder extends Seeder
         );
 
         $accessoriesCategory = ProductCategory::query()->updateOrCreate(
-            ['name' => 'Accessories', 'parent_category_id' => null],
+            ['name' => 'Accessories & Storage', 'parent_category_id' => null],
             [],
         );
 
         $mobileAccessoriesSubcategory = ProductCategory::query()->updateOrCreate(
-            ['name' => 'Mobile Accessories', 'parent_category_id' => $accessoriesCategory->id],
+            ['name' => 'Chargers & Powerbanks', 'parent_category_id' => $accessoriesCategory->id],
             [],
         );
 
         $iphoneVariant = $this->seedVariant(
             brandName: 'Apple',
-            modelName: 'iPhone 15',
-            masterSku: 'APPLE-IP15',
+            modelName: 'IPHONE 15',
+            masterSku: 'APPLE-IPHONE15',
             subcategoryId: $smartphonesSubcategory->id,
-            sku: 'APPLE-IP15-8GB-256GB-BLACK',
+            sku: 'APPLE-IPHONE15-8GB-256GB-BLACK',
             condition: ProductVariantDefinitions::CONDITION_BRAND_NEW,
             attributes: [
-                'color' => 'Black',
+                'color' => 'BLACK',
                 'ram' => '8GB',
                 'rom' => '256GB',
             ],
         );
 
         $samsungVariant = $this->seedVariant(
-            brandName: 'Samsung',
-            modelName: 'Galaxy A55 5G',
-            masterSku: 'SAMSUNG-A55',
+            brandName: 'SAMSUNG',
+            modelName: 'GALAXY A55 5G',
+            masterSku: 'SAMSUNG-GALAXYA55',
             subcategoryId: $smartphonesSubcategory->id,
-            sku: 'SAMSUNG-A55-8GB-256GB-ICEBLUE',
+            sku: 'SAMSUNG-GALAXYA55-8GB-256GB-ICEBLUE',
             condition: ProductVariantDefinitions::CONDITION_BRAND_NEW,
             attributes: [
-                'color' => 'Iceblue',
+                'color' => 'ICE BLUE',
                 'ram' => '8GB',
                 'rom' => '256GB',
             ],
         );
 
         $chargerVariant = $this->seedVariant(
-            brandName: 'Anker',
+            brandName: 'ANKER',
             modelName: 'Nano 20W Charger',
             masterSku: 'ANKER-NANO-20W',
             subcategoryId: $mobileAccessoriesSubcategory->id,
-            sku: 'ANKER-NANO-20W-WHITE',
+            sku: 'ANKER-NANO20W-WHITE',
             condition: ProductVariantDefinitions::CONDITION_BRAND_NEW,
             attributes: [
-                'color' => 'White',
+                'color' => 'WHITE',
             ],
         );
     }

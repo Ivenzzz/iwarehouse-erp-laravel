@@ -2,11 +2,15 @@
 
 namespace App\Features\Inventory\Actions;
 
+use App\Features\ProductMasters\Support\NormalizesModelNameByCode;
 use App\Models\InventoryItem;
 use App\Models\ProductBrand;
+use App\Models\ProductCategory;
 use App\Models\ProductMaster;
+use App\Models\ProductModel;
 use App\Models\ProductVariant;
 use App\Models\Warehouse;
+use App\Support\GeneratesProductMasterSku;
 use App\Support\GeneratesProductVariantSku;
 use App\Support\ProductVariantDefinitions;
 use Illuminate\Http\UploadedFile;
@@ -22,8 +26,10 @@ class ImportInventoryItemsFromCsv
     private const CACHE_STORE = 'file';
 
     public function __construct(
+        private readonly GeneratesProductMasterSku $generatesProductMasterSku,
         private readonly GeneratesProductVariantSku $generatesProductVariantSku,
         private readonly LogInventoryActivity $logInventoryActivity,
+        private readonly NormalizesModelNameByCode $normalizesModelNameByCode,
     ) {}
 
     /**
@@ -168,7 +174,7 @@ class ImportInventoryItemsFromCsv
                         $item,
                         'CSV_IMPORT',
                         $actorId,
-                        'Imported from inventory CSV.',
+                        'Imported from 2025 POS',
                         [
                             'brand' => $row['Brand'] ?? null,
                             'model' => $row['Model'] ?? null,
@@ -297,6 +303,8 @@ class ImportInventoryItemsFromCsv
      */
     private function loadReferences(): array
     {
+        $brands = ProductBrand::query()->get();
+        $models = ProductModel::query()->with('brand')->get();
         $productMasters = ProductMaster::query()
             ->with(['model.brand', 'subcategory.parent'])
             ->get();
@@ -304,13 +312,18 @@ class ImportInventoryItemsFromCsv
             ->with(['productMaster.model.brand'])
             ->get();
         $warehouses = Warehouse::query()->get();
-        ProductBrand::query()->get();
+        $categories = ProductCategory::query()->get();
 
         $productMasterMap = [];
+        $productMastersByModelId = [];
         foreach ($productMasters as $productMaster) {
             $key = $this->normalizeKey(($productMaster->model?->brand?->name ?? '').'::'.($productMaster->model?->model_name ?? ''));
             $productMasterMap[$key] ??= [];
-            $productMasterMap[$key][] = $productMaster;
+            $productMasterMap[$key][] = [
+                'id' => $productMaster->id,
+                'productMaster' => $productMaster,
+            ];
+            $productMastersByModelId[$productMaster->model_id] = $productMaster;
         }
 
         $variantsByMaster = [];
@@ -325,7 +338,30 @@ class ImportInventoryItemsFromCsv
             $warehouseMap[$this->normalizeKey($warehouse->name)][] = $warehouse;
         }
 
-        return compact('productMasters', 'variants', 'warehouses', 'productMasterMap', 'variantsByMaster', 'warehouseMap');
+        $brandMap = [];
+        foreach ($brands as $brand) {
+            $brandMap[$this->normalizeKey($brand->name)] = $brand;
+        }
+
+        $modelMap = [];
+        foreach ($models as $model) {
+            $modelMap[$model->brand_id.'|'.$this->normalizeKey($model->model_name)] = $model;
+        }
+
+        return compact(
+            'brands',
+            'models',
+            'productMasters',
+            'variants',
+            'warehouses',
+            'categories',
+            'productMasterMap',
+            'productMastersByModelId',
+            'variantsByMaster',
+            'warehouseMap',
+            'brandMap',
+            'modelMap',
+        ) + ['nextPredictedMasterId' => -1];
     }
 
     /**
@@ -361,21 +397,24 @@ class ImportInventoryItemsFromCsv
         bool $createMissingVariant,
     ): array {
         $mappedRow = $this->mapRowToCanonicalColumns($row);
+        $mappedRow['Model'] = $this->normalizesModelNameByCode->handle(
+            $mappedRow['Model'] ?? '',
+            $mappedRow['Model Code'] ?? '',
+        );
         $label = $this->buildRowLabel($mappedRow);
-        $productMasterMatches = $references['productMasterMap'][$this->normalizeKey(($mappedRow['Brand'] ?? '').'::'.($mappedRow['Model'] ?? ''))] ?? [];
+        $masterResolution = $this->resolveProductMasterForRow($mappedRow, $references, $createMissingVariant);
 
-        if (count($productMasterMatches) !== 1) {
+        if (! $masterResolution['valid']) {
             return [
                 'valid' => false,
                 'label' => $label,
-                'reason' => count($productMasterMatches) > 1
-                    ? 'Multiple product masters matched Brand + Model.'
-                    : 'No product master matched Brand + Model.',
+                'reason' => $masterResolution['reason'] ?? 'Unable to resolve product master.',
             ];
         }
 
-        $productMaster = $productMasterMatches[0];
-        $variantMatches = $this->resolveVariantMatches($mappedRow, $references['variantsByMaster'][$productMaster->id] ?? []);
+        $productMaster = $masterResolution['productMaster'] ?? null;
+        $masterId = (int) ($masterResolution['productMasterId'] ?? 0);
+        $variantMatches = $this->resolveVariantMatches($mappedRow, $references['variantsByMaster'][$masterId] ?? []);
         $variantCreated = false;
         $variant = null;
 
@@ -416,24 +455,38 @@ class ImportInventoryItemsFromCsv
 
         if (count($variantMatches) === 0) {
             if ($createMissingVariant) {
+                if (! $productMaster instanceof ProductMaster) {
+                    return [
+                        'valid' => false,
+                        'label' => $label,
+                        'reason' => 'Unable to resolve product master for import.',
+                    ];
+                }
                 $variant = $this->createVariantForRow($mappedRow, $productMaster);
                 $references['variants'][] = $variant;
-                $references['variantsByMaster'][$productMaster->id] ??= [];
-                $references['variantsByMaster'][$productMaster->id][] = $this->buildVariantDescriptor($variant);
+                $references['variantsByMaster'][$masterId] ??= [];
+                $references['variantsByMaster'][$masterId][] = $this->buildVariantDescriptor($variant);
             } else {
-                $references['variantsByMaster'][$productMaster->id] ??= [];
-                $references['variantsByMaster'][$productMaster->id][] = $this->buildPredictedVariantDescriptor($mappedRow);
+                $references['variantsByMaster'][$masterId] ??= [];
+                $references['variantsByMaster'][$masterId][] = $this->buildPredictedVariantDescriptor($mappedRow);
             }
 
             $variantCreated = true;
         } elseif ($variant === null && $createMissingVariant) {
+            if (! $productMaster instanceof ProductMaster) {
+                return [
+                    'valid' => false,
+                    'label' => $label,
+                    'reason' => 'Unable to resolve product master for import.',
+                ];
+            }
             $variant = $this->createVariantForRow($mappedRow, $productMaster);
             $references['variants'][] = $variant;
-            $references['variantsByMaster'][$productMaster->id] = array_values(array_filter(
-                $references['variantsByMaster'][$productMaster->id] ?? [],
+            $references['variantsByMaster'][$masterId] = array_values(array_filter(
+                $references['variantsByMaster'][$masterId] ?? [],
                 fn (array $descriptor): bool => $descriptor !== $variantMatch,
             ));
-            $references['variantsByMaster'][$productMaster->id][] = $this->buildVariantDescriptor($variant);
+            $references['variantsByMaster'][$masterId][] = $this->buildVariantDescriptor($variant);
             $variantCreated = true;
         }
 
@@ -454,6 +507,190 @@ class ImportInventoryItemsFromCsv
             'variant' => $variant,
             'variantCreated' => $variantCreated,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $references
+     * @return array{valid: bool, reason?: string, productMaster?: ProductMaster|null, productMasterId?: int}
+     */
+    private function resolveProductMasterForRow(array $row, array &$references, bool $createMissingGraph): array
+    {
+        $brandName = $this->collapseWhitespace($row['Brand'] ?? '');
+        $modelName = $this->collapseWhitespace($row['Model'] ?? '');
+
+        if ($brandName === '' || $modelName === '') {
+            return [
+                'valid' => false,
+                'reason' => 'Brand and Model are required.',
+            ];
+        }
+
+        $brandModelKey = $this->normalizeKey($brandName.'::'.$modelName);
+        $productMasterMatches = $references['productMasterMap'][$brandModelKey] ?? [];
+
+        if (count($productMasterMatches) > 1) {
+            return [
+                'valid' => false,
+                'reason' => 'Multiple product masters matched Brand + Model.',
+            ];
+        }
+
+        if (count($productMasterMatches) === 1) {
+            $match = $productMasterMatches[0];
+
+            return [
+                'valid' => true,
+                'productMaster' => $match['productMaster'],
+                'productMasterId' => (int) $match['id'],
+            ];
+        }
+
+        $fallbackSubcategory = $this->resolveFallbackSubcategory($references);
+        if (! $fallbackSubcategory['valid']) {
+            return [
+                'valid' => false,
+                'reason' => $fallbackSubcategory['reason'] ?? 'Unable to resolve fallback subcategory.',
+            ];
+        }
+
+        if (! $createMissingGraph) {
+            $predictedMasterId = $this->ensurePredictedMasterReference($brandModelKey, $references);
+
+            return [
+                'valid' => true,
+                'productMaster' => null,
+                'productMasterId' => $predictedMasterId,
+            ];
+        }
+
+        $brandKey = $this->normalizeKey($brandName);
+        $brand = $references['brandMap'][$brandKey] ?? null;
+
+        if (! $brand instanceof ProductBrand) {
+            $brand = ProductBrand::query()->create([
+                'name' => Str::upper($brandName),
+            ]);
+            $references['brandMap'][$brandKey] = $brand;
+        }
+
+        $modelKey = $brand->id.'|'.$this->normalizeKey($modelName);
+        $model = $references['modelMap'][$modelKey] ?? null;
+
+        if (! $model instanceof ProductModel) {
+            $model = ProductModel::query()->create([
+                'brand_id' => $brand->id,
+                'model_name' => Str::upper($modelName),
+            ]);
+            $references['modelMap'][$modelKey] = $model;
+        }
+
+        $productMaster = $references['productMastersByModelId'][$model->id] ?? null;
+
+        if (! $productMaster instanceof ProductMaster) {
+            $model->setRelation('brand', $brand);
+            $masterSku = $this->generatesProductMasterSku->fromModel($model);
+            $conflicts = ProductMaster::query()
+                ->where('master_sku', $masterSku)
+                ->where('model_id', '!=', $model->id)
+                ->exists();
+
+            if ($conflicts) {
+                return [
+                    'valid' => false,
+                    'reason' => "Generated master SKU {$masterSku} is already in use by another model.",
+                ];
+            }
+
+            $productMaster = ProductMaster::query()->create([
+                'master_sku' => $masterSku,
+                'model_id' => $model->id,
+                'subcategory_id' => $fallbackSubcategory['subcategory']->id,
+            ])->fresh(['model.brand', 'subcategory.parent']);
+
+            $references['productMastersByModelId'][$model->id] = $productMaster;
+        }
+
+        $references['productMasterMap'][$brandModelKey] = [[
+            'id' => $productMaster->id,
+            'productMaster' => $productMaster,
+        ]];
+
+        return [
+            'valid' => true,
+            'productMaster' => $productMaster,
+            'productMasterId' => $productMaster->id,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $references
+     * @return array{valid: bool, reason?: string, subcategory?: ProductCategory}
+     */
+    private function resolveFallbackSubcategory(array &$references): array
+    {
+        if (isset($references['fallbackSubcategoryResolution'])) {
+            return $references['fallbackSubcategoryResolution'];
+        }
+
+        $categories = collect($references['categories'] ?? []);
+        $normalizedNoCategory = $this->sanitizeForLooseMatch('No Category');
+        $normalizedNoSubcategory = $this->sanitizeForLooseMatch('No Subcategory');
+        $categoryMatches = $categories
+            ->where('parent_category_id', null)
+            ->filter(fn (ProductCategory $category): bool => $this->sanitizeForLooseMatch($category->name) === $normalizedNoCategory)
+            ->values();
+
+        if ($categoryMatches->count() !== 1) {
+            return $references['fallbackSubcategoryResolution'] = [
+                'valid' => false,
+                'reason' => $categoryMatches->isEmpty()
+                    ? 'Fallback category "No Category" was not found.'
+                    : 'Fallback category "No Category" is ambiguous.',
+            ];
+        }
+
+        $categoryId = (int) $categoryMatches->first()->id;
+        $subcategoryMatches = $categories
+            ->where('parent_category_id', $categoryId)
+            ->filter(fn (ProductCategory $subcategory): bool => str_contains(
+                $this->sanitizeForLooseMatch($subcategory->name),
+                $normalizedNoSubcategory,
+            ))
+            ->values();
+
+        if ($subcategoryMatches->count() !== 1) {
+            return $references['fallbackSubcategoryResolution'] = [
+                'valid' => false,
+                'reason' => $subcategoryMatches->isEmpty()
+                    ? 'Fallback subcategory containing "No Subcategory" was not found under "No Category".'
+                    : 'Fallback subcategory containing "No Subcategory" is ambiguous under "No Category".',
+            ];
+        }
+
+        return $references['fallbackSubcategoryResolution'] = [
+            'valid' => true,
+            'subcategory' => $subcategoryMatches->first(),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $references
+     */
+    private function ensurePredictedMasterReference(string $brandModelKey, array &$references): int
+    {
+        $existing = $references['productMasterMap'][$brandModelKey] ?? [];
+        if (count($existing) === 1) {
+            return (int) ($existing[0]['id'] ?? 0);
+        }
+
+        $predictedId = (int) ($references['nextPredictedMasterId'] ?? -1);
+        $references['nextPredictedMasterId'] = $predictedId - 1;
+        $references['productMasterMap'][$brandModelKey] = [[
+            'id' => $predictedId,
+            'productMaster' => null,
+        ]];
+
+        return $predictedId;
     }
 
     /**
@@ -806,6 +1043,7 @@ class ImportInventoryItemsFromCsv
         $mapped['ROM'] = $this->normalizeWholeNumberString($this->valueFromAliases($row, ['ROM', 'ROM Capacity']));
         $mapped['Operating System'] = $this->valueFromAliases($row, ['Operating System', 'OS']);
         $mapped['Screen'] = $this->valueFromAliases($row, ['Screen', 'Display']);
+        $mapped['Model Code'] = $this->valueFromAliases($row, ['Model Code']);
 
         foreach (['Color', 'CPU', 'GPU', 'RAM Type', 'ROM Type', 'Brand', 'Model', 'Warehouse', 'Condition'] as $header) {
             $mapped[$header] = $this->valueFromAliases($row, [$header]);
@@ -842,6 +1080,14 @@ class ImportInventoryItemsFromCsv
         }
 
         return (string) ((int) ((float) $value));
+    }
+
+    private function sanitizeForLooseMatch(mixed $value): string
+    {
+        $value = $this->normalizeKey($value);
+        $value = preg_replace('/[^a-z0-9]+/i', '', $value) ?: '';
+
+        return $value;
     }
 
     /**

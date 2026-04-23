@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { ArrowDown, ArrowUp, ArrowUpDown, Eye, Search, X } from "lucide-react";
 
 import { calculateStockAge, formatCurrency, formatDateTime, getStatusColor, getStockAgeColor } from "@/features/inventory/lib/inventoryUtils";
@@ -63,6 +64,8 @@ const CHIP_COLORS = {
   cpu: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20 dark:text-indigo-400",
   gpu: "bg-cyan-500/10 text-cyan-600 border-cyan-500/20 dark:text-cyan-400",
 };
+const ROW_HEIGHT = 108;
+const TABLE_HEIGHT = 640;
 
 function getStatusHeatmapClass(status) {
   const normalized = String(status || "").trim();
@@ -72,6 +75,63 @@ function getStatusHeatmapClass(status) {
   if (["rma", "damaged", "stolen_lost"].includes(normalized)) return "bg-red-500/10";
   return "bg-muted/50";
 }
+
+const InventoryRow = memo(function InventoryRow({ item, isSelected, onToggleRow, onViewDetails }) {
+  return (
+    <tr className="align-top hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+      <td className="px-4 py-4">
+        <Checkbox checked={isSelected} onCheckedChange={(checked) => onToggleRow(item.id, checked)} />
+      </td>
+      <td className="px-4 py-4">
+        <div className="max-w-[280px] space-y-1">
+          <div className="font-medium text-foreground">{[item.brandName, item.masterModel].filter(Boolean).join(" ") || item.productName}</div>
+          <div className="flex flex-wrap gap-1">
+            {item.variantCondition ? (
+              <Badge
+                variant="outline"
+                className={`${CHIP_BASE_CLASS} ${item.variantCondition === "Certified Pre-Owned" ? CHIP_COLORS.conditionCpo : CHIP_COLORS.conditionDefault}`}
+              >
+                {item.variantCondition === "Certified Pre-Owned" ? "CPO" : item.variantCondition}
+              </Badge>
+            ) : null}
+            {item.attrRAM && <Badge variant="outline" className={`${CHIP_BASE_CLASS} ${CHIP_COLORS.ram}`}>{item.attrRAM}</Badge>}
+            {item.attrROM && <Badge variant="outline" className={`${CHIP_BASE_CLASS} ${CHIP_COLORS.rom}`}>{item.attrROM}</Badge>}
+            {item.attrColor && <Badge variant="outline" className={`${CHIP_BASE_CLASS} ${CHIP_COLORS.color}`}>{item.attrColor}</Badge>}
+            {item.cpu && <Badge variant="outline" className={`${CHIP_BASE_CLASS} ${CHIP_COLORS.cpu}`}>{item.cpu}</Badge>}
+            {item.gpu && <Badge variant="outline" className={`${CHIP_BASE_CLASS} ${CHIP_COLORS.gpu}`}>{item.gpu}</Badge>}
+          </div>
+        </div>
+      </td>
+      <td className="px-4 py-4 font-mono text-xs text-muted-foreground">
+        <div className="space-y-0.5">
+          {item.imei1 && <div>{item.imei1}</div>}
+          {item.serial_number && <div>{item.serial_number}</div>}
+        </div>
+      </td>
+      <td className="px-4 py-4 text-foreground/80">{item.warehouseName}</td>
+      <td className="px-4 py-4 text-xs text-muted-foreground">{formatDateTime(item.encoded_date || item.created_date)}</td>
+      <td className="px-4 py-4">
+        <span className={`text-xs font-medium ${getStockAgeColor(item.encoded_date || item.created_date)}`}>
+          {calculateStockAge(item.encoded_date || item.created_date)}
+        </span>
+      </td>
+      <td className="px-4 py-4 text-foreground/80">{item.warranty_description || "No Warranty"}</td>
+      <td className="px-4 py-4 text-right font-mono text-xs text-muted-foreground">{formatCurrency(item.cost_price)}</td>
+      <td className="px-4 py-4 text-right font-mono text-xs font-medium text-foreground">{formatCurrency(item.cash_price)}</td>
+      <td className="px-4 py-4 text-right font-mono text-xs text-muted-foreground">{formatCurrency(item.srp)}</td>
+      <td className="px-4 py-4">
+        <Badge className={`${getStatusColor(item.status)} ${getStatusHeatmapClass(item.status)} border-0 px-2 py-0.5 text-[10px] uppercase shadow-none`}>
+          {item.status === "available" ? "active" : item.status.replaceAll("_", " ")}
+        </Badge>
+      </td>
+      <td className="px-4 py-4 text-right">
+        <Button variant="ghost" size="sm" className="" onClick={() => onViewDetails(item)}>
+          <Eye className="size-4" />
+        </Button>
+      </td>
+    </tr>
+  );
+});
 
 export default function InventoryTable({
   items,
@@ -86,11 +146,30 @@ export default function InventoryTable({
   onViewDetails,
   onVisit,
 }) {
+  const parentRef = useRef(null);
   const [searchValue, setSearchValue] = useState(filters.search ?? "");
+  const selectedItemIds = useMemo(() => new Set(selectedItems), [selectedItems]);
+  const rowVirtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 10,
+  });
+  const virtualRows = rowVirtualizer.getVirtualItems();
+  const topPaddingHeight = virtualRows.length > 0 ? virtualRows[0].start : 0;
+  const bottomPaddingHeight = virtualRows.length > 0
+    ? rowVirtualizer.getTotalSize() - virtualRows[virtualRows.length - 1].end
+    : 0;
 
   useEffect(() => {
     setSearchValue(filters.search ?? "");
   }, [filters.search]);
+  useEffect(() => {
+    if (parentRef.current) {
+      parentRef.current.scrollTop = 0;
+    }
+    rowVirtualizer.scrollToOffset(0);
+  }, [filters.search, filters.location, filters.status, filters.brand, filters.category, filters.condition, filters.stockAge, rowVirtualizer]);
 
   const locationOptions = useMemo(() => ([
     { value: "all", label: "All Warehouses" },
@@ -133,32 +212,32 @@ export default function InventoryTable({
     ];
   }, [items]);
 
-  const allVisibleSelected = items.length > 0 && items.every((item) => selectedItems.includes(item.id));
+  const allVisibleSelected = items.length > 0 && items.every((item) => selectedItemIds.has(item.id));
 
-  const updateFilter = (key, value) => {
+  const updateFilter = useCallback((key, value) => {
     onVisit({ [key]: value, page: undefined });
-  };
+  }, [onVisit]);
 
-  const toggleSort = (field) => {
+  const toggleSort = useCallback((field) => {
     const direction = filters.sort === field && filters.direction === "asc" ? "desc" : "asc";
     onVisit({ sort: field, direction, page: undefined });
-  };
+  }, [filters.direction, filters.sort, onVisit]);
 
-  const toggleRow = (id, checked) => {
+  const toggleRow = useCallback((id, checked) => {
     if (checked) {
       onSelectionChange([...new Set([...selectedItems, id])]);
       return;
     }
     onSelectionChange(selectedItems.filter((itemId) => itemId !== id));
-  };
+  }, [onSelectionChange, selectedItems]);
 
-  const toggleAllVisible = (checked) => {
+  const toggleAllVisible = useCallback((checked) => {
     if (checked) {
       onSelectionChange([...new Set([...selectedItems, ...items.map((item) => item.id)])]);
       return;
     }
     onSelectionChange(selectedItems.filter((itemId) => !items.some((item) => item.id === itemId)));
-  };
+  }, [items, onSelectionChange, selectedItems]);
 
   return (
     <div className="space-y-4">
@@ -239,89 +318,63 @@ export default function InventoryTable({
         />
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-border">
-        <table className="min-w-full divide-y divide-border text-xs">
-          <thead className="sticky top-0 z-10 border-b border-primary bg-background text-muted-foreground backdrop-blur-md">
-            <tr>
-              <th className="px-4 py-3 text-left">
-                <Checkbox checked={allVisibleSelected} onCheckedChange={toggleAllVisible} />
-              </th>
-              <th className="px-4 py-3 text-left"><SortableHeader label="Product" active={filters.sort === "productName"} direction={filters.direction} onClick={() => toggleSort("productName")} /></th>
-              <th className="px-4 py-3 text-left"><SortableHeader label="Barcode" active={filters.sort === "serial_number"} direction={filters.direction} onClick={() => toggleSort("serial_number")} /></th>
-              <th className="px-4 py-3 text-left"><SortableHeader label="Location" active={filters.sort === "warehouseName"} direction={filters.direction} onClick={() => toggleSort("warehouseName")} /></th>
-              <th className="px-4 py-3 text-left"><SortableHeader label="Encoded" active={filters.sort === "encoded_date"} direction={filters.direction} onClick={() => toggleSort("encoded_date")} /></th>
-              <th className="px-4 py-3 text-left"><SortableHeader label="Age" active={filters.sort === "stockAgeDays"} direction={filters.direction} onClick={() => toggleSort("stockAgeDays")} /></th>
-              <th className="px-4 py-3 text-left">Warranty</th>
-              <th className="px-4 py-3 text-right"><SortableHeader align="right" label="Cost" active={filters.sort === "cost_price"} direction={filters.direction} onClick={() => toggleSort("cost_price")} /></th>
-              <th className="px-4 py-3 text-right"><SortableHeader align="right" label="Cash" active={filters.sort === "cash_price"} direction={filters.direction} onClick={() => toggleSort("cash_price")} /></th>
-              <th className="px-4 py-3 text-right"><SortableHeader align="right" label="SRP" active={filters.sort === "srp"} direction={filters.direction} onClick={() => toggleSort("srp")} /></th>
-              <th className="px-4 py-3 text-left"><SortableHeader label="Status" active={filters.sort === "status"} direction={filters.direction} onClick={() => toggleSort("status")} /></th>
-              <th className="px-4 py-3 text-right">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border bg-background">
-            {items.length ? items.map((item) => (
-              <tr key={item.id} className="align-top hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                <td className="px-4 py-4">
-                  <Checkbox checked={selectedItems.includes(item.id)} onCheckedChange={(checked) => toggleRow(item.id, checked)} />
-                </td>
-                <td className="px-4 py-4">
-                  <div className="max-w-[280px] space-y-1">
-                    <div className="font-medium text-foreground">{[item.brandName, item.masterModel].filter(Boolean).join(" ") || item.productName}</div>
-                    <div className="flex flex-wrap gap-1">
-                      {item.variantCondition ? (
-                        <Badge
-                          variant="outline"
-                          className={`${CHIP_BASE_CLASS} ${item.variantCondition === "Certified Pre-Owned" ? CHIP_COLORS.conditionCpo : CHIP_COLORS.conditionDefault}`}
-                        >
-                          {item.variantCondition === "Certified Pre-Owned" ? "CPO" : item.variantCondition}
-                        </Badge>
-                      ) : null}
-                      {item.attrRAM && <Badge variant="outline" className={`${CHIP_BASE_CLASS} ${CHIP_COLORS.ram}`}>{item.attrRAM}</Badge>}
-                      {item.attrROM && <Badge variant="outline" className={`${CHIP_BASE_CLASS} ${CHIP_COLORS.rom}`}>{item.attrROM}</Badge>}
-                      {item.attrColor && <Badge variant="outline" className={`${CHIP_BASE_CLASS} ${CHIP_COLORS.color}`}>{item.attrColor}</Badge>}
-                      {item.cpu && <Badge variant="outline" className={`${CHIP_BASE_CLASS} ${CHIP_COLORS.cpu}`}>{item.cpu}</Badge>}
-                      {item.gpu && <Badge variant="outline" className={`${CHIP_BASE_CLASS} ${CHIP_COLORS.gpu}`}>{item.gpu}</Badge>}
-                    </div>
-                  </div>
-                </td>
-                <td className="px-4 py-4 font-mono text-xs text-muted-foreground">
-                  <div className="space-y-0.5">
-                    {item.imei1 && <div>{item.imei1}</div>}
-                    {item.serial_number && <div>{item.serial_number}</div>}
-                  </div>
-                </td>
-                <td className="px-4 py-4 text-foreground/80">{item.warehouseName}</td>
-                <td className="px-4 py-4 text-xs text-muted-foreground">{formatDateTime(item.encoded_date || item.created_date)}</td>
-                <td className="px-4 py-4">
-                  <span className={`text-xs font-medium ${getStockAgeColor(item.encoded_date || item.created_date)}`}>
-                    {calculateStockAge(item.encoded_date || item.created_date)}
-                  </span>
-                </td>
-                <td className="px-4 py-4 text-foreground/80">{item.warranty_description || "No Warranty"}</td>
-                <td className="px-4 py-4 text-right font-mono text-xs text-muted-foreground">{formatCurrency(item.cost_price)}</td>
-                <td className="px-4 py-4 text-right font-mono text-xs font-medium text-foreground">{formatCurrency(item.cash_price)}</td>
-                <td className="px-4 py-4 text-right font-mono text-xs text-muted-foreground">{formatCurrency(item.srp)}</td>
-                <td className="px-4 py-4">
-                  <Badge className={`${getStatusColor(item.status)} ${getStatusHeatmapClass(item.status)} border-0 px-2 py-0.5 text-[10px] uppercase shadow-none`}>
-                    {item.status === "available" ? "active" : item.status.replaceAll("_", " ")}
-                  </Badge>
-                </td>
-                <td className="px-4 py-4 text-right">
-                  <Button variant="ghost" size="sm" className="" onClick={() => onViewDetails(item)}>
-                    <Eye className="size-4" />
-                  </Button>
-                </td>
-              </tr>
-            )) : (
+      <div className="overflow-hidden rounded-xl border border-border">
+        <div ref={parentRef} className="overflow-auto" style={{ height: `${TABLE_HEIGHT}px` }}>
+          <table className="min-w-full divide-y divide-border text-xs">
+            <thead className="sticky top-0 z-10 border-b border-primary bg-accent text-muted-foreground backdrop-blur-md">
               <tr>
-                <td colSpan={12} className="px-4 py-8 text-center text-xs text-muted-foreground">
-                  No inventory items matched the current filters.
-                </td>
+                <th className="px-4 py-3 text-left">
+                  <Checkbox checked={allVisibleSelected} onCheckedChange={toggleAllVisible} />
+                </th>
+                <th className="px-4 py-3 text-left"><SortableHeader label="Product" active={filters.sort === "productName"} direction={filters.direction} onClick={() => toggleSort("productName")} /></th>
+                <th className="px-4 py-3 text-left"><SortableHeader label="Barcode" active={filters.sort === "serial_number"} direction={filters.direction} onClick={() => toggleSort("serial_number")} /></th>
+                <th className="px-4 py-3 text-left"><SortableHeader label="Location" active={filters.sort === "warehouseName"} direction={filters.direction} onClick={() => toggleSort("warehouseName")} /></th>
+                <th className="px-4 py-3 text-left"><SortableHeader label="Encoded" active={filters.sort === "encoded_date"} direction={filters.direction} onClick={() => toggleSort("encoded_date")} /></th>
+                <th className="px-4 py-3 text-left"><SortableHeader label="Age" active={filters.sort === "stockAgeDays"} direction={filters.direction} onClick={() => toggleSort("stockAgeDays")} /></th>
+                <th className="px-4 py-3 text-left">Warranty</th>
+                <th className="px-4 py-3 text-right"><SortableHeader align="right" label="Cost" active={filters.sort === "cost_price"} direction={filters.direction} onClick={() => toggleSort("cost_price")} /></th>
+                <th className="px-4 py-3 text-right"><SortableHeader align="right" label="Cash" active={filters.sort === "cash_price"} direction={filters.direction} onClick={() => toggleSort("cash_price")} /></th>
+                <th className="px-4 py-3 text-right"><SortableHeader align="right" label="SRP" active={filters.sort === "srp"} direction={filters.direction} onClick={() => toggleSort("srp")} /></th>
+                <th className="px-4 py-3 text-left"><SortableHeader label="Status" active={filters.sort === "status"} direction={filters.direction} onClick={() => toggleSort("status")} /></th>
+                <th className="px-4 py-3 text-right">Action</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-border bg-background">
+              {items.length === 0 ? (
+                <tr>
+                  <td colSpan={12} className="px-4 py-8 text-center text-xs text-muted-foreground">
+                    No inventory items matched the current filters.
+                  </td>
+                </tr>
+              ) : (
+                <>
+                  {topPaddingHeight > 0 ? (
+                    <tr>
+                      <td colSpan={12} style={{ height: `${topPaddingHeight}px`, padding: 0 }} />
+                    </tr>
+                  ) : null}
+                  {virtualRows.map((virtualRow) => {
+                    const item = items[virtualRow.index];
+                    return (
+                      <InventoryRow
+                        key={item.id}
+                        item={item}
+                        isSelected={selectedItemIds.has(item.id)}
+                        onToggleRow={toggleRow}
+                        onViewDetails={onViewDetails}
+                      />
+                    );
+                  })}
+                  {bottomPaddingHeight > 0 ? (
+                    <tr>
+                      <td colSpan={12} style={{ height: `${bottomPaddingHeight}px`, padding: 0 }} />
+                    </tr>
+                  ) : null}
+                </>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

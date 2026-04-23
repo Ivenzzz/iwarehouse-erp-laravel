@@ -1,6 +1,7 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { Head, router } from "@inertiajs/react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   Box,
   ChevronLeft,
@@ -41,6 +42,10 @@ const EMPTY_DIALOG = {
   variantName: "",
 };
 
+const MASTER_ROW_HEIGHT = 44;
+const VARIANT_ROW_HEIGHT = 36;
+const STATUS_ROW_HEIGHT = 40;
+
 function SortIndicator({ filters, columnKey, warehouseId = "" }) {
   const active =
     columnKey === "warehouse"
@@ -75,9 +80,6 @@ export default function PlacementReports({
   const [variantErrorsByMaster, setVariantErrorsByMaster] = useState({});
   const [itemDialog, setItemDialog] = useState(EMPTY_DIALOG);
   const tableContainerRef = useRef(null);
-  const tableRef = useRef(null);
-  const topScrollRef = useRef(null);
-  const topScrollInnerRef = useRef(null);
   const expandedRowsRef = useRef({});
   const variantRowsByMasterRef = useRef({});
   const loadingVariantsRef = useRef({});
@@ -359,56 +361,91 @@ export default function PlacementReports({
     []
   );
 
-  useEffect(() => {
-    const tableContainer = tableContainerRef.current;
-    const table = tableRef.current;
-    const topScroll = topScrollRef.current;
-    const topScrollInner = topScrollInnerRef.current;
+  const flatVirtualRows = useMemo(() => {
+    const nextRows = [];
 
-    if (!tableContainer || !table || !topScroll || !topScrollInner) {
-      return undefined;
-    }
+    rows.forEach((row) => {
+      const masterId = row.product_master_id;
+      const expanded = !!expandedRows[masterId];
+      const variants = variantRowsByMaster[masterId] || [];
+      const isLoading = !!loadingVariants[masterId];
+      const error = variantErrorsByMaster[masterId] || "";
 
-    let syncingFromTop = false;
-    let syncingFromBottom = false;
+      nextRows.push({
+        id: `master-${masterId}`,
+        type: "master",
+        masterId,
+        rowData: row,
+        isExpanded: expanded,
+      });
 
-    const syncWidths = () => {
-      topScrollInner.style.width = `${table.scrollWidth}px`;
-      topScroll.scrollLeft = tableContainer.scrollLeft;
-    };
+      if (!expanded) {
+        return;
+      }
 
-    const onTopScroll = () => {
-      if (syncingFromBottom) return;
-      syncingFromTop = true;
-      tableContainer.scrollLeft = topScroll.scrollLeft;
-      syncingFromTop = false;
-    };
+      if (isLoading) {
+        nextRows.push({
+          id: `loading-${masterId}`,
+          type: "loading",
+          masterId,
+          message: "Loading variants...",
+        });
+        return;
+      }
 
-    const onBottomScroll = () => {
-      if (syncingFromTop) return;
-      syncingFromBottom = true;
-      topScroll.scrollLeft = tableContainer.scrollLeft;
-      syncingFromBottom = false;
-    };
+      if (error) {
+        nextRows.push({
+          id: `error-${masterId}`,
+          type: "error",
+          masterId,
+          message: error,
+        });
+        return;
+      }
 
-    syncWidths();
-    topScroll.addEventListener("scroll", onTopScroll, { passive: true });
-    tableContainer.addEventListener("scroll", onBottomScroll, {
-      passive: true,
+      variants.forEach((variant) => {
+        nextRows.push({
+          id: `variant-${variant.variant_id}`,
+          type: "variant",
+          masterId,
+          variantId: variant.variant_id,
+          rowData: variant,
+        });
+      });
     });
 
-    const resizeObserver = new ResizeObserver(syncWidths);
-    resizeObserver.observe(tableContainer);
-    resizeObserver.observe(table);
-    window.addEventListener("resize", syncWidths);
+    return nextRows;
+  }, [
+    expandedRows,
+    loadingVariants,
+    rows,
+    variantErrorsByMaster,
+    variantRowsByMaster,
+  ]);
 
-    return () => {
-      topScroll.removeEventListener("scroll", onTopScroll);
-      tableContainer.removeEventListener("scroll", onBottomScroll);
-      resizeObserver.disconnect();
-      window.removeEventListener("resize", syncWidths);
-    };
-  }, [rows.length, warehouses.length]);
+  const rowVirtualizer = useVirtualizer({
+    count: flatVirtualRows.length,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: (index) => {
+      const rowType = flatVirtualRows[index]?.type;
+
+      if (rowType === "variant") return VARIANT_ROW_HEIGHT;
+      if (rowType === "loading" || rowType === "error") return STATUS_ROW_HEIGHT;
+      return MASTER_ROW_HEIGHT;
+    },
+    overscan: 10,
+  });
+
+  const virtualRows = rowVirtualizer.getVirtualItems();
+  const topPaddingHeight = virtualRows.length > 0 ? virtualRows[0].start : 0;
+  const bottomPaddingHeight =
+    virtualRows.length > 0
+      ? rowVirtualizer.getTotalSize() - virtualRows[virtualRows.length - 1].end
+      : 0;
+
+  useEffect(() => {
+    rowVirtualizer.scrollToOffset(0);
+  }, [queryStateKey, rowVirtualizer]);
 
   return (
     <AppShell title="Placement Reports">
@@ -572,35 +609,12 @@ export default function PlacementReports({
             {/* ── Table ───────────────────────────────────── */}
             <div className="relative">
               <div
-                ref={topScrollRef}
-                className="sticky top-0 z-30 h-4 overflow-x-auto overflow-y-hidden rounded-t-lg border border-border bg-background"
-              >
-                <div ref={topScrollInnerRef} className="h-px" />
-              </div>
-              <div
                 ref={tableContainerRef}
-                className="overflow-x-auto overflow-y-visible rounded-b-lg border border-border border-t-0"
+                className="h-[70vh] max-h-[760px] overflow-x-auto overflow-y-auto rounded-lg border border-border"
               >
-              <table ref={tableRef} className="w-full min-w-max text-xs bg-background">
-
-                {/*
-                  ── Table head ──────────────────────────────
-                  Sticky, sits on bg-card so it matches the card surface.
-
-                  Column accent strategy — alpha-based:
-                    • bg-blue-500/10   → "Total Items" column  (soft blue)
-                    • bg-amber-500/10  → Valuation
-                    • bg-orange-500/10 → 15/30 Day Sell Out
-                    • bg-teal-500/10   → Avg Sell Out/Day
-                    • bg-indigo-500/10 → Inventory Life
-                    • bg-rose-500/10   → Suggested PO Qty
-
-                  These are single declarations — no dark: needed.
-                  Hover uses /15 or /20 to give a subtle lift.
-                */}
+              <table className="w-full min-w-max text-xs bg-background">
                 <thead className="sticky top-0 z-20 border-b-2 border-border bg-background">
                   <tr>
-                    {/* Product Name */}
                     <th
                       className="min-w-[250px] cursor-pointer px-3 py-2.5 text-left font-semibold text-muted-foreground hover:bg-muted/60 transition-colors"
                       onClick={() => handleSort("display_name")}
@@ -610,8 +624,6 @@ export default function PlacementReports({
                         <SortIndicator filters={filters} columnKey="display_name" />
                       </div>
                     </th>
-
-                    {/* Total Items — blue accent */}
                     <th
                       className="min-w-[80px] cursor-pointer px-3 py-2.5 text-center font-semibold text-muted-foreground bg-blue-500/10 hover:bg-blue-500/15 transition-colors"
                       onClick={() => handleSort("total")}
@@ -622,7 +634,6 @@ export default function PlacementReports({
                       </div>
                     </th>
 
-                    {/* Per-warehouse columns */}
                     {warehouses.map((warehouse) => (
                       <th
                         key={warehouse.id}
@@ -704,62 +715,75 @@ export default function PlacementReports({
                       </td>
                     </tr>
                   ) : (
-                    rows.map((row) => {
-                      const masterId = row.product_master_id;
-                      const expanded = !!expandedRows[masterId];
-                      const variants = variantRowsByMaster[masterId] || [];
-                      const loadingVariantRows = !!loadingVariants[masterId];
-                      const variantError = variantErrorsByMaster[masterId] || "";
-
-                      return (
-                        <Fragment key={masterId}>
-                          <PlacementTableRow
-                            virtualRow={{ type: "master", row }}
-                            warehouses={warehouses}
-                            isExpanded={expanded}
-                            onToggleExpand={() => handleToggleExpand(row)}
-                            onOpenItems={handleOpenItems}
+                    <>
+                      {topPaddingHeight > 0 ? (
+                        <tr aria-hidden="true">
+                          <td
+                            colSpan={warehouses.length + 8}
+                            style={{ height: `${topPaddingHeight}px` }}
                           />
+                        </tr>
+                      ) : null}
 
-                          {/* Loading variants */}
-                          {expanded && loadingVariantRows ? (
-                            <tr className="border-b border-border bg-background">
+                      {virtualRows.map((virtualRow) => {
+                        const tableRow = flatVirtualRows[virtualRow.index];
+
+                        if (!tableRow) return null;
+
+                        if (tableRow.type === "loading") {
+                          return (
+                            <tr
+                              key={tableRow.id}
+                              className="border-b border-border bg-background"
+                            >
                               <td
                                 colSpan={warehouses.length + 8}
                                 className="px-6 py-3 text-[11px] text-muted-foreground"
                               >
-                                Loading variants...
+                                {tableRow.message}
                               </td>
                             </tr>
-                          ) : null}
+                          );
+                        }
 
-                          {/* Variant error */}
-                          {expanded && variantError ? (
-                            <tr className="border-b border-border bg-red-500/10">
+                        if (tableRow.type === "error") {
+                          return (
+                            <tr
+                              key={tableRow.id}
+                              className="border-b border-border bg-red-500/10"
+                            >
                               <td
                                 colSpan={warehouses.length + 8}
                                 className="px-6 py-3 text-[11px] text-red-600 dark:text-red-400"
                               >
-                                {variantError}
+                                {tableRow.message}
                               </td>
                             </tr>
-                          ) : null}
+                          );
+                        }
 
-                          {/* Variant rows */}
-                          {expanded &&
-                            !loadingVariantRows &&
-                            !variantError &&
-                            variants.map((variant) => (
-                              <PlacementTableRow
-                                key={variant.variant_id}
-                                virtualRow={{ type: "variant", variant }}
-                                warehouses={warehouses}
-                                onOpenItems={handleOpenItems}
-                              />
-                            ))}
-                        </Fragment>
-                      );
-                    })
+                        return (
+                          <PlacementTableRow
+                            key={tableRow.id}
+                            rowType={tableRow.type}
+                            rowData={tableRow.rowData}
+                            warehouses={warehouses}
+                            isExpanded={tableRow.isExpanded}
+                            onToggleExpand={handleToggleExpand}
+                            onOpenItems={handleOpenItems}
+                          />
+                        );
+                      })}
+
+                      {bottomPaddingHeight > 0 ? (
+                        <tr aria-hidden="true">
+                          <td
+                            colSpan={warehouses.length + 8}
+                            style={{ height: `${bottomPaddingHeight}px` }}
+                          />
+                        </tr>
+                      ) : null}
+                    </>
                   )}
                 </tbody>
 

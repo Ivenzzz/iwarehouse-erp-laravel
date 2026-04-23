@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 
 function getWarehouseHeatmapClasses(qty) {
@@ -22,7 +22,7 @@ function getWarehouseHeatmapClasses(qty) {
   };
 }
 
-export function PlacementTableMasterRow({
+export const PlacementTableMasterRow = memo(function PlacementTableMasterRow({
   row,
   warehouses,
   isExpanded,
@@ -38,7 +38,7 @@ export function PlacementTableMasterRow({
   return (
     <tr
       className="border-b hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
-      onClick={onToggleExpand}
+      onClick={() => onToggleExpand?.(row)}
     >
       <td className="px-3 py-2">
         <div className="flex items-center gap-2">
@@ -139,9 +139,9 @@ export function PlacementTableMasterRow({
       </td>
     </tr>
   );
-}
+});
 
-export function PlacementTableVariantRow({
+export const PlacementTableVariantRow = memo(function PlacementTableVariantRow({
   variant,
   warehouses,
   onOpenItems,
@@ -208,12 +208,18 @@ export function PlacementTableVariantRow({
       <td className="px-3 py-1.5 text-center bg-rose-50/50 dark:bg-rose-900/10"><span className="text-[10px] text-gray-400">-</span></td>
     </tr>
   );
-}
+});
 
-export default function PlacementTableRow({ virtualRow, ...props }) {
-  if (virtualRow?.type === 'variant') {
-    return <PlacementTableVariantRow variant={virtualRow.variant} {...props} />;
+const PlacementTableRow = memo(function PlacementTableRow({
+  rowType = 'master',
+  rowData,
+  ...props
+}) {
+  if (rowType === 'variant') {
+    return <PlacementTableVariantRow variant={rowData} {...props} />;
   }
 
-  return <PlacementTableMasterRow row={virtualRow?.row || props.row} {...props} />;
-}
+  return <PlacementTableMasterRow row={rowData || props.row} {...props} />;
+});
+
+export default PlacementTableRow;

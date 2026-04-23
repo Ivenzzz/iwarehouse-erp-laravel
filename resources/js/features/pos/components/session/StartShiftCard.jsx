@@ -76,7 +76,6 @@ export default function StartShiftCard({
 
               <div className="relative">
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-slate-500 dark:text-slate-400">
-                  ?
                 </span>
                 <Input
                   type="number"

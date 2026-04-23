@@ -17,7 +17,7 @@ class PosSession extends Model
 
     protected $fillable = [
         'session_number',
-        'employee_id',
+        'user_id',
         'warehouse_id',
         'opening_balance',
         'closing_balance',
@@ -48,8 +48,8 @@ class PosSession extends Model
                 throw new InvalidArgumentException('POS session status must be opened or closed.');
             }
 
-            if ($session->employee_id === null || $session->warehouse_id === null) {
-                throw new InvalidArgumentException('Opened POS sessions require employee and warehouse.');
+            if ($session->user_id === null || $session->warehouse_id === null) {
+                throw new InvalidArgumentException('Opened POS sessions require user and warehouse.');
             }
 
             if ($session->opening_balance === null || $session->shift_start_time === null) {
@@ -69,14 +69,14 @@ class PosSession extends Model
             }
 
             if ($session->status === self::STATUS_OPENED && static::hasAnotherOpenSession($session)) {
-                throw new InvalidArgumentException('Employee already has an open POS session.');
+                throw new InvalidArgumentException('User already has an open POS session.');
             }
         });
     }
 
-    public function employee(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(Employee::class);
+        return $this->belongsTo(User::class);
     }
 
     public function warehouse(): BelongsTo
@@ -92,7 +92,7 @@ class PosSession extends Model
     private static function hasAnotherOpenSession(self $session): bool
     {
         return static::query()
-            ->where('employee_id', $session->employee_id)
+            ->where('user_id', $session->user_id)
             ->where('status', self::STATUS_OPENED)
             ->when($session->exists, fn ($query) => $query->whereKeyNot($session->getKey()))
             ->exists();

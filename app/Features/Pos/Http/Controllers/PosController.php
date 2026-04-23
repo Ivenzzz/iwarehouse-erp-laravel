@@ -94,20 +94,14 @@ class PosController extends Controller
     ): JsonResponse {
         $resolvedCashier = $resolvesCashier->resolve($request->user());
 
-        if ($resolvedCashier['employee'] === null) {
-            return response()->json([
-                'message' => $resolvedCashier['error'],
-            ], 422);
-        }
-
         $session = $createPosSession->handle(
-            $resolvedCashier['employee'],
+            $resolvedCashier['user'],
             (int) $request->validated('warehouse_id'),
             (float) $request->validated('opening_balance'),
         );
 
         return response()->json([
-            'session' => $transformer->transformActiveSession($session->fresh(['warehouse', 'employee'])),
+            'session' => $transformer->transformActiveSession($session->fresh(['warehouse', 'user'])),
         ]);
     }
 

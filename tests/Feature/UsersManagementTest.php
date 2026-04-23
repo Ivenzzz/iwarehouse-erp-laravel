@@ -189,7 +189,7 @@ class UsersManagementTest extends TestCase
             ->assertJsonPath('loginHistory.0.id', $activity->id);
     }
 
-    public function test_pos_resolves_cashier_from_employee_account_link(): void
+    public function test_pos_resolves_cashier_using_authenticated_user(): void
     {
         $user = $this->userWithRole('Stockman');
         $employee = $this->createEmployee('EMP-POS-LINK');
@@ -204,7 +204,7 @@ class UsersManagementTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('POS')
-                ->where('cashier.employee_id', $employee->id)
+                ->where('cashier.user_id', $user->id)
                 ->where('cashier.setup_error', null)
             );
     }

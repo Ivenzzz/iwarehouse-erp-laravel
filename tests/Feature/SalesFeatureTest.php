@@ -341,8 +341,10 @@ class SalesFeatureTest extends TestCase
 
     private function createSession(Employee $cashier, Warehouse $warehouse): PosSession
     {
+        $user = User::factory()->create();
+
         return PosSession::create([
-            'employee_id' => $cashier->id,
+            'user_id' => $user->id,
             'warehouse_id' => $warehouse->id,
             'opening_balance' => 1000,
             'shift_start_time' => now()->subHours(4),

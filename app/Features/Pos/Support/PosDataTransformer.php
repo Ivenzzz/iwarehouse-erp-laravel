@@ -24,15 +24,13 @@ class PosDataTransformer
 
     private const SERVER_DATE_TIME_FORMAT = 'M d, Y g:i A';
 
-    public function transformCashier(User $user, ?Employee $employee, ?string $error = null): array
+    public function transformCashier(User $user, ?string $error = null): array
     {
         return [
             'user_id' => $user->id,
-            'employee_id' => $employee?->id,
-            'name' => $employee ? $this->employeeFullName($employee) : $user->name,
-            'full_name' => $employee ? $this->employeeFullName($employee) : $user->name,
-            'email' => $employee?->email ?: $user->email,
-            'employee_code' => $employee?->employee_id,
+            'name' => $user->name,
+            'full_name' => $user->name,
+            'email' => $user->email,
             'setup_error' => $error,
         ];
     }
@@ -43,12 +41,12 @@ class PosDataTransformer
             return null;
         }
 
-        $session->loadMissing('warehouse', 'employee');
+        $session->loadMissing('warehouse', 'user');
 
         return [
             'id' => $session->id,
             'session_number' => $session->session_number,
-            'employee_id' => $session->employee_id,
+            'user_id' => $session->user_id,
             'warehouse_id' => $session->warehouse_id,
             'opening_balance' => (float) $session->opening_balance,
             'closing_balance' => $session->closing_balance !== null ? (float) $session->closing_balance : null,
@@ -57,7 +55,7 @@ class PosDataTransformer
             'status' => $session->status,
             'cashier_remarks' => $session->cashier_remarks,
             'warehouse_name' => $session->warehouse?->name,
-            'employee_name' => $session->employee ? $this->employeeFullName($session->employee) : null,
+            'user_name' => $session->user?->name,
         ];
     }
 
@@ -381,7 +379,7 @@ class PosDataTransformer
             'sales_representative_id' => $transaction->sales_representative_id,
             'sales_representative_name' => $transaction->salesRepresentative ? $this->employeeFullName($transaction->salesRepresentative) : null,
             'pos_session_id' => $transaction->pos_session_id,
-            'cashier_id' => $transaction->posSession?->employee_id,
+            'cashier_id' => $transaction->posSession?->user_id,
             'warehouse_id' => $transaction->posSession?->warehouse_id,
             'warehouse_name' => $transaction->posSession?->warehouse?->name,
             'mode_of_release' => $transaction->mode_of_release,

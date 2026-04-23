@@ -11,8 +11,8 @@ return new class extends Migration
         Schema::create('pos_sessions', function (Blueprint $table) {
             $table->id();
             $table->string('session_number', 20);
-            $table->foreignId('employee_id')
-                ->constrained('employees', indexName: 'idx_pos_sessions_employee')
+            $table->foreignId('user_id')
+                ->constrained('users', indexName: 'idx_pos_sessions_user')
                 ->restrictOnDelete()
                 ->cascadeOnUpdate();
             $table->foreignId('warehouse_id')
@@ -29,7 +29,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique('session_number', 'uq_pos_sessions_session_number');
-            $table->index(['employee_id', 'status'], 'idx_pos_sessions_employee_status');
+            $table->index(['user_id', 'status'], 'idx_pos_sessions_user_status');
             $table->index(['warehouse_id', 'status'], 'idx_pos_sessions_warehouse_status');
         });
     }

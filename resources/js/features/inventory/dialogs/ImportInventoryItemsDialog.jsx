@@ -125,6 +125,21 @@ export default function ImportInventoryItemsDialog({ open, onOpenChange, onSucce
                   <AlertDescription>{parseError}</AlertDescription>
                 </Alert>
               ) : null}
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+                <p className="mb-2 font-semibold text-slate-900 dark:text-slate-100">Import Rules</p>
+                <ul className="list-disc space-y-1 pl-4">
+                  <li>CSV must have header + at least one data row.</li>
+                  <li>Required columns: Brand, Model, Warehouse, Condition.</li>
+                  <li>Warehouse name must match exactly one warehouse.</li>
+                  <li>Brand + Model must resolve to one product master.</li>
+                  <li>If master is auto-created, generated master SKU must be unique.</li>
+                  <li>Variant attributes must match one variant; ambiguous matches are skipped.</li>
+                  <li>IMEI 1, IMEI 2, and Serial Number must be unique in DB and within this CSV.</li>
+                  <li>Validate first. Only validated rows are imported.</li>
+                  <li>Import token expires in about 30 minutes and is tied to current user.</li>
+                </ul>
+              </div>
             </>
           )}
 

@@ -21,7 +21,7 @@ export default function BarcodeSearchPanel({
           <div className="flex items-center justify-center px-3 sm:px-4 text-xs sm:text-sm font-semibold text-white bg-[#002060] rounded-l-md border border-[#002060] whitespace-nowrap">
             Scan Barcode (F1)
           </div>
-          <div className="relative flex-1">
+          <div className={`relative flex-1 rounded-md ${isSearching ? "ring-2 ring-blue-400 animate-pulse" : ""}`}>
             <Input
               ref={searchInputRef}
               value={searchTerm}
@@ -29,9 +29,6 @@ export default function BarcodeSearchPanel({
               placeholder="Scan IMEI, serial number, or enter search text"
               className="p-5"
             />
-            {isSearching && (
-              <Loader2 className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 animate-spin" />
-            )}
           </div>
         </div>
         <Button variant="outline" onClick={onOpenTransactionDiscount} disabled={cart.length === 0}>

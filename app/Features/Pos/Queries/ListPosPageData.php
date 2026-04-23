@@ -23,18 +23,12 @@ class ListPosPageData
     public function __invoke(Request $request): array
     {
         $resolvedCashier = $this->resolvesCashier->resolve($request->user());
-        /** @var \App\Models\Employee|null $employee */
-        $employee = $resolvedCashier['employee'];
-
-        $activeSession = $employee
-            ? PosSession::query()
-                ->with(['warehouse', 'employee'])
-                ->where('employee_id', $employee->id)
-                ->where('status', PosSession::STATUS_OPENED)
-                ->latest('id')
-                ->first()
-            : null
-            ;
+        $activeSession = PosSession::query()
+            ->with(['warehouse', 'user'])
+            ->where('user_id', $request->user()->id)
+            ->where('status', PosSession::STATUS_OPENED)
+            ->latest('id')
+            ->first();
 
         $customers = Customer::query()
             ->with([
@@ -54,7 +48,7 @@ class ListPosPageData
             ->get();
 
         return [
-            'cashier' => $this->transformer->transformCashier($request->user(), $employee, $resolvedCashier['error']),
+            'cashier' => $this->transformer->transformCashier($request->user(), $resolvedCashier['error']),
             'activeSession' => $this->transformer->transformActiveSession($activeSession),
             'warehouses' => Warehouse::query()
                 ->whereIn('warehouse_type', ['store', 'kiosk'])

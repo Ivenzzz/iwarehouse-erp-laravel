@@ -79,14 +79,14 @@ class PosFeatureTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('POS')
-                ->where('cashier.employee_id', $employee->id)
+                ->where('cashier.user_id', $user->id)
                 ->where('cashier.setup_error', null)
                 ->has('warehouses', 1)
                 ->has('paymentMethods', 1)
             );
     }
 
-    public function test_pos_page_requires_employee_account_link_for_cashier_resolution(): void
+    public function test_pos_page_allows_cashier_without_employee_account_link(): void
     {
         $user = User::factory()->create([
             'name' => 'Jane Cashier',
@@ -107,8 +107,8 @@ class PosFeatureTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('POS')
-                ->where('cashier.employee_id', null)
-                ->where('cashier.setup_error', 'No employee account link matched the authenticated user. Link this account to an employee before using POS.')
+                ->where('cashier.user_id', $user->id)
+                ->where('cashier.setup_error', null)
             );
     }
 
@@ -126,14 +126,14 @@ class PosFeatureTest extends TestCase
                 'opening_balance' => 1500,
             ])
             ->assertOk()
-            ->assertJsonPath('session.employee_id', $employee->id)
+            ->assertJsonPath('session.user_id', $user->id)
             ->assertJsonPath('session.warehouse_id', $warehouse->id);
 
         $session = PosSession::firstOrFail();
 
         $this->assertDatabaseHas('pos_sessions', [
             'id' => $session->id,
-            'employee_id' => $employee->id,
+            'user_id' => $user->id,
             'warehouse_id' => $warehouse->id,
             'status' => PosSession::STATUS_OPENED,
         ]);
@@ -316,7 +316,7 @@ class PosFeatureTest extends TestCase
         ]);
 
         $session = PosSession::create([
-            'employee_id' => $cashier->id,
+            'user_id' => $user->id,
             'warehouse_id' => $warehouse->id,
             'opening_balance' => 1000,
             'shift_start_time' => now(),
@@ -351,7 +351,7 @@ class PosFeatureTest extends TestCase
         ]);
 
         $session = PosSession::create([
-            'employee_id' => $cashier->id,
+            'user_id' => $user->id,
             'warehouse_id' => $warehouse->id,
             'opening_balance' => 1000,
             'shift_start_time' => now(),
@@ -385,7 +385,7 @@ class PosFeatureTest extends TestCase
         ]);
 
         $session = PosSession::create([
-            'employee_id' => $cashier->id,
+            'user_id' => $user->id,
             'warehouse_id' => $warehouse->id,
             'opening_balance' => 1000,
             'shift_start_time' => now(),
@@ -450,7 +450,7 @@ class PosFeatureTest extends TestCase
         ]);
 
         $session = PosSession::create([
-            'employee_id' => $employee->id,
+            'user_id' => $user->id,
             'warehouse_id' => $warehouse->id,
             'opening_balance' => 1000,
             'shift_start_time' => now(),
@@ -601,7 +601,7 @@ class PosFeatureTest extends TestCase
         ]);
 
         $session = PosSession::create([
-            'employee_id' => $employee->id,
+            'user_id' => $user->id,
             'warehouse_id' => $warehouse->id,
             'opening_balance' => 1000,
             'shift_start_time' => now(),
@@ -703,7 +703,7 @@ class PosFeatureTest extends TestCase
         ]);
 
         $session = PosSession::create([
-            'employee_id' => $employee->id,
+            'user_id' => $user->id,
             'warehouse_id' => $warehouse->id,
             'opening_balance' => 1000,
             'shift_start_time' => now(),
@@ -812,7 +812,7 @@ class PosFeatureTest extends TestCase
         ]);
 
         $session = PosSession::create([
-            'employee_id' => $employee->id,
+            'user_id' => $user->id,
             'warehouse_id' => $warehouse->id,
             'opening_balance' => 1000,
             'shift_start_time' => now(),
@@ -925,7 +925,7 @@ class PosFeatureTest extends TestCase
         ]);
 
         $session = PosSession::create([
-            'employee_id' => $cashier->id,
+            'user_id' => $user->id,
             'warehouse_id' => $warehouse->id,
             'opening_balance' => 1000,
             'shift_start_time' => now(),

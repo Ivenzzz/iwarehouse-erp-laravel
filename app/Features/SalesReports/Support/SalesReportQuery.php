@@ -206,7 +206,7 @@ class SalesReportQuery
     private function individualSessionQuery(array $filters): Builder
     {
         $query = PosSession::query()
-            ->with(['employee', 'warehouse'])
+            ->with(['user', 'warehouse'])
             ->withCount('salesTransactions')
             ->withSum('salesTransactions', 'total_amount');
 
@@ -227,7 +227,7 @@ class SalesReportQuery
     {
         $query = PosSession::query()
             ->with([
-                'employee',
+                'user',
                 'warehouse',
                 'salesTransactions' => fn ($builder) => $builder->select(['id', 'pos_session_id', 'total_amount', 'created_at']),
             ]);
@@ -257,11 +257,10 @@ class SalesReportQuery
             $query->where(function (Builder $builder) use ($like): void {
                 $builder
                     ->where('session_number', 'like', $like)
-                    ->orWhereHas('employee', function (Builder $employeeQuery) use ($like): void {
-                        $employeeQuery
-                            ->where('first_name', 'like', $like)
-                            ->orWhere('last_name', 'like', $like)
-                            ->orWhere('employee_id', 'like', $like);
+                    ->orWhereHas('user', function (Builder $userQuery) use ($like): void {
+                        $userQuery
+                            ->where('name', 'like', $like)
+                            ->orWhere('email', 'like', $like);
                     })
                     ->orWhereHas('warehouse', fn (Builder $warehouseQuery) => $warehouseQuery->where('name', 'like', $like));
             });
@@ -273,7 +272,7 @@ class SalesReportQuery
         return [
             'id' => $session->id,
             'session_number' => $session->session_number,
-            'cashier_name' => trim((string) (($session->employee?->first_name ?? '').' '.($session->employee?->last_name ?? ''))) ?: 'Unknown',
+            'cashier_name' => trim((string) ($session->user?->name ?? '')) ?: 'Unknown',
             'warehouse_id' => $session->warehouse_id,
             'warehouse_name' => $session->warehouse?->name ?? 'N/A',
             'shift_start_time' => optional($session->shift_start_time)?->toDateTimeString(),
@@ -328,7 +327,7 @@ class SalesReportQuery
     private function sessionRelations(): array
     {
         return [
-            'employee',
+            'user',
             'warehouse',
             'salesTransactions.customer.contacts',
             'salesTransactions.customer.addresses',

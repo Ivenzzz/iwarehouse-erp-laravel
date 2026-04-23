@@ -2,15 +2,15 @@
 
 namespace App\Features\Pos\Actions;
 
-use App\Models\Employee;
 use App\Models\PosSession;
+use App\Models\User;
 
 class CreatePosSession
 {
-    public function handle(Employee $employee, int $warehouseId, float $openingBalance): PosSession
+    public function handle(User $user, int $warehouseId, float $openingBalance): PosSession
     {
         return PosSession::create([
-            'employee_id' => $employee->id,
+            'user_id' => $user->id,
             'warehouse_id' => $warehouseId,
             'opening_balance' => $openingBalance,
             'shift_start_time' => now(),

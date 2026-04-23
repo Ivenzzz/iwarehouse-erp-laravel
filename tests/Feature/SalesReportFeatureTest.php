@@ -333,8 +333,10 @@ class SalesReportFeatureTest extends TestCase
         Carbon $shiftStart,
         string $status = PosSession::STATUS_OPENED,
     ): PosSession {
+        $user = User::factory()->create();
+
         return PosSession::create([
-            'employee_id' => $cashier->id,
+            'user_id' => $user->id,
             'warehouse_id' => $warehouse->id,
             'opening_balance' => 1000,
             'closing_balance' => $status === PosSession::STATUS_CLOSED ? 1000 : null,

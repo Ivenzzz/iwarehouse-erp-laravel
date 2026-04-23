@@ -4,7 +4,6 @@ import { Head } from "@inertiajs/react";
 
 import { toast } from "@/shared/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import CustomerDialog from "@/features/pos/components/dialogs/CustomerDialog";
 import DocumentDialog from "@/features/pos/components/dialogs/DocumentDialog";
@@ -801,28 +800,6 @@ export default function POS(props) {
           onClose={() => setCurrentView("pos")}
           onPrintTransaction={handlePrintFromHistory}
         />
-      </>
-    );
-  }
-
-  if (cashier?.setup_error) {
-    return (
-      <>
-        <Head title="POS" />
-        <div className="min-h-screen bg-slate-100 dark:bg-slate-950 p-6">
-          <div className="mx-auto max-w-3xl">
-            <Card className="border-red-200 dark:border-red-900">
-              <CardHeader>
-                <CardTitle className="text-red-600 dark:text-red-400">POS Cashier Mapping Required</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm text-slate-700 dark:text-slate-300">
-                <p>{cashier.setup_error}</p>
-                <p>User: {cashier.full_name || cashier.email}</p>
-                <p>Email: {cashier.email || "N/A"}</p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
       </>
     );
   }

@@ -14,6 +14,7 @@ use App\Models\ProductMaster;
 use App\Models\ProductModel;
 use App\Models\ProductVariant;
 use App\Models\SalesTransaction;
+use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -291,13 +292,14 @@ class SalesTransactionsSchemaTest extends TestCase
             'lastname' => 'Dela Cruz',
         ]);
 
-        $cashier = $this->createEmployee('EMP-CASHIER');
+        $this->createEmployee('EMP-CASHIER');
+        $user = User::factory()->create();
         $warehouse = Warehouse::create([
             'name' => 'Sales Floor',
             'warehouse_type' => 'store',
         ]);
         $posSession = PosSession::create([
-            'employee_id' => $cashier->id,
+            'user_id' => $user->id,
             'warehouse_id' => $warehouse->id,
             'opening_balance' => 1000,
             'shift_start_time' => '2026-04-09 08:00:00',

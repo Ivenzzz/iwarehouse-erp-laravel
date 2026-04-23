@@ -477,8 +477,9 @@ class PlacementReportsFeatureTest extends TestCase
 
     private function createSaleForInventory(InventoryItem $inventoryItem, Warehouse $warehouse, Carbon $createdAt): void
     {
+        $user = User::factory()->create();
         $session = PosSession::create([
-            'employee_id' => $this->createEmployee()->id,
+            'user_id' => $user->id,
             'warehouse_id' => $warehouse->id,
             'opening_balance' => 1000,
             'shift_start_time' => now(),

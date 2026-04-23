@@ -65,7 +65,7 @@ const CHIP_COLORS = {
   gpu: "bg-cyan-500/10 text-cyan-600 border-cyan-500/20 dark:text-cyan-400",
 };
 const ROW_HEIGHT = 108;
-const TABLE_HEIGHT = 640;
+const TABLE_HEIGHT = 420;
 
 function getStatusHeatmapClass(status) {
   const normalized = String(status || "").trim();

@@ -294,7 +294,7 @@ export default function InventoryPage({
             </div>
           </div>
 
-          <div className="space-y-5 px-1 py-5">
+          <div className="space-y-5 px-1">
             <InventoryKPIs refreshToken={refreshToken} filters={filters} />
 
             <Card className="rounded-xl border-border bg-background">

@@ -20,6 +20,7 @@ import { uploadPhoto } from "./services/transferService";
 import { useTransferFilters } from "./hooks/useTransferFilters";
 import ConsolidateTransfersDialog from "./dialogs/ConsolidateTransfersDialog";
 import CreateEditDialog from "./dialogs/CreateEditDialog";
+import CreateOldMethodDialog from "./dialogs/CreateOldMethodDialog";
 import DetailsDialog from "./dialogs/DetailsDialog";
 import ReceiveDialog from "./dialogs/ReceiveDialog";
 import ShipDialog from "./dialogs/ShipDialog";
@@ -29,6 +30,14 @@ const INITIAL_FORM = {
   destination_location_id: "",
   reference: "",
   notes: "",
+  product_lines: [],
+};
+
+const INITIAL_OLD_METHOD_FORM = {
+  source_location_id: "",
+  destination_location_id: "",
+  notes: "",
+  scanned_items: [],
   product_lines: [],
 };
 
@@ -69,6 +78,7 @@ export default function StockTransferPage({
   } = useTransferFilters(transfers, transfers);
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showOldMethodDialog, setShowOldMethodDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showPicklistDialog, setShowPicklistDialog] = useState(false);
   const [showShipDialog, setShowShipDialog] = useState(false);
@@ -84,6 +94,7 @@ export default function StockTransferPage({
   const [editingTransfer, setEditingTransfer] = useState(false);
   const [selectedTransfers, setSelectedTransfers] = useState([]);
   const [transferForm, setTransferForm] = useState(INITIAL_FORM);
+  const [oldMethodForm, setOldMethodForm] = useState(INITIAL_OLD_METHOD_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConsolidating, setIsConsolidating] = useState(false);
   const [alertMessage, setAlertMessage] = useState({ title: "", description: "" });
@@ -111,6 +122,9 @@ export default function StockTransferPage({
     }
 
     setTransferForm((current) => (
+      current.source_location_id ? current : { ...current, source_location_id: mainWarehouseId }
+    ));
+    setOldMethodForm((current) => (
       current.source_location_id ? current : { ...current, source_location_id: mainWarehouseId }
     ));
   }, [mainWarehouseId]);
@@ -199,6 +213,10 @@ export default function StockTransferPage({
     setEditingTransfer(false);
   };
 
+  const resetOldMethodForm = () => {
+    setOldMethodForm({ ...INITIAL_OLD_METHOD_FORM, source_location_id: mainWarehouseId });
+  };
+
   const searchTransferProducts = async ({ sourceLocationId, query }) => {
     const response = await axios.get(route("stock-transfers.search-products"), {
       params: { sourceLocationId, query },
@@ -221,6 +239,39 @@ export default function StockTransferPage({
     });
 
     return response.data;
+  };
+
+  const handleCreateOldMethodTransfer = async () => {
+    if (!oldMethodForm.source_location_id || !oldMethodForm.destination_location_id) {
+      showError("Please fill in all required fields.", "Validation Error");
+      return;
+    }
+
+    if ((oldMethodForm.scanned_items || []).length === 0) {
+      showError("Please scan at least one product.", "No Products");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await axios.post(route("stock-transfers.store-old-method"), {
+        source_location_id: oldMethodForm.source_location_id,
+        destination_location_id: oldMethodForm.destination_location_id,
+        notes: oldMethodForm.notes,
+        product_lines: (oldMethodForm.product_lines || []).map((line) => ({
+          inventory_id: line.inventory_id,
+        })),
+      });
+      setShowOldMethodDialog(false);
+      resetOldMethodForm();
+      refreshData();
+      setAlertMessage({ title: "Success", description: "Transfer created in picked status." });
+      setShowAlert(true);
+    } catch (error) {
+      showError(error.response?.data?.message || error.message || "Failed to create transfer.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleCreateTransfer = async () => {
@@ -442,6 +493,15 @@ export default function StockTransferPage({
                 <Plus className="mr-2 h-4 w-4" />
                 Create Transfer
               </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  resetOldMethodForm();
+                  setShowOldMethodDialog(true);
+                }}
+              >
+                Create Transfer(old method)
+              </Button>
             </div>
 
             {selectedTransfers.length > 0 && !consolidationValidation.isEligible ? (
@@ -528,6 +588,22 @@ export default function StockTransferPage({
         warehouses={warehouses}
         searchTransferProducts={searchTransferProducts}
         fetchTransferProductInventory={fetchTransferProductInventory}
+      />
+
+      <CreateOldMethodDialog
+        open={showOldMethodDialog}
+        onOpenChange={(open) => {
+          setShowOldMethodDialog(open);
+          if (!open) {
+            resetOldMethodForm();
+          }
+        }}
+        warehouses={warehouses}
+        form={oldMethodForm}
+        setForm={setOldMethodForm}
+        onScan={lookupInventoryItemByBarcode}
+        onSubmit={handleCreateOldMethodTransfer}
+        isSubmitting={isSubmitting}
       />
 
       <DetailsDialog

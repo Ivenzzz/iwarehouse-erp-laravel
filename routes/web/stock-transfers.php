@@ -9,6 +9,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/stock-transfers/variant-inventory', [StockTransferController::class, 'variantInventory'])->name('stock-transfers.variant-inventory');
     Route::get('/stock-transfers/lookup-inventory-item', [StockTransferController::class, 'lookupInventoryItem'])->name('stock-transfers.lookup-inventory-item');
     Route::post('/stock-transfers', [StockTransferController::class, 'store'])->name('stock-transfers.store');
+    Route::post('/stock-transfers/old-method', [StockTransferController::class, 'storeOldMethod'])->name('stock-transfers.store-old-method');
     Route::post('/stock-transfers/{stockTransfer}/pick', [StockTransferController::class, 'pick'])->name('stock-transfers.pick');
     Route::post('/stock-transfers/{stockTransfer}/ship', [StockTransferController::class, 'ship'])->name('stock-transfers.ship');
     Route::post('/stock-transfers/{stockTransfer}/receive', [StockTransferController::class, 'receive'])->name('stock-transfers.receive');

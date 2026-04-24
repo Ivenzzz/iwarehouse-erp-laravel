@@ -3,6 +3,7 @@
 namespace App\Features\StockTransfers\Http\Controllers;
 
 use App\Features\StockTransfers\Actions\ConsolidateStockTransfers;
+use App\Features\StockTransfers\Actions\CreatePickedStockTransferOldMethod;
 use App\Features\StockTransfers\Actions\CreateStockTransfer;
 use App\Features\StockTransfers\Actions\DeleteStockTransfer;
 use App\Features\StockTransfers\Actions\ListTransferVariantInventory;
@@ -80,6 +81,27 @@ class StockTransferController extends Controller
 
         try {
             $transfer = $createStockTransfer->handle($validated, $request->user()?->id);
+
+            return response()->json([
+                'transfer' => StockTransferDataTransformer::transformTransfer($transfer),
+            ]);
+        } catch (InvalidArgumentException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+    }
+
+    public function storeOldMethod(Request $request, CreatePickedStockTransferOldMethod $createPickedStockTransferOldMethod): JsonResponse
+    {
+        $validated = $request->validate([
+            'source_location_id' => ['required', 'integer', 'exists:warehouses,id'],
+            'destination_location_id' => ['required', 'integer', 'exists:warehouses,id', 'different:source_location_id'],
+            'notes' => ['nullable', 'string'],
+            'product_lines' => ['required', 'array', 'min:1'],
+            'product_lines.*.inventory_id' => ['required', 'integer', 'exists:inventory_items,id', 'distinct'],
+        ]);
+
+        try {
+            $transfer = $createPickedStockTransferOldMethod->handle($validated, $request->user()?->id);
 
             return response()->json([
                 'transfer' => StockTransferDataTransformer::transformTransfer($transfer),

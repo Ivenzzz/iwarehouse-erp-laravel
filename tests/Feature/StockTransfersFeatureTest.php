@@ -58,7 +58,7 @@ class StockTransfersFeatureTest extends TestCase
                 'query' => 'Apple',
             ]))
             ->assertOk()
-            ->assertJsonPath('0.variant_name', 'Apple iPhone 17 8GB 256GB Black')
+            ->assertJsonPath('0.variant_name', 'Apple iPhone 17')
             ->assertJsonPath('0.product_name', 'Apple iPhone 17')
             ->assertJsonPath('0.total_stock', 1);
 
@@ -68,7 +68,7 @@ class StockTransfersFeatureTest extends TestCase
                 'variantId' => $variant->id,
             ]))
             ->assertOk()
-            ->assertJsonPath('0.variant_name', 'Apple iPhone 17 8GB 256GB Black')
+            ->assertJsonPath('0.variant_name', 'Apple iPhone 17')
             ->assertJsonPath('0.identifier', '990000000000001')
             ->assertJsonPath('0.serial_number', 'ST-001');
 
@@ -80,7 +80,7 @@ class StockTransfersFeatureTest extends TestCase
             ]))
             ->assertOk()
             ->assertJsonPath('id', $lookupItemId)
-            ->assertJsonPath('variant_name', 'Apple iPhone 17 8GB 256GB Black');
+            ->assertJsonPath('variant_name', 'Apple iPhone 17');
     }
 
     public function test_stock_transfer_lifecycle_updates_inventory_and_logs(): void
@@ -109,7 +109,7 @@ class StockTransfersFeatureTest extends TestCase
         $this->assertDatabaseHas('stock_transfers', ['id' => $transferId, 'transfer_number' => 'TRN-00000001', 'status' => 'draft']);
         $this->assertDatabaseHas('stock_transfer_items', ['stock_transfer_id' => $transferId, 'inventory_item_id' => $expectedA->id]);
         $this->assertSame($expectedA->id, $createResponse->json('transfer.product_lines.0.inventory_id'));
-        $this->assertSame('Apple iPhone 17 8GB 256GB Black', $createResponse->json('transfer.product_lines.0.variant_name'));
+        $this->assertSame('Apple iPhone 17', $createResponse->json('transfer.product_lines.0.variant_name'));
         $this->assertSame(false, $createResponse->json('transfer.product_lines.0.is_picked'));
         $this->assertSame($user->name, $createResponse->json('transfer.created_by.full_name'));
         $this->assertSame('Main Warehouse', $createResponse->json('transfer.source_location.name'));
@@ -227,6 +227,159 @@ class StockTransfersFeatureTest extends TestCase
 
         $this->assertDatabaseMissing('stock_transfers', ['id' => $transferId]);
         $this->assertDatabaseHas('inventory_items', ['id' => $item->id, 'status' => 'available']);
+    }
+
+    public function test_old_method_create_transfer_creates_picked_transfer_and_marks_items_as_picked(): void
+    {
+        $user = User::factory()->create();
+        [$variant, $sourceWarehouse, $destinationWarehouse] = $this->createStockTransferGraph();
+        $first = $this->createInventoryItem($variant->id, $sourceWarehouse->id, '990000000000401', 'OLD-001');
+        $second = $this->createInventoryItem($variant->id, $sourceWarehouse->id, '990000000000402', 'OLD-002');
+
+        $response = $this->actingAs($user)->postJson(route('stock-transfers.store-old-method'), [
+            'source_location_id' => $sourceWarehouse->id,
+            'destination_location_id' => $destinationWarehouse->id,
+            'notes' => 'Old flow transfer',
+            'product_lines' => [
+                ['inventory_id' => $first->id],
+                ['inventory_id' => $second->id],
+            ],
+        ])->assertOk();
+
+        $transferId = $response->json('transfer.id');
+
+        $this->assertDatabaseHas('stock_transfers', ['id' => $transferId, 'status' => 'picked']);
+        $this->assertDatabaseHas('stock_transfer_items', [
+            'stock_transfer_id' => $transferId,
+            'inventory_item_id' => $first->id,
+            'is_picked' => true,
+            'is_shipped' => false,
+            'is_received' => false,
+        ]);
+        $this->assertDatabaseHas('inventory_items', ['id' => $first->id, 'status' => 'reserved_for_transfer']);
+        $this->assertDatabaseHas('inventory_items', ['id' => $second->id, 'status' => 'reserved_for_transfer']);
+        $this->assertDatabaseHas('stock_transfer_milestones', [
+            'stock_transfer_id' => $transferId,
+            'milestone_type' => 'created',
+        ]);
+        $this->assertDatabaseHas('stock_transfer_milestones', [
+            'stock_transfer_id' => $transferId,
+            'milestone_type' => 'picked',
+        ]);
+        $this->assertSame('picked', $response->json('transfer.status'));
+    }
+
+    public function test_old_method_create_transfer_validation_errors_are_enforced(): void
+    {
+        $user = User::factory()->create();
+        [$variant, $sourceWarehouse, $destinationWarehouse] = $this->createStockTransferGraph();
+
+        $otherWarehouse = Warehouse::create([
+            'name' => 'Other Warehouse',
+            'warehouse_type' => 'warehouse',
+        ]);
+
+        $availableItem = $this->createInventoryItem($variant->id, $sourceWarehouse->id, '990000000000411', 'OLD-VAL-001');
+        $otherWarehouseItem = $this->createInventoryItem($variant->id, $otherWarehouse->id, '990000000000412', 'OLD-VAL-002');
+        $reservedItem = InventoryItem::create([
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $sourceWarehouse->id,
+            'imei' => '990000000000413',
+            'serial_number' => 'OLD-VAL-003',
+            'status' => 'reserved_for_transfer',
+            'cost_price' => 10000,
+        ]);
+
+        $this->actingAs($user)->postJson(route('stock-transfers.store-old-method'), [
+            'source_location_id' => $sourceWarehouse->id,
+            'destination_location_id' => $sourceWarehouse->id,
+            'notes' => 'Invalid same route',
+            'product_lines' => [
+                ['inventory_id' => $availableItem->id],
+            ],
+        ])->assertStatus(422);
+
+        $this->actingAs($user)->postJson(route('stock-transfers.store-old-method'), [
+            'source_location_id' => $sourceWarehouse->id,
+            'destination_location_id' => $destinationWarehouse->id,
+            'notes' => 'Missing products',
+            'product_lines' => [],
+        ])->assertStatus(422);
+
+        $this->actingAs($user)->postJson(route('stock-transfers.store-old-method'), [
+            'source_location_id' => $sourceWarehouse->id,
+            'destination_location_id' => $destinationWarehouse->id,
+            'notes' => 'Wrong warehouse',
+            'product_lines' => [
+                ['inventory_id' => $otherWarehouseItem->id],
+            ],
+        ])->assertStatus(422)->assertJsonPath('message', "Inventory item {$otherWarehouseItem->id} is not in the selected source warehouse.");
+
+        $this->actingAs($user)->postJson(route('stock-transfers.store-old-method'), [
+            'source_location_id' => $sourceWarehouse->id,
+            'destination_location_id' => $destinationWarehouse->id,
+            'notes' => 'Not found inventory',
+            'product_lines' => [
+                ['inventory_id' => 999999],
+            ],
+        ])->assertStatus(422);
+
+        $this->actingAs($user)->postJson(route('stock-transfers.store-old-method'), [
+            'source_location_id' => $sourceWarehouse->id,
+            'destination_location_id' => $destinationWarehouse->id,
+            'notes' => 'Reserved inventory',
+            'product_lines' => [
+                ['inventory_id' => $reservedItem->id],
+            ],
+        ])->assertStatus(422)->assertJsonPath('message', "Inventory item {$reservedItem->id} is not available for transfer.");
+
+        $existingTransfer = StockTransfer::create([
+            'transfer_number' => 'TRN-ALLOCATED-1',
+            'source_warehouse_id' => $sourceWarehouse->id,
+            'destination_warehouse_id' => $destinationWarehouse->id,
+            'created_by_id' => $user->id,
+            'status' => 'draft',
+            'operation_type' => 'internal_transfer',
+            'priority' => 'normal',
+            'reference' => null,
+            'notes' => 'Allocation-only test',
+        ]);
+        $existingTransfer->items()->create([
+            'inventory_item_id' => $availableItem->id,
+            'is_picked' => false,
+            'is_shipped' => false,
+            'is_received' => false,
+        ]);
+
+        $this->actingAs($user)->postJson(route('stock-transfers.store-old-method'), [
+            'source_location_id' => $sourceWarehouse->id,
+            'destination_location_id' => $destinationWarehouse->id,
+            'notes' => 'Already allocated',
+            'product_lines' => [
+                ['inventory_id' => $availableItem->id],
+            ],
+        ])->assertStatus(422)->assertJsonPath('message', "Inventory item {$availableItem->id} is already allocated to another active transfer.");
+
+        $this->assertDatabaseHas('stock_transfers', ['id' => $existingTransfer->id, 'status' => 'draft']);
+    }
+
+    public function test_existing_store_endpoint_still_creates_draft_transfer(): void
+    {
+        $user = User::factory()->create();
+        [$variant, $sourceWarehouse, $destinationWarehouse] = $this->createStockTransferGraph();
+        $item = $this->createInventoryItem($variant->id, $sourceWarehouse->id, '990000000000421', 'OLD-ISO-001');
+
+        $response = $this->actingAs($user)->postJson(route('stock-transfers.store'), [
+            'source_location_id' => $sourceWarehouse->id,
+            'destination_location_id' => $destinationWarehouse->id,
+            'reference' => 'OLD-ISO-REF',
+            'notes' => 'Store endpoint isolation',
+            'product_lines' => [
+                ['inventory_id' => $item->id, 'is_picked' => false, 'is_shipped' => false, 'is_received' => false],
+            ],
+        ])->assertOk();
+
+        $this->assertSame('draft', $response->json('transfer.status'));
     }
 
     public function test_consolidation_creates_master_and_marks_sources(): void

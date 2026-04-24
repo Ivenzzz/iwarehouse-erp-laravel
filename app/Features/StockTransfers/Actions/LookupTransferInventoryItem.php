@@ -39,6 +39,7 @@ class LookupTransferInventoryItem
 
         return [
             'id' => $item->id,
+            'warehouse_id' => $item->warehouse_id,
             'product_master_id' => $productMaster?->id,
             'variant_id' => $variant?->id,
             'product_name' => trim(implode(' ', array_filter([

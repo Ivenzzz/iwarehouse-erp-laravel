@@ -35,6 +35,8 @@ export default function TransferTableRow({
   onPrintParcelLabel,
 }) {
   const isConsolidated = transfer.status === "consolidated";
+  const isTransitOrReceived = ["shipped", "in_transit", "partially_received", "fully_received"].includes(transfer.status);
+  const canDelete = !isConsolidated && !isTransitOrReceived;
   const itemCount = getTransferTotalItems(transfer);
   const totalCost = getTransferTotalCost(transfer);
   const srcWarehouse = transfer.source_location;
@@ -220,7 +222,7 @@ export default function TransferTableRow({
                 <button onClick={onView} className="w-full text-left px-3 py-2 text-xs text-muted-foreground hover:bg-accent rounded flex items-center">
                    <Eye size={12} className="mr-2"/> View Details
                 </button>
-                {!isConsolidated && (
+                {canDelete && (
                   <>
                     <div className="h-px bg-border my-1"></div>
                     <button onClick={onDelete} className="w-full text-left px-3 py-2 text-xs text-destructive hover:bg-destructive-muted rounded flex items-center">

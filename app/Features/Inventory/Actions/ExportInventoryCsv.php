@@ -40,6 +40,7 @@ class ExportInventoryCsv
                         'location' => 'all',
                         'status' => 'all',
                         'brand' => 'all',
+                        'model' => 'all',
                         'category' => 'all',
                         'condition' => 'all',
                         'stockAge' => 'all',

@@ -110,7 +110,7 @@ export default function ImportInventoryItemsDialog({ open, onOpenChange, onSucce
                   Required columns: Brand, Model, Warehouse, Condition. Variant columns supported: RAM/ROM (or RAM Capacity/ROM Capacity), Color, CPU, GPU, RAM Type, ROM Type, Operating System (or OS), Screen (or Display).
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
-                  Legacy columns (such as Submodel, RAM Slot, Country Model, Resolution, Purchase) are accepted for compatibility and are not stored on inventory items.
+                  Legacy columns (such as Submodel, RAM Slot, Country Model, Resolution) are accepted for compatibility. Purchase is mapped to GRN Number when GRN Number is empty.
                 </p>
                 {file ? (
                   <div className="mt-4 flex items-center justify-center gap-2 text-blue-600">

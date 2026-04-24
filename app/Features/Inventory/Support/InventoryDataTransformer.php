@@ -6,6 +6,7 @@ use App\Models\InventoryItem;
 use App\Models\InventoryItemLog;
 use App\Models\ProductBrand;
 use App\Models\ProductCategory;
+use App\Models\ProductModel;
 use App\Models\ProductMaster;
 use App\Models\ProductVariant;
 use App\Models\Warehouse;
@@ -74,6 +75,7 @@ class InventoryDataTransformer
             'warehouseName' => $warehouse?->name ?? 'N/A',
             'barcode' => collect([$item->imei, $item->imei2, $item->serial_number])->filter()->implode(' '),
             'brandId' => $productMaster?->model?->brand?->id,
+            'modelId' => $productMaster?->model?->id,
             'categoryId' => $productMaster?->subcategory?->parent?->id,
             'categoryName' => $productMaster?->subcategory?->parent?->name ?? '',
             'subcategoryId' => $productMaster?->subcategory?->id,
@@ -126,6 +128,7 @@ class InventoryDataTransformer
             'warehouseName' => self::nullableString($item->getAttribute('warehouse_name')) ?? 'N/A',
             'barcode' => collect([$item->imei, $item->imei2, $item->serial_number])->filter()->implode(' '),
             'brandId' => self::nullableInt($item->getAttribute('brand_id')),
+            'modelId' => self::nullableInt($item->getAttribute('model_id')),
             'categoryId' => self::nullableInt($item->getAttribute('category_id')),
             'categoryName' => self::nullableString($item->getAttribute('category_name')) ?? '',
             'subcategoryId' => self::nullableInt($item->getAttribute('subcategory_id')),
@@ -218,6 +221,15 @@ class InventoryDataTransformer
             'id' => $category->id,
             'name' => $category->name,
             'parent_category_id' => $category->parent_category_id,
+        ];
+    }
+
+    public static function transformModel(ProductModel $model): array
+    {
+        return [
+            'id' => $model->id,
+            'name' => $model->model_name,
+            'brand_id' => $model->brand_id,
         ];
     }
 

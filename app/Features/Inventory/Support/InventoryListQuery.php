@@ -43,6 +43,7 @@ class InventoryListQuery
             'location' => trim((string) $request->query('location', 'all')) ?: 'all',
             'status' => trim((string) $request->query('status', 'all')) ?: 'all',
             'brand' => trim((string) $request->query('brand', 'all')) ?: 'all',
+            'model' => trim((string) $request->query('model', 'all')) ?: 'all',
             'category' => trim((string) $request->query('category', 'all')) ?: 'all',
             'condition' => trim((string) $request->query('condition', 'all')) ?: 'all',
             'stockAge' => trim((string) $request->query('stockAge', 'all')) ?: 'all',
@@ -162,6 +163,10 @@ class InventoryListQuery
             $query->where('product_brands.id', (int) $filters['brand']);
         }
 
+        if (($filters['model'] ?? 'all') !== 'all') {
+            $query->where('product_models.id', (int) $filters['model']);
+        }
+
         if (($filters['category'] ?? 'all') !== 'all') {
             $query->where('categories.id', (int) $filters['category']);
         }
@@ -176,6 +181,24 @@ class InventoryListQuery
     private function applySearchFilter(Builder $query, string $search): void
     {
         $tokens = preg_split('/\s+/', trim($search)) ?: [];
+        $hasAlphabeticToken = false;
+        $hasNumericToken = false;
+
+        foreach ($tokens as $token) {
+            if ($token === '') {
+                continue;
+            }
+
+            if (preg_match('/[a-z]/i', $token) === 1) {
+                $hasAlphabeticToken = true;
+            }
+
+            if (preg_match('/^\d+$/', $token) === 1) {
+                $hasNumericToken = true;
+            }
+        }
+
+        $isMixedTextAndNumberSearch = $hasAlphabeticToken && $hasNumericToken;
 
         foreach ($tokens as $token) {
             if ($token === '') {
@@ -183,23 +206,31 @@ class InventoryListQuery
             }
 
             $like = '%'.$token.'%';
+            $isNumericToken = preg_match('/^\d+$/', $token) === 1;
 
-            $query->where(function (Builder $builder) use ($like) {
+            $query->where(function (Builder $builder) use ($like, $isMixedTextAndNumberSearch, $isNumericToken) {
                 $builder
                     ->whereRaw(ProductVariantNameSql::expression().' like ?', [$like])
                     ->orWhere('product_brands.name', 'like', $like)
                     ->orWhere('product_models.model_name', 'like', $like)
+                    ->orWhere('product_variants.model_code', 'like', $like)
+                    ->orWhere('product_variants.color', 'like', $like)
+                    ->orWhere('product_variants.ram', 'like', $like)
+                    ->orWhere('product_variants.rom', 'like', $like)
+                    ->orWhere('product_variants.cpu', 'like', $like)
+                    ->orWhere('product_variants.gpu', 'like', $like);
+
+                if ($isMixedTextAndNumberSearch && $isNumericToken) {
+                    return;
+                }
+
+                $builder
                     ->orWhere('inventory_items.imei', 'like', $like)
                     ->orWhere('inventory_items.imei2', 'like', $like)
                     ->orWhere('inventory_items.serial_number', 'like', $like)
                     ->orWhere('warehouses.name', 'like', $like)
                     ->orWhere('inventory_items.status', 'like', $like)
                     ->orWhere('inventory_items.warranty', 'like', $like)
-                    ->orWhere('product_variants.color', 'like', $like)
-                    ->orWhere('product_variants.ram', 'like', $like)
-                    ->orWhere('product_variants.rom', 'like', $like)
-                    ->orWhere('product_variants.cpu', 'like', $like)
-                    ->orWhere('product_variants.gpu', 'like', $like)
                     ->orWhere('inventory_items.grn_number', 'like', $like);
             });
         }
@@ -264,6 +295,7 @@ class InventoryListQuery
         $query->addSelect([
             DB::raw('product_masters.id as product_master_id'),
             DB::raw('product_brands.id as brand_id'),
+            DB::raw('product_models.id as model_id'),
             DB::raw("COALESCE(product_brands.name, '') as brand_name"),
             DB::raw("COALESCE(product_models.model_name, '') as master_model"),
             DB::raw("COALESCE(".ProductVariantNameSql::expression().", '') as product_name"),

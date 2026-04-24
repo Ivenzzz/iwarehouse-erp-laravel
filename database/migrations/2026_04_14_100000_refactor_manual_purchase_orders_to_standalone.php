@@ -3,16 +3,24 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('purchase_orders', function (Blueprint $table) {
+        $driver = DB::getDriverName();
+
+        Schema::table('purchase_orders', function (Blueprint $table) use ($driver) {
             $table->decimal('shipping_amount', 12, 2)->default(0)->after('expected_delivery_date');
 
-            $table->dropForeign('idx_purchase_orders_rfq');
-            $table->dropForeign('idx_purchase_orders_selected_supplier_quote');
+            if ($driver === 'sqlite') {
+                $table->dropForeign(['rfq_id']);
+                $table->dropForeign(['selected_supplier_quote_id']);
+            } else {
+                $table->dropForeign('idx_purchase_orders_rfq');
+                $table->dropForeign('idx_purchase_orders_selected_supplier_quote');
+            }
 
             $table->unsignedBigInteger('rfq_id')->nullable()->change();
             $table->unsignedBigInteger('selected_supplier_quote_id')->nullable()->change();
@@ -30,7 +38,7 @@ return new class extends Migration
                 ->cascadeOnUpdate();
         });
 
-        Schema::table('purchase_order_items', function (Blueprint $table) {
+        Schema::table('purchase_order_items', function (Blueprint $table) use ($driver) {
             $table->foreignId('product_master_id')
                 ->nullable()
                 ->after('supplier_quote_item_id')
@@ -38,7 +46,11 @@ return new class extends Migration
                 ->nullOnDelete()
                 ->cascadeOnUpdate();
 
-            $table->dropForeign('idx_purchase_order_items_supplier_quote_item');
+            if ($driver === 'sqlite') {
+                $table->dropForeign(['supplier_quote_item_id']);
+            } else {
+                $table->dropForeign('idx_purchase_order_items_supplier_quote_item');
+            }
             $table->unsignedBigInteger('supplier_quote_item_id')->nullable()->change();
             $table->foreign('supplier_quote_item_id', 'idx_purchase_order_items_supplier_quote_item')
                 ->references('id')
@@ -50,11 +62,21 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('purchase_order_items', function (Blueprint $table) {
-            $table->dropForeign('idx_purchase_order_items_product_master');
+        $driver = DB::getDriverName();
+
+        Schema::table('purchase_order_items', function (Blueprint $table) use ($driver) {
+            if ($driver === 'sqlite') {
+                $table->dropForeign(['product_master_id']);
+            } else {
+                $table->dropForeign('idx_purchase_order_items_product_master');
+            }
             $table->dropColumn('product_master_id');
 
-            $table->dropForeign('idx_purchase_order_items_supplier_quote_item');
+            if ($driver === 'sqlite') {
+                $table->dropForeign(['supplier_quote_item_id']);
+            } else {
+                $table->dropForeign('idx_purchase_order_items_supplier_quote_item');
+            }
             $table->unsignedBigInteger('supplier_quote_item_id')->nullable(false)->change();
             $table->foreign('supplier_quote_item_id', 'idx_purchase_order_items_supplier_quote_item')
                 ->references('id')
@@ -63,9 +85,14 @@ return new class extends Migration
                 ->cascadeOnUpdate();
         });
 
-        Schema::table('purchase_orders', function (Blueprint $table) {
-            $table->dropForeign('idx_purchase_orders_rfq');
-            $table->dropForeign('idx_purchase_orders_selected_supplier_quote');
+        Schema::table('purchase_orders', function (Blueprint $table) use ($driver) {
+            if ($driver === 'sqlite') {
+                $table->dropForeign(['rfq_id']);
+                $table->dropForeign(['selected_supplier_quote_id']);
+            } else {
+                $table->dropForeign('idx_purchase_orders_rfq');
+                $table->dropForeign('idx_purchase_orders_selected_supplier_quote');
+            }
 
             $table->unsignedBigInteger('rfq_id')->nullable(false)->change();
             $table->unsignedBigInteger('selected_supplier_quote_id')->nullable(false)->change();
@@ -86,4 +113,3 @@ return new class extends Migration
         });
     }
 };
-

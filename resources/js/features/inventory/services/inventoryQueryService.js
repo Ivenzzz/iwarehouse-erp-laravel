@@ -97,6 +97,7 @@ export const createDefaultInventoryFilters = () => ({
   status: "all",
   category: "all",
   brand: "all",
+  model: "all",
   condition: "all",
   stockAge: "all",
 });
@@ -137,6 +138,7 @@ export const enrichInventoryItems = ({
       stockAgeDisplay: stockAgeData.display,
       stockAgeDays: stockAgeData.days,
       brandId: pm?.brand_id || item.brandId || null,
+      modelId: pm?.model_id || item.modelId || null,
       categoryName: pm?.category_name || item.categoryName || "",
       categoryId: pm?.category_id || item.categoryId || null,
       variantCondition: variant?.condition || item.variantCondition || null,
@@ -169,6 +171,7 @@ export const applyClientInventoryFilters = ({ items = [], filters }) => {
     if (filters.status !== "all" && item.status !== filters.status) return false;
     if (filters.category !== "all" && String(item.categoryId) !== String(filters.category)) return false;
     if (filters.brand !== "all" && String(item.brandId) !== String(filters.brand)) return false;
+    if (filters.model !== "all" && String(item.modelId) !== String(filters.model)) return false;
     if (filters.condition !== "all" && item.variantCondition !== filters.condition) return false;
     if (!matchesStockAgeFilter(item.stockAgeDays, filters.stockAge)) return false;
 
@@ -181,6 +184,7 @@ export const matchesBrowseFiltersWithoutSearch = (item, filters) => {
   if (filters.status !== "all" && item.status !== filters.status) return false;
   if (filters.category !== "all" && String(item.categoryId) !== String(filters.category)) return false;
   if (filters.brand !== "all" && String(item.brandId) !== String(filters.brand)) return false;
+  if (filters.model !== "all" && String(item.modelId) !== String(filters.model)) return false;
   if (filters.condition !== "all" && item.variantCondition !== filters.condition) return false;
   if (!matchesStockAgeFilter(item.stockAgeDays, filters.stockAge)) return false;
 

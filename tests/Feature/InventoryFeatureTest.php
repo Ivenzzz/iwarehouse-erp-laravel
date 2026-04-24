@@ -242,6 +242,132 @@ class InventoryFeatureTest extends TestCase
             );
     }
 
+    public function test_inventory_search_treats_numeric_token_as_product_context_for_mixed_queries(): void
+    {
+        $user = User::factory()->create();
+        $warehouse = Warehouse::create([
+            'name' => 'Main Warehouse',
+            'warehouse_type' => 'main_warehouse',
+        ]);
+        $brand = ProductBrand::create(['name' => 'Apple']);
+        $category = ProductCategory::create([
+            'name' => 'Phones',
+            'parent_category_id' => null,
+        ]);
+        $subcategory = ProductCategory::create([
+            'name' => 'Smartphones',
+            'parent_category_id' => $category->id,
+        ]);
+
+        $iphone13Model = ProductModel::create([
+            'brand_id' => $brand->id,
+            'model_name' => 'iPhone 13',
+        ]);
+        $iphone13Master = ProductMaster::create([
+            'master_sku' => 'APPLE-IPHONE13',
+            'model_id' => $iphone13Model->id,
+            'subcategory_id' => $subcategory->id,
+        ]);
+        $iphone13Variant = ProductVariant::create([
+            'product_master_id' => $iphone13Master->id,
+            'variant_name' => 'Apple iPhone 13 128GB Black',
+            'sku' => 'APPLE-IPHONE13-128GB-BLACK',
+            'condition' => 'Brand New',
+            'is_active' => true,
+        ]);
+
+        $iphone15Model = ProductModel::create([
+            'brand_id' => $brand->id,
+            'model_name' => 'iPhone 15',
+        ]);
+        $iphone15Master = ProductMaster::create([
+            'master_sku' => 'APPLE-IPHONE15',
+            'model_id' => $iphone15Model->id,
+            'subcategory_id' => $subcategory->id,
+        ]);
+        $iphone15Variant = ProductVariant::create([
+            'product_master_id' => $iphone15Master->id,
+            'variant_name' => 'Apple iPhone 15 128GB Pink',
+            'sku' => 'APPLE-IPHONE15-128GB-PINK',
+            'condition' => 'Brand New',
+            'is_active' => true,
+        ]);
+
+        $iphone16Model = ProductModel::create([
+            'brand_id' => $brand->id,
+            'model_name' => 'iPhone 16',
+        ]);
+        $iphone16Master = ProductMaster::create([
+            'master_sku' => 'APPLE-IPHONE16',
+            'model_id' => $iphone16Model->id,
+            'subcategory_id' => $subcategory->id,
+        ]);
+        $iphone16Variant = ProductVariant::create([
+            'product_master_id' => $iphone16Master->id,
+            'variant_name' => 'Apple iPhone 16 128GB Black',
+            'sku' => 'APPLE-IPHONE16-128GB-BLACK',
+            'condition' => 'Brand New',
+            'is_active' => true,
+        ]);
+
+        InventoryItem::create([
+            'product_variant_id' => $iphone13Variant->id,
+            'warehouse_id' => $warehouse->id,
+            'imei' => '880000000000001',
+            'serial_number' => 'IPH13-SERIAL-001',
+            'status' => 'available',
+        ]);
+        InventoryItem::create([
+            'product_variant_id' => $iphone15Variant->id,
+            'warehouse_id' => $warehouse->id,
+            'imei' => '913000000000001',
+            'serial_number' => 'IPH15-SERIAL-001',
+            'status' => 'available',
+        ]);
+        InventoryItem::create([
+            'product_variant_id' => $iphone16Variant->id,
+            'warehouse_id' => $warehouse->id,
+            'imei' => '990000000000003',
+            'serial_number' => 'IPH16-SERIAL-13',
+            'status' => 'available',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('inventory.index', ['search' => 'iphone 13']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('inventory.total', 1)
+                ->where('inventory.data.0.masterModel', 'iPhone 13')
+                ->where('inventory.data.0.serial_number', 'IPH13-SERIAL-001')
+            );
+
+        $this->actingAs($user)
+            ->get(route('inventory.index', ['search' => 'iphone 15']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('inventory.total', 1)
+                ->where('inventory.data.0.masterModel', 'iPhone 15')
+            );
+
+        $this->actingAs($user)
+            ->get(route('inventory.index', ['search' => '913000000000001']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('inventory.total', 1)
+                ->where('inventory.data.0.masterModel', 'iPhone 15')
+                ->where('inventory.data.0.imei1', '913000000000001')
+            );
+
+        $exportResponse = $this->actingAs($user)->get(route('inventory.export', [
+            'search' => 'iphone 13',
+        ]));
+        $exportResponse->assertOk();
+        $csv = $exportResponse->streamedContent();
+        $this->assertStringContainsString('IPH13-SERIAL-001', $csv);
+        $this->assertStringNotContainsString('IPH15-SERIAL-001', $csv);
+        $this->assertStringNotContainsString('IPH16-SERIAL-13', $csv);
+    }
+
     public function test_inventory_export_respects_server_side_filters(): void
     {
         $user = User::factory()->create();
@@ -501,6 +627,102 @@ class InventoryFeatureTest extends TestCase
             'actor_id' => $user->id,
         ]);
         $this->assertSame($productMaster->id, $createdVariant->product_master_id);
+    }
+
+    public function test_inventory_import_maps_purchase_to_grn_number_with_grn_priority(): void
+    {
+        $user = User::factory()->create();
+        [$variant, $warehouse] = $this->createInventoryGraph();
+
+        $csv = implode("\n", [
+            'Brand,Model,Warehouse,Condition,Purchase,GRN Number,IMEI 1,Serial Number',
+            'Apple,iPhone 17,Main Warehouse,Brand New,PO-123,,900000000000111,SN-PURCHASE-ONLY',
+            'Apple,iPhone 17,Main Warehouse,Brand New,PO-999,GRN-999,900000000000112,SN-BOTH',
+            'Apple,iPhone 17,Main Warehouse,Brand New,,,900000000000113,SN-EMPTY',
+        ]);
+        $file = UploadedFile::fake()->createWithContent('inventory.csv', $csv);
+
+        $validationResponse = $this->actingAs($user)
+            ->post(route('inventory.import.validate'), ['file' => $file], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->json();
+
+        $this->assertSame(0, $validationResponse['variantsCreated']);
+
+        $this->actingAs($user)
+            ->postJson(route('inventory.import'), [
+                'importToken' => $validationResponse['importToken'],
+            ])
+            ->assertOk()
+            ->assertJson([
+                'created' => 3,
+                'failed' => 0,
+            ]);
+
+        $this->assertDatabaseHas('inventory_items', [
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $warehouse->id,
+            'serial_number' => 'SN-PURCHASE-ONLY',
+            'grn_number' => 'PO-123',
+        ]);
+
+        $this->assertDatabaseHas('inventory_items', [
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $warehouse->id,
+            'serial_number' => 'SN-BOTH',
+            'grn_number' => 'GRN-999',
+        ]);
+
+        $this->assertDatabaseHas('inventory_items', [
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $warehouse->id,
+            'serial_number' => 'SN-EMPTY',
+            'grn_number' => '',
+        ]);
+    }
+
+    public function test_inventory_import_falls_back_to_barcode_for_serial_number_and_preserves_serial_priority(): void
+    {
+        $user = User::factory()->create();
+        [$variant, $warehouse] = $this->createInventoryGraph();
+
+        $csv = implode("\n", [
+            'Brand,Model,Warehouse,Condition,Barcode,IMEI 1,Serial Number',
+            'Apple,iPhone 17,Main Warehouse,Brand New,BAR-ONLY-001,900000000000201,',
+            'Apple,iPhone 17,Main Warehouse,Brand New,BAR-SECONDARY-001,900000000000202,SN-PRIMARY-001',
+        ]);
+        $file = UploadedFile::fake()->createWithContent('inventory.csv', $csv);
+
+        $validationResponse = $this->actingAs($user)
+            ->post(route('inventory.import.validate'), ['file' => $file], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->json();
+
+        $this->assertSame(0, $validationResponse['variantsCreated']);
+
+        $this->actingAs($user)
+            ->postJson(route('inventory.import'), [
+                'importToken' => $validationResponse['importToken'],
+            ])
+            ->assertOk()
+            ->assertJson([
+                'created' => 2,
+                'failed' => 0,
+            ]);
+
+        $this->assertDatabaseHas('inventory_items', [
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $warehouse->id,
+            'imei' => '900000000000201',
+            'serial_number' => 'BAR-ONLY-001',
+        ]);
+
+        $this->assertDatabaseHas('inventory_items', [
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $warehouse->id,
+            'imei' => '900000000000202',
+            'serial_number' => 'SN-PRIMARY-001',
+        ]);
     }
 
     public function test_inventory_import_accepts_legacy_ram_and_rom_capacity_columns(): void
@@ -770,6 +992,30 @@ class InventoryFeatureTest extends TestCase
             ->post(route('inventory.import.validate'), ['file' => $file], ['Accept' => 'application/json'])
             ->assertOk()
             ->assertJsonPath('skippedItems.0.reason', 'Duplicate imei1 already exists: 123456789012345');
+    }
+
+    public function test_inventory_import_validation_detects_duplicate_serial_via_barcode_fallback(): void
+    {
+        $user = User::factory()->create();
+        [$variant, $warehouse] = $this->createInventoryGraph();
+
+        InventoryItem::create([
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $warehouse->id,
+            'serial_number' => 'BAR-DUP-001',
+            'status' => 'available',
+        ]);
+
+        $csv = implode("\n", [
+            'Brand,Model,Warehouse,Condition,Barcode,IMEI 1,Serial Number',
+            'Apple,iPhone 17,Main Warehouse,Brand New,BAR-DUP-001,123456789012399,',
+        ]);
+        $file = UploadedFile::fake()->createWithContent('inventory.csv', $csv);
+
+        $this->actingAs($user)
+            ->post(route('inventory.import.validate'), ['file' => $file], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->assertJsonPath('skippedItems.0.reason', 'Duplicate serial_number already exists: BAR-DUP-001');
     }
 
     public function test_inventory_import_rejects_reused_or_foreign_token(): void

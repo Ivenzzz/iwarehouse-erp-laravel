@@ -13,10 +13,11 @@ export default function InventoryKPIs({ refreshToken = 0, filters = {} }) {
     location: filters.location ?? "all",
     status: filters.status ?? "all",
     brand: filters.brand ?? "all",
+    model: filters.model ?? "all",
     category: filters.category ?? "all",
     condition: filters.condition ?? "all",
     stockAge: filters.stockAge ?? "all",
-  }), [filters.brand, filters.category, filters.condition, filters.location, filters.search, filters.status, filters.stockAge]);
+  }), [filters.brand, filters.model, filters.category, filters.condition, filters.location, filters.search, filters.status, filters.stockAge]);
 
   useEffect(() => {
     let active = true;

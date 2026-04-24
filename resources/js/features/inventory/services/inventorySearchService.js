@@ -18,6 +18,7 @@ export function buildSearchableRecord(item) {
   const attrs = item._variantAttributes || {};
   return {
     productName: norm(item.productName),
+    modelCode: norm(item.model_code),
     imei1: norm(item.imei1),
     imei2: norm(item.imei2),
     serial_number: norm(item.serial_number),
@@ -37,6 +38,9 @@ export function buildSearchableRecord(item) {
 export function matchesSearchTokens(searchRecord, tokens) {
   if (!tokens?.length) return true;
 
+  const isMixedTextAndNumberSearch = tokens.some((token) => /[a-z]/i.test(token))
+    && tokens.some((token) => /^\d+$/.test(token));
+
   return tokens.every((token) => {
     const conditionFull = CONDITION_MAP[token];
     if (conditionFull && searchRecord.condition === conditionFull) {
@@ -53,16 +57,25 @@ export function matchesSearchTokens(searchRecord, tokens) {
       return true;
     }
 
+    const matchesProductFields = (
+      searchRecord.productName.includes(token)
+      || searchRecord.modelCode.includes(token)
+      || searchRecord.cpu.includes(token)
+      || searchRecord.gpu.includes(token)
+    );
+
+    if (isMixedTextAndNumberSearch && /^\d+$/.test(token)) {
+      return matchesProductFields;
+    }
+
     return (
-      searchRecord.productName.includes(token) ||
+      matchesProductFields ||
       searchRecord.imei1.includes(token) ||
       searchRecord.imei2.includes(token) ||
       searchRecord.serial_number.includes(token) ||
       searchRecord.warehouseName.includes(token) ||
       searchRecord.status.includes(token) ||
       searchRecord.warranty.includes(token) ||
-      searchRecord.cpu.includes(token) ||
-      searchRecord.gpu.includes(token) ||
       searchRecord.grn.includes(token)
     );
   });

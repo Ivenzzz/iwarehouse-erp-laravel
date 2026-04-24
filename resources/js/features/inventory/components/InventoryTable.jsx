@@ -138,6 +138,7 @@ export default function InventoryTable({
   filters,
   warehouses,
   brands,
+  models,
   categories,
   pagination,
   perPageOptions,
@@ -169,7 +170,7 @@ export default function InventoryTable({
       parentRef.current.scrollTop = 0;
     }
     rowVirtualizer.scrollToOffset(0);
-  }, [filters.search, filters.location, filters.status, filters.brand, filters.category, filters.condition, filters.stockAge, rowVirtualizer]);
+  }, [filters.search, filters.location, filters.status, filters.brand, filters.model, filters.category, filters.condition, filters.stockAge, rowVirtualizer]);
 
   const locationOptions = useMemo(() => ([
     { value: "all", label: "All Warehouses" },
@@ -186,6 +187,31 @@ export default function InventoryTable({
       label: brand.name,
     })),
   ]), [brands]);
+
+  const modelOptions = useMemo(() => {
+    const selectedBrand = String(filters.brand ?? "all");
+    const filteredModels = selectedBrand === "all"
+      ? models
+      : models.filter((model) => String(model.brand_id) === selectedBrand);
+
+    return [
+      { value: "all", label: "All Models" },
+      ...filteredModels.map((model) => ({
+        value: String(model.id),
+        label: model.name,
+      })),
+    ];
+  }, [filters.brand, models]);
+
+  useEffect(() => {
+    const selectedModel = String(filters.model ?? "all");
+    if (selectedModel === "all") return;
+
+    const exists = modelOptions.some((option) => option.value === selectedModel);
+    if (!exists) {
+      onVisit({ model: "all", page: undefined });
+    }
+  }, [filters.model, modelOptions, onVisit]);
 
   const categoryOptions = useMemo(() => ([
     { value: "all", label: "All Categories" },
@@ -241,7 +267,7 @@ export default function InventoryTable({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_repeat(6,minmax(0,0.8fr))]">
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_repeat(7,minmax(0,0.8fr))]">
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -290,6 +316,14 @@ export default function InventoryTable({
           onValueChange={(value) => updateFilter("brand", value || "all")}
           options={brandOptions}
           placeholder="All Brands"
+          className="h-10"
+        />
+
+        <Combobox
+          value={String(filters.model ?? "all")}
+          onValueChange={(value) => updateFilter("model", value || "all")}
+          options={modelOptions}
+          placeholder="All Models"
           className="h-10"
         />
 

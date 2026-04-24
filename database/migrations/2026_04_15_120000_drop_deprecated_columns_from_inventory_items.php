@@ -12,7 +12,9 @@ return new class extends Migration
         $driver = DB::getDriverName();
 
         Schema::table('inventory_items', function (Blueprint $table) use ($driver) {
-            if ($driver !== 'sqlite') {
+            if ($driver === 'sqlite') {
+                $table->dropForeign(['supplier_id']);
+            } else {
                 $table->dropForeign('idx_inventory_items_supplier');
             }
 

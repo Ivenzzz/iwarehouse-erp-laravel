@@ -861,7 +861,7 @@ class ImportInventoryItemsFromCsv
         foreach ([
             'imei' => $row['IMEI 1'] ?? null,
             'imei2' => $row['IMEI 2'] ?? null,
-            'serial_number' => $row['Serial Number'] ?? null,
+            'serial_number' => $this->resolveSerialNumber($row),
         ] as $field => $value) {
             $cleanValue = $this->cleanIdentifier($value);
 
@@ -888,7 +888,7 @@ class ImportInventoryItemsFromCsv
         foreach ([
             'imei' => $row['IMEI 1'] ?? null,
             'imei2' => $row['IMEI 2'] ?? null,
-            'serial_number' => $row['Serial Number'] ?? null,
+            'serial_number' => $this->resolveSerialNumber($row),
         ] as $field => $value) {
             $cleanValue = $this->cleanIdentifier($value);
 
@@ -903,12 +903,14 @@ class ImportInventoryItemsFromCsv
      */
     private function buildInventoryPayload(array $row, ProductVariant $variant, Warehouse $warehouse): array
     {
+        $grnNumber = $this->valueFromAliases($row, ['GRN Number', 'Purchase']);
+
         return [
             'product_variant_id' => $variant->id,
             'warehouse_id' => $warehouse->id,
             'imei' => $this->cleanIdentifier($row['IMEI 1'] ?? null),
             'imei2' => $this->cleanIdentifier($row['IMEI 2'] ?? null),
-            'serial_number' => $this->cleanIdentifier($row['Serial Number'] ?? null),
+            'serial_number' => $this->resolveSerialNumber($row),
             'status' => $this->resolveStatus($row['Status'] ?? null),
             'cost_price' => $this->parseNumber($row['Cost'] ?? null),
             'cash_price' => $this->parseNumber($row['Cash'] ?? null),
@@ -918,7 +920,7 @@ class ImportInventoryItemsFromCsv
             'product_type' => $this->collapseWhitespace($row['Product Type'] ?? ''),
             'with_charger' => $this->parseBoolean($row['With Charger'] ?? null),
             'encoded_at' => now(),
-            'grn_number' => $this->collapseWhitespace($row['GRN Number'] ?? ''),
+            'grn_number' => $this->collapseWhitespace($grnNumber),
         ];
     }
 
@@ -941,6 +943,16 @@ class ImportInventoryItemsFromCsv
         }
 
         return preg_replace('/\.0+$/', '', $value) ?: null;
+    }
+
+    private function resolveSerialNumber(array $row): ?string
+    {
+        $serialNumber = $this->valueFromAliases($row, ['Serial Number']);
+        $candidate = $serialNumber !== ''
+            ? $serialNumber
+            : $this->valueFromAliases($row, ['Barcode']);
+
+        return $this->cleanIdentifier($candidate);
     }
 
     private function normalizeStorageValue(mixed $value): string
@@ -1044,6 +1056,7 @@ class ImportInventoryItemsFromCsv
         $mapped['Operating System'] = $this->valueFromAliases($row, ['Operating System', 'OS']);
         $mapped['Screen'] = $this->valueFromAliases($row, ['Screen', 'Display']);
         $mapped['Model Code'] = $this->valueFromAliases($row, ['Model Code']);
+        $mapped['GRN Number'] = $this->valueFromAliases($row, ['GRN Number', 'Purchase']);
 
         foreach (['Color', 'CPU', 'GPU', 'RAM Type', 'ROM Type', 'Brand', 'Model', 'Warehouse', 'Condition'] as $header) {
             $mapped[$header] = $this->valueFromAliases($row, [$header]);

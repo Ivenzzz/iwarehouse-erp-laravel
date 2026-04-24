@@ -7,6 +7,7 @@ use App\Features\Inventory\Support\InventoryListQuery;
 use App\Models\InventoryItem;
 use App\Models\ProductBrand;
 use App\Models\ProductCategory;
+use App\Models\ProductModel;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -44,6 +45,7 @@ class ListInventoryPageData
                     'location' => 'all',
                     'status' => 'all',
                     'brand' => 'all',
+                    'model' => 'all',
                     'category' => 'all',
                     'condition' => 'all',
                     'stockAge' => 'all',
@@ -65,6 +67,7 @@ class ListInventoryPageData
                             'location' => 'all',
                             'status' => 'all',
                             'brand' => 'all',
+                            'model' => 'all',
                             'category' => 'all',
                             'condition' => 'all',
                             'stockAge' => 'all',
@@ -100,6 +103,11 @@ class ListInventoryPageData
                 ->orderBy('name')
                 ->get()
                 ->map(fn (ProductBrand $brand) => InventoryDataTransformer::transformBrand($brand))
+                ->values(),
+            'models' => ProductModel::query()
+                ->orderBy('model_name')
+                ->get()
+                ->map(fn (ProductModel $model) => InventoryDataTransformer::transformModel($model))
                 ->values(),
             'categories' => ProductCategory::query()
                 ->whereNull('parent_category_id')

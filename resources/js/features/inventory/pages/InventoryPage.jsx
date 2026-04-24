@@ -23,6 +23,7 @@ const RELOAD_PROPS = [
   "exactLookup",
   "warehouses",
   "brands",
+  "models",
   "categories",
 ];
 
@@ -33,6 +34,7 @@ export default function InventoryPage({
   exactLookup,
   warehouses,
   brands,
+  models,
   categories,
 }) {
   const { errors } = usePage().props;
@@ -60,6 +62,7 @@ export default function InventoryPage({
     filters.location,
     filters.status,
     filters.brand,
+    filters.model,
     filters.category,
     filters.condition,
     filters.stockAge,
@@ -85,6 +88,7 @@ export default function InventoryPage({
       location: params.location ?? filters.location,
       status: params.status ?? filters.status,
       brand: params.brand ?? filters.brand,
+      model: params.model ?? filters.model,
       category: params.category ?? filters.category,
       condition: params.condition ?? filters.condition,
       stockAge: params.stockAge ?? filters.stockAge,
@@ -139,6 +143,7 @@ export default function InventoryPage({
       location: filters.location,
       status: filters.status,
       brand: filters.brand,
+      model: filters.model,
       category: filters.category,
       condition: filters.condition,
       stockAge: filters.stockAge,
@@ -304,6 +309,7 @@ export default function InventoryPage({
                   filters={filters}
                   warehouses={warehouses}
                   brands={brands}
+                  models={models}
                   categories={categories}
                   pagination={tablePagination}
                   perPageOptions={perPageOptions}

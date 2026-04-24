@@ -9,28 +9,46 @@ return new class extends Migration
 {
     public function up(): void
     {
+        $driver = DB::getDriverName();
         $database = (string) DB::getDatabaseName();
         $tableName = 'delivery_receipt_items';
         $tempIndex = 'idx_delivery_receipt_items_delivery_receipt_tmp';
 
-        $foreignKeyName = DB::table('information_schema.KEY_COLUMN_USAGE')
-            ->where('TABLE_SCHEMA', $database)
-            ->where('TABLE_NAME', $tableName)
-            ->where('COLUMN_NAME', 'purchase_order_item_id')
-            ->where('REFERENCED_TABLE_NAME', 'purchase_order_items')
-            ->value('CONSTRAINT_NAME');
+        if ($driver === 'sqlite') {
+            Schema::table($tableName, function (Blueprint $table) use ($tempIndex) {
+                try {
+                    $table->dropForeign(['purchase_order_item_id']);
+                } catch (Throwable) {
+                    // no-op when FK already absent
+                }
 
-        if (is_string($foreignKeyName) && $foreignKeyName !== '') {
-            DB::statement("ALTER TABLE `{$tableName}` DROP FOREIGN KEY `{$foreignKeyName}`");
-        }
+                try {
+                    $table->index('delivery_receipt_id', $tempIndex);
+                } catch (Throwable) {
+                    // no-op when index already exists
+                }
+            });
+            $hasTempIndex = true;
+        } else {
+            $foreignKeyName = DB::table('information_schema.KEY_COLUMN_USAGE')
+                ->where('TABLE_SCHEMA', $database)
+                ->where('TABLE_NAME', $tableName)
+                ->where('COLUMN_NAME', 'purchase_order_item_id')
+                ->where('REFERENCED_TABLE_NAME', 'purchase_order_items')
+                ->value('CONSTRAINT_NAME');
 
-        $hasTempIndex = DB::table('information_schema.STATISTICS')
-            ->where('TABLE_SCHEMA', $database)
-            ->where('TABLE_NAME', $tableName)
-            ->where('INDEX_NAME', $tempIndex)
-            ->exists();
-        if (! $hasTempIndex) {
-            DB::statement("CREATE INDEX `{$tempIndex}` ON `{$tableName}` (`delivery_receipt_id`)");
+            if (is_string($foreignKeyName) && $foreignKeyName !== '') {
+                DB::statement("ALTER TABLE `{$tableName}` DROP FOREIGN KEY `{$foreignKeyName}`");
+            }
+
+            $hasTempIndex = DB::table('information_schema.STATISTICS')
+                ->where('TABLE_SCHEMA', $database)
+                ->where('TABLE_NAME', $tableName)
+                ->where('INDEX_NAME', $tempIndex)
+                ->exists();
+            if (! $hasTempIndex) {
+                DB::statement("CREATE INDEX `{$tempIndex}` ON `{$tableName}` (`delivery_receipt_id`)");
+            }
         }
 
         Schema::table($tableName, function (Blueprint $table) {
@@ -55,17 +73,29 @@ return new class extends Migration
 
     public function down(): void
     {
+        $driver = DB::getDriverName();
         $database = (string) DB::getDatabaseName();
         $tableName = 'delivery_receipt_items';
         $tempIndex = 'idx_delivery_receipt_items_delivery_receipt_tmp';
 
-        $hasTempIndex = DB::table('information_schema.STATISTICS')
-            ->where('TABLE_SCHEMA', $database)
-            ->where('TABLE_NAME', $tableName)
-            ->where('INDEX_NAME', $tempIndex)
-            ->exists();
-        if (! $hasTempIndex) {
-            DB::statement("CREATE INDEX `{$tempIndex}` ON `{$tableName}` (`delivery_receipt_id`)");
+        if ($driver === 'sqlite') {
+            try {
+                Schema::table($tableName, function (Blueprint $table) use ($tempIndex) {
+                    $table->index('delivery_receipt_id', $tempIndex);
+                });
+            } catch (Throwable) {
+                // no-op when index already exists
+            }
+            $hasTempIndex = true;
+        } else {
+            $hasTempIndex = DB::table('information_schema.STATISTICS')
+                ->where('TABLE_SCHEMA', $database)
+                ->where('TABLE_NAME', $tableName)
+                ->where('INDEX_NAME', $tempIndex)
+                ->exists();
+            if (! $hasTempIndex) {
+                DB::statement("CREATE INDEX `{$tempIndex}` ON `{$tableName}` (`delivery_receipt_id`)");
+            }
         }
 
         Schema::table($tableName, function (Blueprint $table) {

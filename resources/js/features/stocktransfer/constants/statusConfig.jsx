@@ -2,13 +2,20 @@ import { Package, ArrowRightLeft, Truck } from "lucide-react";
 
 export const getStatusStyle = (status) => {
   switch (status) {
-    case 'fully_received': return 'bg-success-muted text-success-muted-foreground border border-success/20';
-    case 'consolidated': return 'bg-muted text-muted-foreground border border-border';
-    case 'picked': return 'bg-info-muted text-info-muted-foreground border border-info/20';
-    case 'shipped': return 'bg-info-muted text-info-muted-foreground border border-info/20';
-    case 'draft': return 'bg-muted text-muted-foreground border border-border';
-    case 'partially_received': return 'bg-warning-muted text-warning-muted-foreground border border-warning/20';
-    default: return 'bg-muted text-muted-foreground border border-border';
+    case 'draft':
+      return 'bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800/60 dark:text-slate-400 dark:border-slate-700';
+    case 'picked':
+      return 'bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-900/30 dark:text-sky-400 dark:border-sky-800';
+    case 'shipped':
+      return 'bg-violet-50 text-violet-700 border border-violet-200 dark:bg-violet-900/30 dark:text-violet-400 dark:border-violet-800';
+    case 'fully_received':
+      return 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800';
+    case 'partially_received':
+      return 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800';
+    case 'consolidated':
+      return 'bg-slate-50 text-slate-400 border border-slate-200 italic dark:bg-slate-800/40 dark:text-slate-500 dark:border-slate-700';
+    default:
+      return 'bg-muted text-muted-foreground border border-border';
   }
 };
 

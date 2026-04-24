@@ -2,8 +2,10 @@
 
 namespace App\Features\StockRequestApprovals\Queries;
 
+use App\Features\CompanyInfo\Support\CompanyInfoDataTransformer;
 use App\Features\StockRequestApprovals\Support\StockRequestApprovalDataTransformer;
 use App\Features\StockRequestApprovals\Support\StockRequestApprovalListQuery;
+use App\Models\CompanyInfo;
 use App\Models\StockRequest;
 use App\Models\Warehouse;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -77,6 +79,7 @@ class ListStockRequestApprovalPageData
                 ])
                 ->values()
                 ->all(),
+            'companyInfo' => CompanyInfoDataTransformer::transform(CompanyInfo::query()->latest()->first()),
         ];
     }
 

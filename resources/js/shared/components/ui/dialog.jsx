@@ -74,6 +74,9 @@ const DialogContent = React.forwardRef(function DialogContent(
 
       <DialogPrimitive.Content
         ref={ref}
+        onPointerDownOutside={(event) => {
+          event.preventDefault();
+        }}
         className={cn(
           "fixed left-1/2 top-1/2 z-50",
           "w-[calc(100%-2rem)] max-w-2xl max-h-[calc(100vh-2rem)]",
@@ -81,7 +84,6 @@ const DialogContent = React.forwardRef(function DialogContent(
           "flex flex-col overflow-hidden",
           "border border-border bg-background shadow-xl p-1",
 
-          // ✅ Apply the keyframes based on Radix state
           "data-[state=open]:animate-[dialog-content-show_200ms_ease-out]",
           "data-[state=closed]:animate-[dialog-content-hide_200ms_ease-in]",
 

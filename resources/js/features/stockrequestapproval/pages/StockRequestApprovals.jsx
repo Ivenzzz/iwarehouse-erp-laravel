@@ -11,9 +11,9 @@ import AdminReviewTableRow from "../components/AdminReviewTableRow";
 import ProcessedApprovalRow from "../components/ProcessedApprovalRow";
 import PRTableRow from "../components/PRTableRow";
 import { BatchApprovalDialog } from "../components/BatchApprovalDialog";
-import { usePRPrint } from "../lib/usePRPrint";
+import { printStockRequest } from "@/features/stockrequest/lib/stockRequestPrintService";
 
-const RELOAD_PROPS = ["requests", "pagination", "filters", "kpis", "warehouses"];
+const RELOAD_PROPS = ["requests", "pagination", "filters", "kpis", "warehouses", "companyInfo"];
 
 const formatPesoCompact = (value) => {
   const amount = Number(value || 0);
@@ -40,7 +40,12 @@ export default function StockRequestApprovalsPage({
   const [alertDialog, setAlertDialog] = useState({ open: false, title: "", description: "" });
   const [confirmDialog, setConfirmDialog] = useState({ open: false, title: "", description: "", onConfirm: null });
 
-  const { handlePrintPR } = usePRPrint({ companyInfo });
+  const handlePrintPR = (pr) => {
+    printStockRequest({
+      request: pr,
+      companyInfo: companyInfo || {},
+    });
+  };
 
   useEffect(() => {
     setSearchTerm(filters.search || "");

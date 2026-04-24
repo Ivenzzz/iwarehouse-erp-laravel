@@ -436,21 +436,33 @@ export default function StockTransferPage({
       <Head title="Stock Transfers" />
 
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-foreground">Stock Transfer Management</h2>
-            <p className="mt-1 text-muted-foreground">Manage all stock movements and transfers</p>
+        {/* Page Header */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/20">
+              <Layers3 className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight text-foreground">Stock Transfers</h2>
+              <p className="text-sm text-muted-foreground">Manage all stock movements between locations</p>
+            </div>
           </div>
 
-          <div className="flex flex-col items-end gap-1">
-            <div className="flex gap-2">
-              {selectedTransfers.length > 0 ? (
+          <div className="flex flex-col items-end gap-2">
+            {/* Bulk Action Bar — only visible when items are selected */}
+            {selectedTransfers.length > 0 && (
+              <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-1.5 shadow-sm">
+                <span className="mr-1 text-xs font-semibold text-primary">
+                  {selectedTransfers.length} selected
+                </span>
+                <div className="h-4 w-px bg-primary/20" />
+
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="text-sm">
-                      <Printer className="mr-2 h-4 w-4" />
-                      Print ({selectedTransfers.length})
-                      <ChevronDown className="ml-2 h-3 w-3 opacity-50" />
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-primary hover:bg-primary/10 hover:text-primary">
+                      <Printer className="mr-1.5 h-3.5 w-3.5" />
+                      Print
+                      <ChevronDown className="ml-1 h-3 w-3 opacity-60" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent align="end" className="w-52 p-1">
@@ -465,26 +477,37 @@ export default function StockTransferPage({
                     </button>
                   </PopoverContent>
                 </Popover>
-              ) : null}
 
-              {selectedTransfers.length > 0 ? (
                 <Button
-                  variant="outline"
-                  className="text-sm"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs text-primary hover:bg-primary/10 hover:text-primary"
                   onClick={() => setShowConsolidateDialog(true)}
                   disabled={!consolidationValidation.isEligible || isConsolidating}
                   title={consolidationValidation.reason || "Consolidate selected transfers"}
                 >
-                  <Layers3 className="mr-2 h-4 w-4" />
-                  Consolidate ({selectedTransfers.length})
+                  <Layers3 className="mr-1.5 h-3.5 w-3.5" />
+                  Consolidate
                 </Button>
-              ) : null}
 
-              <Button variant="outline" className="text-sm" disabled>
+                {!consolidationValidation.isEligible && (
+                  <p className="max-w-[180px] text-right text-[10px] text-muted-foreground">{consolidationValidation.reason}</p>
+                )}
+              </div>
+            )}
+
+            {/* Primary Actions */}
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="h-9 text-sm text-muted-foreground" disabled>
                 <Download className="mr-2 h-4 w-4" />
                 Export CSV
               </Button>
+
+              <div className="h-5 w-px bg-border" />
+
               <Button
+                size="sm"
+                className="h-9 shadow-sm"
                 onClick={() => {
                   resetForm();
                   setShowCreateDialog(true);
@@ -495,6 +518,8 @@ export default function StockTransferPage({
               </Button>
               <Button
                 variant="outline"
+                size="sm"
+                className="h-9 text-sm"
                 onClick={() => {
                   resetOldMethodForm();
                   setShowOldMethodDialog(true);
@@ -503,10 +528,6 @@ export default function StockTransferPage({
                 Create Transfer(old method)
               </Button>
             </div>
-
-            {selectedTransfers.length > 0 && !consolidationValidation.isEligible ? (
-              <p className="max-w-sm text-right text-xs text-muted-foreground">{consolidationValidation.reason}</p>
-            ) : null}
           </div>
         </div>
 

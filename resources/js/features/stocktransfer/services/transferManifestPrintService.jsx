@@ -1,9 +1,15 @@
 import { format } from "date-fns";
+import {
+  buildDocumentFooter,
+  buildDocumentHeader,
+  buildPrintShell,
+  getReceiveQrUrl,
+} from "@/shared/services/printDocumentService";
 
 /**
  * Generates the HTML for a single Manifest page
  */
-const generateManifestHTML = (transfer, companyInfo, isLast) => {
+const generateManifestHTML = (transfer, companyInfo, isLast, options = {}) => {
   const sourceWarehouse = transfer.source_location;
   const destWarehouse = transfer.destination_location;
   const createdBy = transfer.actors_json?.created_by_name || transfer.created_by?.full_name || "N/A";
@@ -31,33 +37,17 @@ const generateManifestHTML = (transfer, companyInfo, isLast) => {
   const transferDate = transfer.dates_json?.shipped_date || transfer.dates_json?.picked_date || transfer.created_date;
   const transferDateStr = transferDate ? format(new Date(transferDate), "MMMM dd, yyyy | hh:mm a") : "N/A";
 
+  const headerHtml = buildDocumentHeader({
+    companyInfo,
+    docRef: transfer.transfer_number || "",
+    docRefLabel: "",
+    showQrCode: Boolean(options.showQrCode),
+    qrValue: options.qrValue || getReceiveQrUrl(transfer.id),
+  });
+
   return `
     <main class="flex flex-col min-h-[260mm] ${!isLast ? "break-after-page" : ""}" style="${!isLast ? "page-break-after: always;" : ""} font-family: sans-serif;">
-        <div class="flex justify-between items-center border-b-2 border-slate-800 pb-4 mb-4">
-            <div class="flex gap-4 items-center">
-                ${companyInfo?.logo_url ? `
-                    <div class="w-[100px] h-[100px] flex items-center justify-center overflow-hidden">
-                        <img src="${companyInfo.logo_url}" alt="Company Logo" class="max-w-full max-h-full object-contain" />
-                    </div>
-                ` : ""}
-                
-                <div class="leading-tight mb-1">
-                    <h2 class="text-xl font-extrabold uppercase tracking-tight text-slate-900">${companyInfo?.company_name || "iWarehouse Corp."}</h2>
-                    <div class="text-[11px] text-slate-600 mt-1">
-                        <p>${companyInfo?.address || ""}</p>
-                        <p>${companyInfo?.city || ""}, ${companyInfo?.country || "Philippines"}</p>
-                        <p>Contact: ${companyInfo?.phone || "N/A"} | Email: ${companyInfo?.email || "N/A"}</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex flex-col items-end justify-end">
-                <p class="text-[10px] font-black text-slate-400 tracking-widest uppercase text-right mb-1">${transfer.transfer_number || ""}</p>
-                <div class="flex flex-col items-center bg-white p-1 border border-slate-200 rounded">
-                    <div class="qr-placeholder" data-text="${window.location.origin}${window.location.pathname}?action=receive&id=${transfer.id}"></div>
-                </div>
-            </div>
-        </div>
+        ${headerHtml}
 
         <div class="grid grid-cols-3 gap-y-3 gap-x-6 border border-slate-200 p-4 rounded-md mb-6 text-[11px]">
             <div>
@@ -141,7 +131,7 @@ const generateManifestHTML = (transfer, companyInfo, isLast) => {
   `;
 };
 
-export const printBatchManifests = (transfers, companyInfo) => {
+export const printBatchManifests = (transfers, companyInfo, options = {}) => {
   const transferArray = Array.isArray(transfers) ? transfers : [transfers];
   const printWindow = window.open("", "_blank");
 
@@ -172,55 +162,23 @@ export const printBatchManifests = (transfers, companyInfo) => {
   printWindow.document.close();
 
   setTimeout(() => {
+    const showQrCode = options.showQrCode ?? true;
     const pagesHTML = transferArray.map((t, i) =>
-      generateManifestHTML(t, companyInfo, i === transferArray.length - 1)
+      generateManifestHTML(t, companyInfo, i === transferArray.length - 1, {
+        showQrCode,
+      })
     ).join("");
 
-    const htmlContent = `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <title>Batch_Print_${format(new Date(), "yyyyMMdd")}</title>
-        <script src="https://cdn.tailwindcss.com"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-        <style>
-            @media print {
-              @page { size: A4; margin: 10mm; }
-              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-              .print-footer { position: fixed; bottom: 0; left: 0; right: 0; }
-              .no-break { page-break-inside: avoid; }
-              .break-after-page { page-break-after: always; }
-            }
-        </style>
-    </head>
-    <body class="p-2">
-        ${pagesHTML}
-
-        <footer class="print-footer text-center text-[8px] text-slate-300 py-2 bg-white px-10 border-t border-slate-50">
-            <div class="flex justify-between items-center uppercase tracking-widest">
-                <p>${companyInfo?.company_name || "iWarehouse"} Internal Document</p>
-                <p>Printed: ${format(new Date(), "MMM dd, yyyy | hh:mm a")}</p>
-            </div>
-        </footer>
-
-        <script>
-            window.onload = function() { 
-                document.querySelectorAll('.qr-placeholder').forEach(el => {
-                    new QRCode(el, {
-                        text: el.getAttribute('data-text'),
-                        width: 90,
-                        height: 90,
-                        colorDark: "#0f172a",
-                        colorLight: "#ffffff",
-                        correctLevel: QRCode.CorrectLevel.M
-                    });
-                });
-                setTimeout(() => { window.print(); }, 500); 
-            };
-        </script>
-    </body>
-    </html>`;
+    const htmlContent = buildPrintShell({
+      title: `Batch_Print_${format(new Date(), "yyyyMMdd")}`,
+      pagesHtml: pagesHTML,
+      footerHtml: buildDocumentFooter({
+        companyInfo,
+        generatedAt: new Date(),
+        footerNote: `${companyInfo?.company_name || "iWarehouse"} Internal Document | Printed: ${format(new Date(), "MMM dd, yyyy | hh:mm a")}`,
+      }),
+      includeQrScript: Boolean(showQrCode),
+    });
 
     printWindow.document.open();
     printWindow.document.write(htmlContent);
@@ -228,6 +186,6 @@ export const printBatchManifests = (transfers, companyInfo) => {
   }, 500);
 };
 
-export const printTransferManifest = (transfer, companyInfo) => {
-  printBatchManifests([transfer], companyInfo);
+export const printTransferManifest = (transfer, companyInfo, options = {}) => {
+  printBatchManifests([transfer], companyInfo, options);
 };

@@ -1,10 +1,16 @@
 import { format } from "date-fns";
+import {
+  buildDocumentFooter,
+  buildDocumentHeader,
+  buildPrintShell,
+  getReceiveQrUrl,
+} from "@/shared/services/printDocumentService";
 
 /**
  * Generates the HTML string for a single picklist page.
  * Uses the exact layout/styling as the Manifest PDF.
  */
-const generatePicklistHTML = (transfer, companyInfo, isLast) => {
+const generatePicklistHTML = (transfer, companyInfo, isLast, options = {}) => {
   // --- Data Preparation ---
   const sourceWarehouse = transfer.source_location;
   const destWarehouse = transfer.destination_location;
@@ -18,40 +24,18 @@ const generatePicklistHTML = (transfer, companyInfo, isLast) => {
       groupKey: line.inventory_id || line.variant_id || `line-${lineIndex}`,
     };
   });
+  const headerHtml = buildDocumentHeader({
+    companyInfo,
+    docRef: transfer.transfer_number,
+    docRefLabel: "PICKLIST REF No.",
+    showQrCode: Boolean(options.showQrCode),
+    qrValue: options.qrValue || getReceiveQrUrl(transfer.id),
+  });
 
   // --- HTML Template (Matches Manifest Layout) ---
   return `
     <main class="flex-1 ${!isLast ? 'break-after-page' : ''}" style="${!isLast ? 'page-break-after: always;' : ''}">
-        <!-- Header Section -->
-        <div class="flex justify-between items-start border-b-2 border-gray-800 pb-4 mb-6">
-            <div class="flex gap-4 items-start">
-                ${companyInfo?.logo_url
-                  ? `
-                    <div class="w-20 h-20 bg-gray-100 flex items-center justify-center rounded-lg">
-                        <img src="${companyInfo.logo_url}" alt="Logo" class="max-w-full max-h-full object-contain" />
-                    </div>`
-                  : ''
-                }
-                <div class="text-sm leading-tight">
-                    <h2 class="text-lg font-bold mb-1">${companyInfo?.company_name || 'iWarehouse Corp.'}</h2>
-                    ${companyInfo?.address ? `<p>${companyInfo.address}</p>` : ''}
-                    ${companyInfo?.city ? `<p>${companyInfo.city}, ${companyInfo.country || 'Philippines'}</p>` : ''}
-                    ${companyInfo?.phone ? `<p>Tel: ${companyInfo.phone}</p>` : ''}
-                    ${companyInfo?.email ? `<p>Email: ${companyInfo.email}</p>` : ''}
-                </div>
-            </div>
-
-            <div class="text-right">
-                <p class="text-xs text-gray-500 mb-1">PICKLIST REF No.</p>
-                <h3 class="text-2xl font-bold">${transfer.transfer_number}</h3>
-                <div class="mt-1">
-                    ${transfer.priority === 'urgent' 
-                        ? '<span class="bg-red-100 text-red-800 text-xs font-bold px-2 py-1 rounded border border-red-200 uppercase">Urgent</span>' 
-                        : '<span class="bg-gray-100 text-gray-600 text-xs font-bold px-2 py-1 rounded border border-gray-200 uppercase">Normal</span>'
-                    }
-                </div>
-            </div>
-        </div>
+        ${headerHtml}
 
         <h1 class="text-center text-slate-600 text-3xl font-bold my-4 tracking-wide">STOCK TRANSFER PICKLIST</h1>
 
@@ -130,7 +114,7 @@ const generatePicklistHTML = (transfer, companyInfo, isLast) => {
 /**
  * Main function to batch print picklists.
  */
-export const printBatchPicklists = (transfers, companyInfo = {}) => {
+export const printBatchPicklists = (transfers, companyInfo = {}, options = {}) => {
   const transferArray = Array.isArray(transfers) ? transfers : [transfers];
   
   const printWindow = window.open('', '_blank');
@@ -167,46 +151,18 @@ export const printBatchPicklists = (transfers, companyInfo = {}) => {
   // Generate Content
   setTimeout(() => {
     const pagesHTML = transferArray.map((t, i) => 
-      generatePicklistHTML(t, companyInfo, i === transferArray.length - 1)
+      generatePicklistHTML(t, companyInfo, i === transferArray.length - 1, {
+        showQrCode: Boolean(options.showQrCode),
+      })
     ).join('');
-
-    const fullHTML = `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-          <meta charset="UTF-8" />
-          <title>Picklist-${transferArray.length > 1 ? 'Batch' : transferArray[0].transfer_number}</title>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          <script src="https://cdn.tailwindcss.com"></script>
-          <link href="https://fonts.googleapis.com/css2?family=Times+New+Roman:wght@400;700&display=swap" rel="stylesheet">
-          <style>
-            @layer utilities {
-              @media print {
-                @page { size: A4; margin: 15mm; }
-                .print-footer { position: fixed; bottom: 0; left: 0; right: 0; }
-                main { margin-bottom: 50px; }
-                .no-break { page-break-inside: avoid; }
-                .break-after-page { page-break-after: always; }
-              }
-            }
-            body { font-family: 'Times New Roman', serif; }
-          </style>
-      </head>
-      <body class="bg-white text-gray-800 p-[5mm] flex flex-col min-h-screen">
-        
-        ${pagesHTML}
-
-        <footer class="print-footer text-center text-[10px] text-gray-500 border-t border-gray-300 pt-3 mt-8 bg-white">
-            <p>This is a computer-generated document. Generated on ${format(new Date(), 'MMMM dd, yyyy hh:mm:ss a').toUpperCase()}</p>
-            <p class="mt-1">For inquiries: ${companyInfo?.email || 'N/A'} | ${companyInfo?.phone || 'N/A'}</p>
-        </footer>
-
-        <script>
-           window.onload = function() { setTimeout(() => window.print(), 500); };
-        </script>
-      </body>
-      </html>
-    `;
+    const fullHTML = buildPrintShell({
+      title: `Picklist-${transferArray.length > 1 ? "Batch" : transferArray[0].transfer_number}`,
+      pagesHtml: pagesHTML,
+      footerHtml: buildDocumentFooter({ companyInfo, generatedAt: new Date() }),
+      includeQrScript: Boolean(options.showQrCode),
+      extraHeadHtml:
+        '<link href="https://fonts.googleapis.com/css2?family=Times+New+Roman:wght@400;700&display=swap" rel="stylesheet">',
+    });
 
     printWindow.document.open();
     printWindow.document.write(fullHTML);
@@ -215,6 +171,6 @@ export const printBatchPicklists = (transfers, companyInfo = {}) => {
 };
 
 // Backward compatibility function (now includes companyInfo)
-export const printStockTransferPicklist = (transfer, companyInfo) => {
-  printBatchPicklists([transfer], companyInfo);
+export const printStockTransferPicklist = (transfer, companyInfo, options = {}) => {
+  printBatchPicklists([transfer], companyInfo, options);
 };

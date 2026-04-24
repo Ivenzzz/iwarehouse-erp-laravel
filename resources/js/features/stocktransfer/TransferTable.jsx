@@ -97,7 +97,7 @@ export default function TransferTable({
       <div className="overflow-x-auto">
         <div className="max-h-[640px] overflow-auto">
           <table className="min-w-full divide-y divide-border">
-            <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
+            <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur shadow-[0_1px_0_0_hsl(var(--border))]">
               <tr>
                 <th scope="col" className="w-4 p-4">
                   <Checkbox
@@ -153,8 +153,15 @@ export default function TransferTable({
         </div>
       </div>
 
-      <div className="border-t border-border bg-card px-4 py-3 text-sm text-muted-foreground sm:px-6">
-        Showing <span className="font-medium">{transfers.length}</span> loaded results
+      <div className="flex items-center justify-between border-t border-border bg-muted/30 px-5 py-2.5">
+        <span className="text-xs text-muted-foreground">
+          <span className="font-semibold text-foreground">{transfers.length}</span> transfer{transfers.length !== 1 ? 's' : ''} found
+        </span>
+        {selectedTransfers.length > 0 && (
+          <span className="text-xs font-medium text-primary">
+            {selectedTransfers.length} selected
+          </span>
+        )}
       </div>
     </div>
   );

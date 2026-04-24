@@ -29,7 +29,7 @@ import CompareQuotesDialog from "../components/dialogs/CompareQuotesDialog";
 import ItemsDialog from "../components/dialogs/ItemsDialog";
 import ConsolidateRFQDialog from "../components/dialogs/ConsolidateRFQDialog";
 
-const RELOAD_PROPS = ["rfqs", "pagination", "filters", "kpis", "suppliers", "suppliers_count"];
+const RELOAD_PROPS = ["rfqs", "pagination", "filters", "kpis", "suppliers", "suppliers_count", "companyInfo"];
 
 const createEmptyQuoteForm = () => ({
   supplier_id: "",
@@ -48,6 +48,7 @@ export default function RequestForQuotationPage({
   kpis = { total_rfqs: 0, receiving_quotes_count: 0, avg_turnaround: 0, converted_count: 0 },
   suppliers = [],
   suppliers_count = 0,
+  companyInfo = {},
 }) {
   const [showAddQuoteDialog, setShowAddQuoteDialog] = useState(false);
   const [showCompareDialog, setShowCompareDialog] = useState(false);
@@ -63,8 +64,11 @@ export default function RequestForQuotationPage({
   const [showConsolidateDialog, setShowConsolidateDialog] = useState(false);
   const [quoteForm, setQuoteForm] = useState(createEmptyQuoteForm());
 
-  const companyInfo = { company_name: "iWarehouse Corp." };
-  const { handlePrintRFQ } = useRFQPrint({ companyInfo });
+  const normalizedCompanyInfo = useMemo(
+    () => (Array.isArray(companyInfo) ? (companyInfo[0] || {}) : (companyInfo || {})),
+    [companyInfo]
+  );
+  const { handlePrintRFQ } = useRFQPrint({ companyInfo: normalizedCompanyInfo });
   const supplierOptions = useSupplierOptions(suppliers);
   const hasSuppliers = suppliers_count > 0;
 

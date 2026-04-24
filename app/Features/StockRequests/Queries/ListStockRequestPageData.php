@@ -2,8 +2,10 @@
 
 namespace App\Features\StockRequests\Queries;
 
+use App\Features\CompanyInfo\Support\CompanyInfoDataTransformer;
 use App\Features\StockRequests\Support\StockRequestDataTransformer;
 use App\Features\StockRequests\Support\StockRequestListQuery;
+use App\Models\CompanyInfo;
 use App\Models\StockRequest;
 use App\Models\Warehouse;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -62,6 +64,7 @@ class ListStockRequestPageData
                 ->values()
                 ->all(),
             'purposes' => StockRequest::PURPOSES,
+            'companyInfo' => CompanyInfoDataTransformer::transform(CompanyInfo::query()->latest()->first()),
         ];
     }
 

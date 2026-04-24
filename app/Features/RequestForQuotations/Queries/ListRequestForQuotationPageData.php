@@ -2,8 +2,10 @@
 
 namespace App\Features\RequestForQuotations\Queries;
 
+use App\Features\CompanyInfo\Support\CompanyInfoDataTransformer;
 use App\Features\RequestForQuotations\Support\RequestForQuotationDataTransformer;
 use App\Features\RequestForQuotations\Support\RequestForQuotationListQuery;
+use App\Models\CompanyInfo;
 use App\Models\RequestForQuotation;
 use App\Models\Supplier;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -64,6 +66,7 @@ class ListRequestForQuotationPageData
                     'trade_name' => $s->trade_name,
                 ],
             ])->values()->all(),
+            'companyInfo' => CompanyInfoDataTransformer::transform(CompanyInfo::query()->latest()->first()),
         ];
     }
 

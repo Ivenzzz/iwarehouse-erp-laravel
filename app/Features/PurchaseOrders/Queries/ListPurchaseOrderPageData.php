@@ -88,7 +88,28 @@ class ListPurchaseOrderPageData
                 ->orderBy('name')
                 ->get(['id', 'name'])
                 ->toArray(),
-            'company_info' => CompanyInfo::query()->first(),
+            'company_info' => $this->companyInfo(),
+        ];
+    }
+
+    private function companyInfo(): ?array
+    {
+        $companyInfo = CompanyInfo::query()->first();
+        if ($companyInfo === null) {
+            return null;
+        }
+
+        return [
+            'id' => $companyInfo->id,
+            'company_name' => $companyInfo->company_name,
+            'legal_name' => $companyInfo->legal_name,
+            'tax_id' => $companyInfo->tax_id,
+            'address' => $companyInfo->address,
+            'phone' => $companyInfo->phone,
+            'email' => $companyInfo->email,
+            'website' => $companyInfo->website,
+            'logo_path' => $companyInfo->logo_path,
+            'logo_url' => $companyInfo->logo_path ? '/storage/'.ltrim($companyInfo->logo_path, '/') : null,
         ];
     }
 
@@ -114,4 +135,3 @@ class ListPurchaseOrderPageData
         ];
     }
 }
-

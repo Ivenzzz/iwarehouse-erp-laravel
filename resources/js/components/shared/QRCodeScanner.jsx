@@ -81,9 +81,15 @@ export default function QRCodeScanner({
       scannerRef.current = null;
 
       if (scanner) {
-        scanner.stop().catch(() => {}).finally(() => {
-          scanner.clear().catch(() => {});
-        });
+        try {
+          Promise.resolve(scanner.stop())
+            .catch(() => {})
+            .finally(() => {
+              Promise.resolve(scanner.clear()).catch(() => {});
+            });
+        } catch {
+          Promise.resolve(scanner.clear()).catch(() => {});
+        }
       }
     };
   }, [elementId, onScan]);

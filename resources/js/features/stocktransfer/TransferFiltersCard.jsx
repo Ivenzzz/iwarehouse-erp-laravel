@@ -16,10 +16,9 @@ export default function TransferFiltersCard({
   toLocationFilter,
   setToLocationFilter,
   warehouses,
-  counts = {} // Receives the counts
+  counts = {}
 }) {
   
-  // Map Tabs to Status Values
   const tabs = [
     { label: 'All', value: 'all', count: counts.all },
     { label: 'For Picklist', value: 'draft', count: counts.draft },
@@ -30,41 +29,45 @@ export default function TransferFiltersCard({
     { label: 'Consolidated', value: 'consolidated', count: counts.consolidated },
   ];
 
+  const hasActiveFilters = statusFilter !== 'all' || fromLocationFilter !== 'all' || searchTerm || (dateRangeFilter && dateRangeFilter !== 'all');
+
   return (
     <div className="bg-card text-card-foreground rounded-xl shadow-sm border border-border overflow-hidden mb-6">
       
-      {/* 1. Primary Filters (Tabs) */}
-      <div className="flex border-b border-border bg-muted/40 overflow-x-auto">
+      {/* Status Tabs */}
+      <div className="flex border-b border-border overflow-x-auto">
         {tabs.map((tab) => {
           const isActive = statusFilter === tab.value;
-          // If Alert Tab has items, make the text red even if not active (to warn user)
           const isWarning = tab.alert && tab.count > 0;
           
           return (
             <button
               key={tab.value}
               onClick={() => setStatusFilter(tab.value)}
-              className={`flex items-center px-6 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+              className={`relative flex items-center gap-1.5 px-5 py-3 text-sm font-medium whitespace-nowrap transition-all duration-150 ${
                 isActive
-                  ? 'border-primary text-primary bg-background'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                  ? 'text-primary bg-background'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
               } ${isWarning && !isActive ? 'text-destructive hover:text-destructive' : ''}`}
             >
+              {isActive && (
+                <span className="absolute bottom-0 left-0 right-0 h-[3px] rounded-t-full bg-primary" />
+              )}
+
               {tab.icon && (
                 <tab.icon 
-                  size={14} 
-                  className={`mr-2 ${isActive ? 'text-primary' : isWarning ? 'text-destructive' : 'text-warning'}`} 
+                  size={13} 
+                  className={isActive ? 'text-primary' : isWarning ? 'text-destructive' : 'text-muted-foreground'} 
                 />
               )}
               {tab.label}
               
-              {/* Count Badge - Render if count > 0 */}
               {tab.count > 0 && (
-                <span className={`ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                   isActive 
-                    ? 'bg-primary/10 text-primary' 
+                <span className={`min-w-[20px] px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none text-center ${
+                  isActive 
+                    ? 'bg-primary text-primary-foreground' 
                     : isWarning 
-                      ? 'bg-destructive-muted text-destructive-muted-foreground animate-pulse'
+                      ? 'bg-destructive text-destructive-foreground animate-pulse'
                       : 'bg-muted text-muted-foreground'
                 }`}>
                   {tab.count}
@@ -75,29 +78,38 @@ export default function TransferFiltersCard({
         })}
       </div>
 
-      {/* 2. Toolbar: Search & Secondary Filters */}
-      <div className="p-4 flex flex-col sm:flex-row gap-4 justify-between items-center">
+      {/* Toolbar */}
+      <div className="p-3 flex flex-col sm:flex-row gap-3 items-center bg-muted/20">
         
-        {/* Search Bar */}
-        <div className="relative w-full sm:w-96">
+        {/* Search */}
+        <div className="relative w-full sm:w-80">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search size={16} className="text-gray-400" />
+            <Search size={15} className="text-muted-foreground" />
           </div>
           <Input
-            placeholder="Search transfer ID, item, or user..."
+            placeholder="Search by ID, item, or user..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 h-10 bg-background border-border"
+            className="pl-9 h-9 bg-background border-border text-sm focus-visible:ring-1 focus-visible:ring-primary/40"
           />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-muted-foreground hover:text-foreground"
+            >
+              <X size={13} />
+            </button>
+          )}
         </div>
 
-        {/* Secondary Filters Group */}
-        <div className="flex gap-2 w-full sm:w-auto overflow-x-auto">
-           {/* Date Filter */}
-           <Select value={dateRangeFilter} onValueChange={setDateRangeFilter}>
-            <SelectTrigger className="h-10 min-w-[130px] bg-background border-border text-muted-foreground">
-               <Calendar size={16} className="mr-2 text-muted-foreground"/>
-               <SelectValue placeholder="Date" />
+        <div className="hidden sm:block h-5 w-px bg-border" />
+
+        {/* Secondary Filters */}
+        <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto">
+          <Select value={dateRangeFilter} onValueChange={setDateRangeFilter}>
+            <SelectTrigger className="h-9 min-w-[130px] bg-background border-border text-sm gap-1.5">
+              <Calendar size={14} className="text-muted-foreground flex-shrink-0" />
+              <SelectValue placeholder="Date Range" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Dates</SelectItem>
@@ -107,11 +119,10 @@ export default function TransferFiltersCard({
             </SelectContent>
           </Select>
 
-          {/* Location Filter */}
           <Select value={fromLocationFilter} onValueChange={setFromLocationFilter}>
-            <SelectTrigger className="h-10 min-w-[140px] bg-background border-border text-muted-foreground">
-               <MapPin size={16} className="mr-2 text-muted-foreground"/>
-               <SelectValue placeholder="From Location" />
+            <SelectTrigger className="h-9 min-w-[140px] bg-background border-border text-sm gap-1.5">
+              <MapPin size={14} className="text-muted-foreground flex-shrink-0" />
+              <SelectValue placeholder="From Location" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Origins</SelectItem>
@@ -120,21 +131,22 @@ export default function TransferFiltersCard({
               ))}
             </SelectContent>
           </Select>
-          
-          {/* Clear Button (only if filters active) */}
-          {(statusFilter !== 'all' || fromLocationFilter !== 'all' || searchTerm) && (
-             <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => {
-                  setStatusFilter('all');
-                  setFromLocationFilter('all');
-                  setSearchTerm('');
-                }}
-                className="text-destructive hover:bg-destructive-muted hover:text-destructive"
-             >
-                <X size={16} />
-             </Button>
+
+          {hasActiveFilters && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => {
+                setStatusFilter('all');
+                setFromLocationFilter('all');
+                setSearchTerm('');
+                if (setDateRangeFilter) setDateRangeFilter('all');
+              }}
+              className="h-9 px-2.5 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 gap-1.5"
+            >
+              <X size={13} />
+              Clear
+            </Button>
           )}
         </div>
       </div>

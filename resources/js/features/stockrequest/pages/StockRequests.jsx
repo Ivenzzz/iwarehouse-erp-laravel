@@ -7,7 +7,7 @@ import StockRequestKPIs from "../components/StockRequestKPIs";
 import StockRequestsTable from "../components/StockRequestsTable";
 import { printStockRequest } from "../lib/stockRequestPrintService";
 
-const RELOAD_PROPS = ["requests", "pagination", "filters", "kpis", "warehouses", "purposes"];
+const RELOAD_PROPS = ["requests", "pagination", "filters", "kpis", "warehouses", "purposes", "companyInfo"];
 
 export default function StockRequestsPage({
   requests = [],
@@ -16,6 +16,7 @@ export default function StockRequestsPage({
   kpis = { total: 0, pending: 0, approved: 0, rejected: 0 },
   warehouses = [],
   purposes = [],
+  companyInfo = {},
 }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState(filters.search || "");
@@ -63,7 +64,7 @@ export default function StockRequestsPage({
   const handlePrintRequest = (request) => {
     printStockRequest({
       request,
-      approval: { approval_data: request.approval_info || {} },
+      companyInfo,
     });
   };
 

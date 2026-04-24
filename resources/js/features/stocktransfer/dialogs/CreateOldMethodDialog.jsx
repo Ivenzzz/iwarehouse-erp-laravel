@@ -158,13 +158,14 @@ export default function CreateOldMethodDialog({
         }
       }}
     >
-      <DialogContent className="max-w-5xl border-border bg-background text-foreground p-4">
+      <DialogContent className="max-w-6xl border-border bg-background text-foreground p-4">
         <DialogHeader>
           <DialogTitle>Create Transfer (old method)</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Left column: form fields */}
+          <div className="space-y-4">
             <div className="space-y-1">
               <div className="text-xs font-medium uppercase text-muted-foreground">Source Warehouse</div>
               <Combobox
@@ -189,21 +190,22 @@ export default function CreateOldMethodDialog({
                 className="h-10"
               />
             </div>
+
+            <div className="space-y-1">
+              <div className="text-xs font-medium uppercase text-muted-foreground">Notes</div>
+              <Textarea
+                value={form.notes || ""}
+                onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))}
+                rows={3}
+                placeholder="Optional transfer note"
+              />
+            </div>
           </div>
 
-          <div className="space-y-1">
-            <div className="text-xs font-medium uppercase text-muted-foreground">Notes</div>
-            <Textarea
-              value={form.notes || ""}
-              onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))}
-              rows={3}
-              placeholder="Optional transfer note"
-            />
-          </div>
-
-          <div className="rounded-lg border border-border">
+          {/* Right column: scan area */}
+          <div className="rounded-lg border border-border flex flex-col">
             <div className="border-b border-border bg-muted/40 px-3 py-2 text-sm font-medium">Scan Product</div>
-            <div className="space-y-2 p-3">
+            <div className="flex flex-col gap-2 p-3 flex-1">
               <div className="relative">
                 <Input
                   ref={inputRef}
@@ -237,7 +239,7 @@ export default function CreateOldMethodDialog({
                 </div>
               ) : null}
 
-              <div className="max-h-56 overflow-y-auto rounded border border-border">
+              <div className="h-56 overflow-y-auto rounded border border-border">
                 {(form.scanned_items || []).map((item) => (
                   <div key={item.inventory_id} className="flex items-center justify-between border-b border-border px-3 py-2 last:border-b-0">
                     <div>

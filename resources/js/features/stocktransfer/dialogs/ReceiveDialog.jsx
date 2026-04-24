@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -21,7 +20,8 @@ import {
   CheckCircle, AlertCircle, AlertTriangle,
   Trash2, X,
   QrCode, AlertOctagon, Loader2,
-  Camera, Keyboard, ChevronUp, ChevronDown
+  Camera, Keyboard, Package, ScanLine,
+  ArrowRight, Circle
 } from "lucide-react";
 import { useDeviceDetection } from "../hooks/useDeviceDetection";
 import QRCodeScanner from "@/components/shared/QRCodeScanner";
@@ -33,8 +33,53 @@ const formatItemName = (item) =>
     .trim() || "Unknown Product";
 
 const getItemIdentifier = (item) =>
-  item?.identifier || item?.imei1 || item?.imei2 || item?.serial_number || item?.inventory_id || item?.inventoryId || "Unknown Identifier";
+  item?.identifier || item?.imei1 || item?.imei2 || item?.serial_number || item?.inventory_id || item?.inventoryId || "—";
 
+// ── Status pill ──────────────────────────────────────────────────────────────
+const StatusPill = ({ type }) => {
+  const config = {
+    received: { label: "Received", cls: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" },
+    pending: { label: "Pending", cls: "bg-zinc-500/10  text-zinc-500  dark:text-zinc-400  border-zinc-400/20" },
+    excess: { label: "Excess", cls: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30" },
+    unknown: { label: "Unknown", cls: "bg-rose-500/15  text-rose-600  dark:text-rose-400  border-rose-500/30" },
+  };
+  const c = config[type] || config.pending;
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider border ${c.cls}`}>
+      {c.label}
+    </span>
+  );
+};
+
+// ── Stat card ────────────────────────────────────────────────────────────────
+const StatCard = ({ label, value, accent, onClick, active }) => (
+  <button
+    onClick={onClick}
+    className={`flex-1 flex flex-col items-center justify-center py-3 px-2 rounded-xl border transition-all duration-150
+      ${active
+        ? `${accent.activeBg} ${accent.border} shadow-lg shadow-black/10 dark:shadow-black/30`
+        : "bg-zinc-100/60 dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"
+      }`}
+  >
+    <span className={`text-2xl font-black tabular-nums tracking-tight ${active ? accent.text : "text-zinc-700 dark:text-zinc-200"}`}>
+      {value}
+    </span>
+    <span className={`text-[10px] uppercase tracking-widest font-semibold mt-0.5 ${active ? accent.label : "text-zinc-400 dark:text-zinc-500"}`}>
+      {label}
+    </span>
+  </button>
+);
+
+// ── Section header ───────────────────────────────────────────────────────────
+const SectionHeader = ({ id, icon: Icon, label, count, accent }) => (
+  <div id={id} className={`flex items-center gap-2 px-4 py-2 border-b ${accent.sectionBorder} ${accent.sectionBg} scroll-mt-4`}>
+    <Icon className={`w-3.5 h-3.5 ${accent.icon}`} />
+    <span className={`text-xs font-bold uppercase tracking-widest ${accent.text}`}>{label}</span>
+    <span className={`ml-auto text-xs font-mono font-bold ${accent.text}`}>{count}</span>
+  </div>
+);
+
+// ── Main component ───────────────────────────────────────────────────────────
 export default function ReceiveDialog({
   open,
   onOpenChange,
@@ -44,10 +89,8 @@ export default function ReceiveDialog({
   onPhotoUpload,
   lookupInventoryItemByBarcode,
 }) {
-  // --- Device Detection ---
   const { isMobileDevice } = useDeviceDetection();
 
-  // --- Local State ---
   const [barcodeInput, setBarcodeInput] = useState("");
   const [receivedItems, setReceivedItems] = useState([]);
   const [overageItems, setOverageItems] = useState([]);
@@ -56,22 +99,20 @@ export default function ReceiveDialog({
   const [discrepancyReason, setDiscrepancyReason] = useState("");
   const [photoUrl, setPhotoUrl] = useState("");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [activeTab, setActiveTab] = useState("pending");
-  
-  // UI State
+
   const [scanMode, setScanMode] = useState(() => isMobileDevice ? "qr_code" : "barcode");
-  const [isScannerExpanded, setIsScannerExpanded] = useState(true);
-  const [lastScanResult, setLastScanResult] = useState(null); // { type: 'success'|'error'|'warning', message: '' }
+  const [lastScanResult, setLastScanResult] = useState(null);
+  const [activeSection, setActiveSection] = useState("pending");
 
   const [showUnknownConfirm, setShowUnknownConfirm] = useState(false);
   const [pendingUnknownBarcode, setPendingUnknownBarcode] = useState("");
 
   const inputRef = useRef(null);
   const feedbackTimeoutRef = useRef(null);
+  const listRef = useRef(null);
 
   const expectedItems = useMemo(() => {
     if (!receivingTransfer) return [];
-
     return (receivingTransfer.product_lines || []).map((line) => ({
       inventoryId: line.inventory_id,
       imei1: line.imei1,
@@ -86,20 +127,16 @@ export default function ReceiveDialog({
     }));
   }, [receivingTransfer]);
 
-  // --- Reset State on Dialog Open/Close ---
   useEffect(() => {
     if (open && receivingTransfer) {
-      const alreadyReceived = expectedItems.filter((item) => item.received);
-      setReceivedItems(alreadyReceived);
+      setReceivedItems(expectedItems.filter((i) => i.received));
       setOverageItems(receivingTransfer.overage_items_json || []);
       setUnknownItems(receivingTransfer.unknown_items_json || []);
       setBranchRemarks(receivingTransfer.receiving_json?.branch_remarks || "");
       setDiscrepancyReason(receivingTransfer.receiving_json?.discrepancy_reason || "");
       setPhotoUrl(receivingTransfer.receiving_json?.photo_proof_url || "");
-      
-      setActiveTab("pending");
-      setIsScannerExpanded(true);
       setLastScanResult(null);
+      setActiveSection("pending");
     } else {
       setBarcodeInput("");
       setReceivedItems([]);
@@ -112,7 +149,6 @@ export default function ReceiveDialog({
     }
   }, [open, receivingTransfer, expectedItems]);
 
-  // --- Focus input logic ---
   useEffect(() => {
     if (open && inputRef.current && scanMode === "barcode") {
       setTimeout(() => inputRef.current?.focus(), 100);
@@ -120,40 +156,24 @@ export default function ReceiveDialog({
   }, [open, scanMode]);
 
   useEffect(() => {
-    if (isMobileDevice) {
-      setScanMode("qr_code");
-    }
+    if (isMobileDevice) setScanMode("qr_code");
   }, [isMobileDevice]);
 
-  // --- Show Feedback Helper ---
   const showFeedback = useCallback((type, message) => {
     setLastScanResult({ type, message });
-    
     if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
-    
-    // Auto-clear success messages after 3s, keep errors longer
-    feedbackTimeoutRef.current = setTimeout(() => {
-      setLastScanResult(null);
-    }, type === 'success' ? 3000 : 5000);
+    feedbackTimeoutRef.current = setTimeout(() => setLastScanResult(null), type === "success" ? 2500 : 4500);
   }, []);
 
   const allScannedBarcodes = useMemo(() => {
     const barcodes = new Set();
     receivedItems.forEach((item) => {
-      if (item.imei1) barcodes.add(item.imei1);
-      if (item.imei2) barcodes.add(item.imei2);
-      if (item.serialNumber) barcodes.add(item.serialNumber);
-      if (item.identifier) barcodes.add(item.identifier);
+      [item.imei1, item.imei2, item.serialNumber, item.identifier].filter(Boolean).forEach((b) => barcodes.add(b));
     });
     overageItems.forEach((item) => {
-      if (item.imei1) barcodes.add(item.imei1);
-      if (item.imei2) barcodes.add(item.imei2);
-      if (item.serial_number) barcodes.add(item.serial_number);
-      if (item.identifier) barcodes.add(item.identifier);
+      [item.imei1, item.imei2, item.serial_number, item.identifier].filter(Boolean).forEach((b) => barcodes.add(b));
     });
-    unknownItems.forEach((item) => {
-      barcodes.add(item.scanned_barcode || item.barcode);
-    });
+    unknownItems.forEach((item) => barcodes.add(item.scanned_barcode || item.barcode));
     return barcodes;
   }, [receivedItems, overageItems, unknownItems]);
 
@@ -166,13 +186,9 @@ export default function ReceiveDialog({
     const newlyReceived = newlyReceivedIds.length;
     const totalReceived = previouslyReceived + newlyReceived;
     const stillPending = totalExpected - totalReceived;
-
     return {
-      totalExpected,
-      previouslyReceived,
-      newlyReceived,
-      totalReceived,
-      stillPending,
+      totalExpected, previouslyReceived, newlyReceived,
+      totalReceived, stillPending,
       overageCount: overageItems.length,
       unknownCount: unknownItems.length,
     };
@@ -186,39 +202,41 @@ export default function ReceiveDialog({
     return true;
   }, [progress, hasVariance, branchRemarks]);
 
-  // --- Handlers ---
-  
+  const scrollToSection = useCallback((section) => {
+    setActiveSection(section);
+    const el = document.getElementById(`section-${section}`);
+    if (el && listRef.current) {
+      const container = listRef.current;
+      const top = el.offsetTop - container.offsetTop - 8;
+      container.scrollTo({ top, behavior: "smooth" });
+    }
+  }, []);
+
   const processScan = useCallback(async (barcode) => {
     if (!barcode) return;
-
     if (allScannedBarcodes.has(barcode)) {
-      showFeedback('warning', 'Already scanned in this session');
+      showFeedback("warning", "Already scanned in this session");
       setBarcodeInput("");
-      if (inputRef.current) inputRef.current.focus();
+      inputRef.current?.focus();
       return;
     }
-
     const expectedItem = expectedItems.find(
       (item) => [item.imei1, item.imei2, item.serialNumber, item.identifier].filter(Boolean).includes(barcode)
     );
-
     if (expectedItem && !expectedItem.received) {
       setReceivedItems((prev) => [...prev, { ...expectedItem, scanned_barcode: barcode }]);
-      showFeedback('success', `Received: ${formatItemName(expectedItem)}`);
+      showFeedback("success", `✓ ${formatItemName(expectedItem)}`);
       setBarcodeInput("");
-      if (inputRef.current) inputRef.current.focus();
+      inputRef.current?.focus();
       return;
     }
-
     const invItem = await lookupInventoryItemByBarcode(barcode);
-
     if (!invItem) {
       setPendingUnknownBarcode(barcode);
       setShowUnknownConfirm(true);
       setBarcodeInput("");
       return;
     }
-
     const overageEntry = {
       inventory_id: invItem.id || invItem.inventory_id,
       product_master_id: invItem.product_master_id,
@@ -232,43 +250,24 @@ export default function ReceiveDialog({
       received_date: new Date().toISOString(),
     };
     setOverageItems((prev) => [...prev, overageEntry]);
-    showFeedback('warning', `Marked as Overage: ${formatItemName(overageEntry)}`);
-    setActiveTab("exceptions");
+    showFeedback("warning", `Overage: ${formatItemName(overageEntry)}`);
+    scrollToSection("exceptions");
     setBarcodeInput("");
-    if (inputRef.current) inputRef.current.focus();
-  }, [allScannedBarcodes, expectedItems, lookupInventoryItemByBarcode, showFeedback]);
+    inputRef.current?.focus();
+  }, [allScannedBarcodes, expectedItems, lookupInventoryItemByBarcode, showFeedback, scrollToSection]);
 
-  const handleScan = useCallback(() => {
-    const barcode = barcodeInput.trim();
-    void processScan(barcode);
-  }, [barcodeInput, processScan]);
-
-  const handleQRScan = useCallback((scannedCode) => {
-    void processScan(scannedCode);
-  }, [processScan]);
+  const handleScan = useCallback(() => void processScan(barcodeInput.trim()), [barcodeInput, processScan]);
+  const handleQRScan = useCallback((code) => void processScan(code), [processScan]);
 
   const confirmUnknownBarcode = useCallback(() => {
     if (!pendingUnknownBarcode) return;
-    const unknownEntry = {
-      barcode: pendingUnknownBarcode,
-      scanned_barcode: pendingUnknownBarcode,
-      scanned_date: new Date().toISOString(),
-    };
-    setUnknownItems((prev) => [...prev, unknownEntry]);
-    showFeedback('error', 'Item recorded as Unknown');
-    setActiveTab("exceptions");
+    setUnknownItems((prev) => [...prev, { barcode: pendingUnknownBarcode, scanned_barcode: pendingUnknownBarcode, scanned_date: new Date().toISOString() }]);
+    showFeedback("error", "Recorded as Unknown");
+    scrollToSection("exceptions");
     setPendingUnknownBarcode("");
     setShowUnknownConfirm(false);
-    if (inputRef.current) inputRef.current.focus();
-  }, [pendingUnknownBarcode, showFeedback]);
-
-  const removeOverageItem = useCallback((index) => {
-    setOverageItems((prev) => prev.filter((_, i) => i !== index));
-  }, []);
-
-  const removeUnknownItem = useCallback((index) => {
-    setUnknownItems((prev) => prev.filter((_, i) => i !== index));
-  }, []);
+    inputRef.current?.focus();
+  }, [pendingUnknownBarcode, showFeedback, scrollToSection]);
 
   const handlePhotoUpload = useCallback(async (e) => {
     const file = e.target.files?.[0];
@@ -277,455 +276,453 @@ export default function ReceiveDialog({
     try {
       const uploaded = await onPhotoUpload(file);
       setPhotoUrl(uploaded?.file_url || "");
-    } catch (error) {
-      console.error("Upload failed:", error);
-      alert("Failed to upload photo.");
-    } finally {
-      setUploadingPhoto(false);
-    }
+    } catch { alert("Failed to upload photo."); }
+    finally { setUploadingPhoto(false); }
   }, [onPhotoUpload]);
 
   const handleFinalize = useCallback(() => {
-    const destLocationId = receivingTransfer.destination_location_id;
+    if (!receivingTransfer) return;
     const missingItems = expectedItems
       .filter((e) => !e.received && !receivedItems.some((r) => r.inventoryId === e.inventoryId))
-      .map((e) => ({
-        inventory_id: e.inventoryId,
-        product_master_id: e.productMasterId,
-        variant_id: e.variantId,
-        product_name: e.productName,
-        variant_name: e.variantName,
-        imei1: e.imei1,
-        imei2: e.imei2,
-        serial_number: e.serialNumber,
-        identifier: e.identifier,
-        reported_date: new Date().toISOString(),
-      }));
+      .map((e) => ({ inventory_id: e.inventoryId, product_master_id: e.productMasterId, variant_id: e.variantId, product_name: e.productName, variant_name: e.variantName, imei1: e.imei1, imei2: e.imei2, serial_number: e.serialNumber, identifier: e.identifier, reported_date: new Date().toISOString() }));
     const newlyReceivedIds = receivedItems
       .filter((item) => !expectedItems.find((e) => e.inventoryId === item.inventoryId && e.received))
       .map((item) => item.inventoryId);
     const isFullyReceived = progress.stillPending === 0;
-    const finalStatus = isFullyReceived ? "fully_received" : "partially_received";
-
     onFinalizeReceive({
       transfer: receivingTransfer,
       newlyReceivedInventoryIds: newlyReceivedIds,
-      overageItems: overageItems,
-      unknownItems: unknownItems.map((item) => ({
-        barcode: item.barcode || item.scanned_barcode,
-      })),
-      missingItems: missingItems,
-      finalStatus,
-      destinationWarehouseId: destLocationId,
-      receivingJson: {
-        branch_remarks: branchRemarks,
-        discrepancy_reason: discrepancyReason,
-        photo_proof_url: photoUrl,
-      },
+      overageItems,
+      unknownItems: unknownItems.map((i) => ({ barcode: i.barcode || i.scanned_barcode })),
+      missingItems,
+      finalStatus: isFullyReceived ? "fully_received" : "partially_received",
+      destinationWarehouseId: receivingTransfer.destination_location_id,
+      receivingJson: { branch_remarks: branchRemarks, discrepancy_reason: discrepancyReason, photo_proof_url: photoUrl },
     });
   }, [receivingTransfer, expectedItems, receivedItems, overageItems, unknownItems, progress, branchRemarks, discrepancyReason, photoUrl, onFinalizeReceive]);
 
-  if (!receivingTransfer) return null;
+  const pendingByVariant = useMemo(() => {
+    const map = {};
+    expectedItems.forEach((item) => {
+      const key = `${item.productMasterId}-${item.variantId}`;
+      if (!map[key]) map[key] = { productName: item.productName, variantName: item.variantName, total: 0, received: 0 };
+      map[key].total += 1;
+      if (item.received || receivedItems.some((r) => r.inventoryId === item.inventoryId)) map[key].received += 1;
+    });
+    return Object.entries(map).filter(([, d]) => d.received < d.total);
+  }, [expectedItems, receivedItems]);
 
-  const isScannerPaused = showUnknownConfirm;
+  const newlyReceivedItems = receivedItems.filter(
+    (item) => !expectedItems.find((e) => e.inventoryId === item.inventoryId && e.received)
+  );
+
+  const pct = progress.totalExpected > 0 ? Math.round((progress.totalReceived / progress.totalExpected) * 100) : 0;
+  const isComplete = progress.stillPending === 0 && progress.totalExpected > 0;
+
+  if (!receivingTransfer) return null;
 
   return (
     <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+        .receive-dialog * { font-family: 'DM Sans', sans-serif; }
+        .receive-dialog .mono { font-family: 'IBM Plex Mono', monospace; }
+        .scan-pulse { animation: scanPulse 2s ease-in-out infinite; }
+        @keyframes scanPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+          50% { box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.10); }
+        }
+        .feedback-in { animation: feedbackIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        @keyframes feedbackIn {
+          from { transform: translateY(-6px) scale(0.97); opacity: 0; }
+          to   { transform: translateY(0)   scale(1);    opacity: 1; }
+        }
+        .item-row { transition: background 0.1s ease; }
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 99px; }
+        .dark .custom-scroll::-webkit-scrollbar-thumb { background: #3f3f46; }
+      `}</style>
+
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="w-full h-[100dvh] sm:h-auto sm:max-w-4xl sm:max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-none sm:rounded-lg">
-          
-          {/* 1. Header & Route Info */}
-          <div className="bg-card border-b border-border p-3 sm:p-6 pb-3 flex-shrink-0">
-            <DialogHeader className="mb-2 text-left">
-              <DialogTitle className="flex items-center gap-2 text-base sm:text-xl">
-                <div className="p-1.5 bg-success-muted rounded-full">
-                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-success" />
+        <DialogContent className="receive-dialog w-full h-[100dvh] sm:h-auto sm:max-w-3xl sm:max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden rounded-none sm:rounded-2xl border-0 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 shadow-2xl">
+
+          {/* ── HEADER ─────────────────────────────────────────────────────── */}
+          <div className="flex-shrink-0 bg-white dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800/80 px-4 sm:px-6 pt-4 pb-3">
+            <DialogHeader className="mb-3 text-left">
+              <DialogTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 flex items-center justify-center">
+                    <Package className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 leading-tight">Receive Transfer</div>
+                    <div className="mono text-[11px] text-zinc-400 dark:text-zinc-500 tracking-wider">{receivingTransfer.transfer_number}</div>
+                  </div>
                 </div>
-                <div className="flex flex-col text-left">
-                  <span>Receive Stock Transfer</span>
-                  <span className="text-xs sm:text-sm font-normal text-muted-foreground">{receivingTransfer.transfer_number}</span>
+                <div className={`mono text-2xl font-black tracking-tight ${isComplete ? "text-emerald-500 dark:text-emerald-400" : "text-zinc-600 dark:text-zinc-300"}`}>
+                  {pct}<span className="text-sm font-normal text-zinc-400 dark:text-zinc-500">%</span>
                 </div>
               </DialogTitle>
             </DialogHeader>
 
-            {/* Compact Progress Bar */}
-            <div className="space-y-1 mt-1">
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>{progress.totalReceived} / {progress.totalExpected} scanned</span>
-                <span>{Math.round((progress.totalExpected > 0 ? progress.totalReceived / progress.totalExpected : 0) * 100)}%</span>
-              </div>
-              <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                <div 
-                  className={`h-full transition-all duration-500 ease-out ${
-                    progress.stillPending === 0 && progress.totalExpected > 0 ? "bg-success" : "bg-primary"
-                  }`}
-                  style={{ width: `${progress.totalExpected > 0 ? (progress.totalReceived / progress.totalExpected) * 100 : 0}%` }}
-                />
-              </div>
+            {/* Progress bar */}
+            <div className="h-1.5 w-full bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-700 ease-out ${isComplete ? "bg-emerald-500" : "bg-indigo-500"}`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <div className="flex justify-between mt-1">
+              <span className="text-[10px] text-zinc-400 dark:text-zinc-600 mono">{progress.totalReceived} received</span>
+              <span className="text-[10px] text-zinc-400 dark:text-zinc-600 mono">{progress.totalExpected} expected</span>
             </div>
           </div>
 
-          {/* 2. Scrollable Main Content */}
-          <div className="flex-1 overflow-y-auto bg-background">
-            <div className="p-3 sm:p-6 space-y-4">
-              
-              {/* SCANNER SECTION (Collapsible) */}
-              <div className="bg-card rounded-xl shadow-sm border border-border sticky top-0 z-20 overflow-hidden">
-                {/* Scanner Header / Controls */}
-                <div 
-                  className="flex items-center justify-between px-3 py-2 bg-muted/40 border-b border-border cursor-pointer"
-                  onClick={() => setIsScannerExpanded(!isScannerExpanded)}
+          {/* ── SCAN ZONE ──────────────────────────────────────────────────── */}
+          <div className="flex-shrink-0 bg-zinc-50 dark:bg-zinc-900/50 border-b border-zinc-200 dark:border-zinc-800/60 px-4 sm:px-6 py-3 space-y-2.5">
+
+            {/* Mode toggle (desktop only) */}
+            {!isMobileDevice && (
+              <div className="flex items-center gap-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 w-fit">
+                <button
+                  onClick={() => setScanMode("barcode")}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all
+                    ${scanMode === "barcode"
+                      ? "bg-indigo-600 text-white shadow"
+                      : "text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"}`}
                 >
-                  <div className="flex items-center gap-2">
-                    <QrCode className="w-4 h-4 text-slate-500" />
-                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-                      Scan Input
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {!isMobileDevice && (
-                      <div className="flex items-center gap-1 bg-slate-200 dark:bg-slate-700 rounded-lg p-0.5 mr-2" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => setScanMode("barcode")}
-                          className={`p-1 rounded ${scanMode === "barcode" ? "bg-white shadow" : "text-slate-500"}`}
-                        >
-                          <Keyboard className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => { setScanMode("qr_code"); setIsScannerExpanded(true); }}
-                          className={`p-1 rounded ${scanMode === "qr_code" ? "bg-white shadow" : "text-slate-500"}`}
-                        >
-                          <Camera className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-                    {isScannerExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-                  </div>
+                  <Keyboard className="w-3 h-3" /> Keyboard
+                </button>
+                <button
+                  onClick={() => setScanMode("qr_code")}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all
+                    ${scanMode === "qr_code"
+                      ? "bg-indigo-600 text-white shadow"
+                      : "text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"}`}
+                >
+                  <Camera className="w-3 h-3" /> Camera
+                </button>
+              </div>
+            )}
+
+            {/* Barcode input */}
+            {scanMode === "barcode" && (
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <ScanLine className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400" />
+                  <Input
+                    ref={inputRef}
+                    className="mono h-11 pl-10 pr-4 bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 focus-visible:border-indigo-500 focus-visible:ring-0 focus-visible:ring-offset-0 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 rounded-xl scan-pulse text-sm"
+                    placeholder="Scan or type barcode / IMEI…"
+                    value={barcodeInput}
+                    onChange={(e) => setBarcodeInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleScan()}
+                    autoFocus
+                  />
                 </div>
+                <Button
+                  onClick={handleScan}
+                  disabled={!barcodeInput.trim()}
+                  className="h-11 px-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold text-sm disabled:opacity-30 shrink-0"
+                >
+                  Enter <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </Button>
+              </div>
+            )}
 
-                {/* Collapsible Content */}
-                <div className={`transition-all duration-300 ease-in-out ${isScannerExpanded ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                  {/* Manual Barcode Input */}
-                  {scanMode === "barcode" && (
-                    <div className="relative p-3">
-                      <div className="relative">
-                        <Input
-                          ref={inputRef}
-                          className="h-12 pl-10 pr-20 text-base border-slate-200 focus-visible:ring-1 focus-visible:ring-blue-500"
-                          placeholder="Scan/Type barcode..."
-                          value={barcodeInput}
-                          onChange={(e) => setBarcodeInput(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && handleScan()}
-                          autoFocus={scanMode === "barcode"}
-                        />
-                        <QrCode className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                        <Button 
-                          onClick={handleScan} 
-                          size="sm" 
-                          className="absolute right-1.5 top-1.5 h-9 bg-primary hover:bg-primary/90 text-primary-foreground"
-                        >
-                          Enter
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* QR Scanner */}
-                  {scanMode === "qr_code" && (
-                    <div className="p-0 relative">
-                      <QRCodeScanner
-                        onScan={handleQRScan}
-                        onClose={!isMobileDevice ? () => setScanMode("barcode") : undefined}
-                        paused={isScannerPaused}
-                        className="h-48 sm:h-64 w-full rounded-none sm:rounded-b-lg"
-                      />
-                      {isMobileDevice && (
-                        <div className="absolute bottom-2 right-2 left-2 flex justify-center">
-                           <button
-                            onClick={() => { setScanMode("barcode"); }}
-                            className="bg-black/60 text-white px-3 py-1 rounded-full text-xs backdrop-blur-sm flex items-center gap-1"
-                          >
-                            <Keyboard className="w-3 h-3" /> Type ID
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Last Scanned Feedback Banner (Always visible if exists) */}
-                {lastScanResult && (
-                  <div className={`px-4 py-2 text-sm font-medium flex items-center gap-2 animate-in fade-in slide-in-from-top-1
-                    ${lastScanResult.type === 'success' ? 'bg-success-muted text-success-muted-foreground border-t border-success/20' : 
-                      lastScanResult.type === 'warning' ? 'bg-warning-muted text-warning-muted-foreground border-t border-warning/20' : 
-                      'bg-destructive-muted text-destructive-muted-foreground border-t border-destructive/20'}`}
+            {/* QR camera */}
+            {scanMode === "qr_code" && (
+              <div className="relative rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
+                <QRCodeScanner
+                  onScan={handleQRScan}
+                  onClose={!isMobileDevice ? () => setScanMode("barcode") : undefined}
+                  paused={showUnknownConfirm}
+                  className="h-48 sm:h-56 w-full"
+                />
+                {isMobileDevice && (
+                  <button
+                    onClick={() => setScanMode("barcode")}
+                    className="absolute bottom-3 right-3 bg-black/60 text-white px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm flex items-center gap-1.5"
                   >
-                    {lastScanResult.type === 'success' ? <CheckCircle className="w-4 h-4" /> : 
-                     lastScanResult.type === 'warning' ? <AlertTriangle className="w-4 h-4" /> : 
-                     <AlertCircle className="w-4 h-4" />}
-                    <span className="truncate">{lastScanResult.message}</span>
-                  </div>
+                    <Keyboard className="w-3 h-3" /> Type instead
+                  </button>
                 )}
               </div>
+            )}
 
-              {/* LIST TABS */}
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-3 mb-2 h-9 bg-muted text-muted-foreground">
-                  <TabsTrigger value="pending" className="text-xs">
-                    Pending <Badge variant="secondary" className="ml-1.5 px-1 py-0 h-4 min-w-[1rem] text-[10px]">{progress.stillPending}</Badge>
-                  </TabsTrigger>
-                  <TabsTrigger value="received" className="text-xs">
-                    Received <Badge variant="secondary" className="ml-1.5 px-1 py-0 h-4 min-w-[1rem] text-[10px] bg-success-muted text-success-muted-foreground">{progress.newlyReceived}</Badge>
-                  </TabsTrigger>
-                  <TabsTrigger value="exceptions" className="text-xs relative">
-                    Exceptions
-                    {(progress.overageCount > 0 || progress.unknownCount > 0) && (
-                      <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-destructive"></span>
-                      </span>
-                    )}
-                  </TabsTrigger>
-                </TabsList>
-
-                {/* Content Area */}
-                <div className="min-h-[200px]">
-                  <TabsContent value="pending" className="mt-0">
-                    <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">
-                      {progress.stillPending === 0 ? (
-                        <div className="py-8 text-center">
-                          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-success-muted mb-3">
-                            <CheckCircle className="w-6 h-6 text-success" />
-                          </div>
-                          <p className="text-sm font-medium">All items scanned!</p>
-                        </div>
-                      ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm text-left min-w-[350px]">
-                            <thead className="bg-muted/40 border-b border-border">
-                              <tr>
-                                <th className="px-3 py-2 font-medium text-muted-foreground whitespace-nowrap">Variant</th>
-                                <th className="px-3 py-2 font-medium text-muted-foreground whitespace-nowrap text-right">Progress</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y">
-                              {(() => {
-                                // Group pending items by variant
-                                const pendingByVariant = {};
-                                expectedItems.forEach((item) => {
-                                  const key = `${item.productMasterId}-${item.variantId}`;
-                                  if (!pendingByVariant[key]) {
-                                    pendingByVariant[key] = {
-                                      productName: item.productName,
-                                      variantName: item.variantName,
-                                      total: 0,
-                                      received: 0,
-                                    };
-                                  }
-                                  pendingByVariant[key].total += 1;
-                                  if (item.received || receivedItems.some((r) => r.id === item.inventoryId)) {
-                                    pendingByVariant[key].received += 1;
-                                  }
-                                });
-
-                                // Filter to show only variants with pending items
-                                return Object.entries(pendingByVariant)
-                                  .filter(([_, data]) => data.received < data.total)
-                                  .map(([key, data]) => (
-                                    <tr key={key} className="group hover:bg-accent/50">
-                                      <td className="px-3 py-2">
-                                        <p className="font-medium text-foreground">
-                                          {data.variantName || data.productName}
-                                        </p>
-                                      </td>
-                                      <td className="px-3 py-2 text-right">
-                                        <span className="font-mono text-sm">
-                                          <span className="text-primary font-semibold">{data.received}</span>
-                                          <span className="text-muted-foreground">/{data.total}</span>
-                                        </span>
-                                      </td>
-                                    </tr>
-                                  ));
-                              })()}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="received" className="mt-0">
-                     <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">
-                      {progress.newlyReceived === 0 ? (
-                        <div className="py-8 text-center text-muted-foreground text-sm">
-                          No items received yet.
-                        </div>
-                      ) : (
-                        <div className="overflow-x-auto">
-                           <table className="w-full text-sm text-left min-w-[350px]">
-                            <thead className="bg-muted/40 border-b border-border sticky top-0">
-                              <tr>
-                                <th className="px-3 py-2 font-medium text-muted-foreground whitespace-nowrap">Product</th>
-                                <th className="px-3 py-2 font-medium text-muted-foreground whitespace-nowrap">Identifier</th>
-                                <th className="px-3 py-2 text-right font-medium text-muted-foreground whitespace-nowrap">Status</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y">
-                              {receivedItems
-                                .filter((item) => !expectedItems.find((e) => e.inventoryId === item.inventoryId && e.received))
-                                .map((item) => {
-                                  return (
-                                    <tr key={item.inventoryId} className="bg-success-muted/60">
-                                      <td className="px-3 py-2">
-                                        <p className="font-medium truncate max-w-[150px] sm:max-w-[200px]">{formatItemName(item)}</p>
-                                      </td>
-                                      <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">
-                                        {getItemIdentifier(item)}
-                                      </td>
-                                      <td className="px-3 py-2 text-right">
-                                        <Badge className="bg-success-muted text-success-muted-foreground h-5 text-[10px]">Received</Badge>
-                                      </td>
-                                    </tr>
-                                  );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                     </div>
-                  </TabsContent>
-
-                  <TabsContent value="exceptions" className="mt-0">
-                     <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">
-                      {overageItems.length === 0 && unknownItems.length === 0 ? (
-                         <div className="py-8 text-center text-sm text-muted-foreground">
-                           No exceptions found.
-                         </div>
-                      ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm text-left min-w-[350px]">
-                            <thead className="bg-warning-muted border-b border-warning/20">
-                               <tr>
-                                <th className="px-3 py-2 font-medium text-warning-muted-foreground whitespace-nowrap">Type</th>
-                                <th className="px-3 py-2 font-medium text-warning-muted-foreground whitespace-nowrap">Details</th>
-                                <th className="px-3 py-2 text-right font-medium text-warning-muted-foreground whitespace-nowrap">Action</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y">
-                              {overageItems.map((item, index) => (
-                                <tr key={`ov-${index}`} className="hover:bg-accent/50">
-                                  <td className="px-3 py-2">
-                                    <Badge variant="outline" className="border-warning/20 bg-warning-muted text-warning-muted-foreground h-5 text-[10px]">
-                                      Excess
-                                    </Badge>
-                                  </td>
-                                  <td className="px-3 py-2">
-                                    <p className="font-medium truncate max-w-[150px]">{formatItemName(item)}</p>
-                                    <p className="font-mono text-xs text-muted-foreground">{getItemIdentifier(item)}</p>
-                                  </td>
-                                  <td className="px-3 py-2 text-right">
-                                    <Button variant="ghost" size="icon" onClick={() => removeOverageItem(index)} className="h-6 w-6 text-red-500">
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </Button>
-                                  </td>
-                                </tr>
-                              ))}
-                              {unknownItems.map((item, index) => (
-                                <tr key={`un-${index}`} className="hover:bg-accent/50">
-                                  <td className="px-3 py-2">
-                                    <Badge variant="destructive" className="h-5 text-[10px]">Unknown</Badge>
-                                  </td>
-                                  <td className="px-3 py-2">
-                                    <p className="italic text-muted-foreground">Unknown Product</p>
-                                    <p className="font-mono text-xs">{item.scanned_barcode || item.barcode}</p>
-                                  </td>
-                                  <td className="px-3 py-2 text-right">
-                                    <Button variant="ghost" size="icon" onClick={() => removeUnknownItem(index)} className="h-6 w-6 text-red-500">
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </Button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                     </div>
-                  </TabsContent>
-                </div>
-              </Tabs>
-
-              {/* Variance Reporting Form */}
-              {hasVariance && (
-                <div className="rounded-xl border border-warning/20 bg-warning-muted p-4">
-                  <div className="flex items-center gap-2 mb-3 text-warning-muted-foreground">
-                    <AlertOctagon className="w-4 h-4" />
-                    <h4 className="font-semibold text-sm">Discrepancy Details</h4>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Reason</Label>
-                      <Select value={discrepancyReason} onValueChange={setDiscrepancyReason}>
-                        <SelectTrigger className="bg-background border-border h-9 text-sm">
-                          <SelectValue placeholder="Select reason" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="DAMAGED_IN_TRANSIT">Damaged in Transit</SelectItem>
-                          <SelectItem value="LOST_IN_TRANSIT">Lost in Transit</SelectItem>
-                          <SelectItem value="PACKING_ERROR">Packing Error</SelectItem>
-                          <SelectItem value="SHORT_RECEIVED">Short Received</SelectItem>
-                          <SelectItem value="WRONG_ITEM_SENT">Wrong Item Sent</SelectItem>
-                          <SelectItem value="TO_BE_INVESTIGATED">To Be Investigated</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                       <Label className="text-xs text-muted-foreground">
-                        Remarks <span className="text-red-500">*</span>
-                      </Label>
-                      <Textarea
-                        value={branchRemarks}
-                        onChange={(e) => setBranchRemarks(e.target.value)}
-                        placeholder="Required..."
-                        className="bg-background border-border resize-none h-16 text-sm"
-                      />
-                    </div>
-                    
-                    <div>
-                       <Label className="text-xs text-muted-foreground">Proof (Optional)</Label>
-                       <div className="flex items-center gap-2 mt-1">
-                         <Input type="file" accept="image/*" onChange={handlePhotoUpload} disabled={uploadingPhoto} className="bg-background border-border h-9 text-xs" />
-                         {photoUrl && (
-                           <div className="relative group shrink-0">
-                              <img src={photoUrl} className="h-9 w-9 rounded border object-cover" alt="Proof" />
-                              <button onClick={() => setPhotoUrl("")} className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-0.5">
-                                <X className="w-2 h-2" />
-                              </button>
-                           </div>
-                         )}
-                       </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Scan feedback */}
+            {lastScanResult && (
+              <div className={`feedback-in flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium
+                ${lastScanResult.type === "success"
+                  ? "bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-300"
+                  : lastScanResult.type === "warning"
+                    ? "bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-300"
+                    : "bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-700 dark:text-rose-300"}`}
+              >
+                {lastScanResult.type === "success" ? <CheckCircle className="w-4 h-4 shrink-0" /> :
+                  lastScanResult.type === "warning" ? <AlertTriangle className="w-4 h-4 shrink-0" /> :
+                    <AlertCircle className="w-4 h-4 shrink-0" />}
+                <span className="truncate">{lastScanResult.message}</span>
+              </div>
+            )}
           </div>
 
-          {/* 3. Footer - Fixed at bottom */}
-          <div className="bg-card border-t border-border p-3 sm:p-4 flex flex-col-reverse sm:flex-row gap-3 sm:justify-end flex-shrink-0 safe-area-bottom">
-            <Button variant="ghost" onClick={() => onOpenChange(false)} className="w-full sm:w-auto h-10">
+          {/* ── STAT STRIP ─────────────────────────────────────────────────── */}
+          <div className="flex-shrink-0 flex gap-2 px-4 sm:px-6 py-3 bg-white dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800/60">
+            <StatCard
+              label="Pending"
+              value={progress.stillPending}
+              active={activeSection === "pending"}
+              onClick={() => scrollToSection("pending")}
+              accent={{
+                activeBg: "bg-zinc-100 dark:bg-zinc-800",
+                border: "border-zinc-400 dark:border-zinc-600",
+                text: "text-zinc-800 dark:text-zinc-100",
+                label: "text-zinc-500 dark:text-zinc-400",
+              }}
+            />
+            <StatCard
+              label="Received"
+              value={progress.newlyReceived}
+              active={activeSection === "received"}
+              onClick={() => scrollToSection("received")}
+              accent={{
+                activeBg: "bg-emerald-50 dark:bg-emerald-950",
+                border: "border-emerald-400 dark:border-emerald-700/50",
+                text: "text-emerald-600 dark:text-emerald-400",
+                label: "text-emerald-500 dark:text-emerald-600",
+              }}
+            />
+            <StatCard
+              label="Exceptions"
+              value={progress.overageCount + progress.unknownCount}
+              active={activeSection === "exceptions"}
+              onClick={() => scrollToSection("exceptions")}
+              accent={{
+                activeBg: "bg-rose-50 dark:bg-rose-950",
+                border: "border-rose-400 dark:border-rose-700/50",
+                text: "text-rose-600 dark:text-rose-400",
+                label: "text-rose-500 dark:text-rose-600",
+              }}
+            />
+          </div>
+
+          {/* ── SCROLLABLE LIST ─────────────────────────────────────────────── */}
+          <div ref={listRef} className="flex-1 overflow-y-auto custom-scroll bg-white dark:bg-zinc-950">
+
+            {/* PENDING */}
+            <SectionHeader
+              id="section-pending"
+              icon={Circle}
+              label="Pending"
+              count={pendingByVariant.length}
+              accent={{
+                sectionBg: "bg-zinc-50 dark:bg-zinc-900/40",
+                sectionBorder: "border-zinc-200 dark:border-zinc-800",
+                icon: "text-zinc-400 dark:text-zinc-500",
+                text: "text-zinc-500 dark:text-zinc-400",
+              }}
+            />
+            {pendingByVariant.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 gap-2">
+                <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 flex items-center justify-center">
+                  <CheckCircle className="w-5 h-5 text-emerald-500 dark:text-emerald-400" />
+                </div>
+                <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">All items received</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-zinc-100 dark:divide-zinc-900">
+                {pendingByVariant.map(([key, data]) => (
+                  <div key={key} className="item-row flex items-center justify-between px-4 sm:px-6 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-900/50">
+                    <div>
+                      <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{data.variantName || data.productName}</p>
+                      <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-0.5">{data.productName !== data.variantName ? data.productName : ""}</p>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="mono text-right">
+                        <span className="text-indigo-500 dark:text-indigo-400 font-bold">{data.received}</span>
+                        <span className="text-zinc-400 dark:text-zinc-600 text-sm">/{data.total}</span>
+                      </div>
+                      <div className="w-16 h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(data.received / data.total) * 100}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* RECEIVED */}
+            <SectionHeader
+              id="section-received"
+              icon={CheckCircle}
+              label="Received"
+              count={newlyReceivedItems.length}
+              accent={{
+                sectionBg: "bg-emerald-50/60 dark:bg-emerald-950/30",
+                sectionBorder: "border-emerald-100 dark:border-emerald-900/50",
+                icon: "text-emerald-500",
+                text: "text-emerald-600 dark:text-emerald-400",
+              }}
+            />
+            {newlyReceivedItems.length === 0 ? (
+              <div className="py-8 text-center text-zinc-400 dark:text-zinc-600 text-sm">Nothing received yet.</div>
+            ) : (
+              <div className="divide-y divide-zinc-100 dark:divide-zinc-900">
+                {newlyReceivedItems.map((item) => (
+                  <div key={item.inventoryId} className="item-row flex items-center justify-between px-4 sm:px-6 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-900/50">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-1.5 h-8 rounded-full bg-emerald-500 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate">{formatItemName(item)}</p>
+                        <p className="mono text-[11px] text-zinc-400 dark:text-zinc-500 truncate">{getItemIdentifier(item)}</p>
+                      </div>
+                    </div>
+                    <StatusPill type="received" />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* EXCEPTIONS */}
+            <SectionHeader
+              id="section-exceptions"
+              icon={AlertTriangle}
+              label="Exceptions"
+              count={overageItems.length + unknownItems.length}
+              accent={{
+                sectionBg: "bg-rose-50/50 dark:bg-rose-950/30",
+                sectionBorder: "border-rose-100 dark:border-rose-900/50",
+                icon: "text-amber-500",
+                text: "text-amber-600 dark:text-amber-400",
+              }}
+            />
+            {overageItems.length === 0 && unknownItems.length === 0 ? (
+              <div className="py-8 text-center text-zinc-400 dark:text-zinc-600 text-sm">No exceptions.</div>
+            ) : (
+              <div className="divide-y divide-zinc-100 dark:divide-zinc-900">
+                {overageItems.map((item, i) => (
+                  <div key={`ov-${i}`} className="item-row flex items-center justify-between px-4 sm:px-6 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-900/50">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-1.5 h-8 rounded-full bg-amber-500 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate">{formatItemName(item)}</p>
+                        <p className="mono text-[11px] text-zinc-400 dark:text-zinc-500 truncate">{getItemIdentifier(item)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <StatusPill type="excess" />
+                      <button
+                        onClick={() => setOverageItems((p) => p.filter((_, idx) => idx !== i))}
+                        className="w-6 h-6 rounded-md flex items-center justify-center text-zinc-400 dark:text-zinc-600 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {unknownItems.map((item, i) => (
+                  <div key={`un-${i}`} className="item-row flex items-center justify-between px-4 sm:px-6 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-900/50">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-1.5 h-8 rounded-full bg-rose-500 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 italic">Unknown Product</p>
+                        <p className="mono text-[11px] text-zinc-400 dark:text-zinc-500 truncate">{item.scanned_barcode || item.barcode}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <StatusPill type="unknown" />
+                      <button
+                        onClick={() => setUnknownItems((p) => p.filter((_, idx) => idx !== i))}
+                        className="w-6 h-6 rounded-md flex items-center justify-center text-zinc-400 dark:text-zinc-600 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* VARIANCE FORM */}
+            {hasVariance && (
+              <div className="m-4 sm:m-6 rounded-xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/5 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <AlertOctagon className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+                  <h4 className="text-sm font-semibold text-amber-700 dark:text-amber-300">Discrepancy Report</h4>
+                </div>
+                <div>
+                  <Label className="text-xs text-zinc-500 mb-1 block">Reason</Label>
+                  <Select value={discrepancyReason} onValueChange={setDiscrepancyReason}>
+                    <SelectTrigger className="bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 h-9 text-sm rounded-lg focus:ring-0">
+                      <SelectValue placeholder="Select reason…" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200">
+                      <SelectItem value="DAMAGED_IN_TRANSIT">Damaged in Transit</SelectItem>
+                      <SelectItem value="LOST_IN_TRANSIT">Lost in Transit</SelectItem>
+                      <SelectItem value="PACKING_ERROR">Packing Error</SelectItem>
+                      <SelectItem value="SHORT_RECEIVED">Short Received</SelectItem>
+                      <SelectItem value="WRONG_ITEM_SENT">Wrong Item Sent</SelectItem>
+                      <SelectItem value="TO_BE_INVESTIGATED">To Be Investigated</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs text-zinc-500 mb-1 block">
+                    Remarks <span className="text-rose-500">*</span>
+                  </Label>
+                  <Textarea
+                    value={branchRemarks}
+                    onChange={(e) => setBranchRemarks(e.target.value)}
+                    placeholder="Describe the discrepancy…"
+                    className="bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 resize-none h-16 text-sm rounded-lg focus-visible:ring-0 focus-visible:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-zinc-500 mb-1 block">
+                    Photo Proof <span className="text-zinc-400 dark:text-zinc-600">(optional)</span>
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
+                      disabled={uploadingPhoto}
+                      className="bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 h-9 text-xs rounded-lg"
+                    />
+                    {photoUrl && (
+                      <div className="relative shrink-0">
+                        <img src={photoUrl} className="h-9 w-9 rounded-lg border border-zinc-200 dark:border-zinc-700 object-cover" alt="Proof" />
+                        <button onClick={() => setPhotoUrl("")} className="absolute -top-1.5 -right-1.5 bg-rose-600 rounded-full p-0.5">
+                          <X className="w-2 h-2 text-white" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="h-4" />
+          </div>
+
+          {/* ── FOOTER ─────────────────────────────────────────────────────── */}
+          <div className="flex-shrink-0 bg-white dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-800/80 px-4 sm:px-6 py-3 flex flex-col-reverse sm:flex-row items-center gap-2 sm:gap-3 sm:justify-end">
+            <Button
+              variant="ghost"
+              onClick={() => onOpenChange(false)}
+              className="w-full sm:w-auto h-10 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-xl"
+            >
               Cancel
             </Button>
             <Button
               onClick={handleFinalize}
               disabled={!canFinalize || isReceiving}
-              className={`w-full sm:w-auto gap-2 h-10 ${
-                hasVariance 
-                  ? "bg-warning hover:bg-warning/90 text-warning-foreground" 
-                  : "bg-success hover:bg-success/90 text-success-foreground"
-              }`}
+              className={`w-full sm:w-auto h-10 px-6 rounded-xl font-semibold text-sm gap-2 disabled:opacity-30 transition-all
+                ${hasVariance
+                  ? "bg-amber-500 hover:bg-amber-400 text-zinc-900"
+                  : "bg-emerald-600 hover:bg-emerald-500 text-white"}`}
             >
               {isReceiving ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -734,35 +731,40 @@ export default function ReceiveDialog({
               ) : (
                 <CheckCircle className="w-4 h-4" />
               )}
-              {isReceiving
-                ? "Processing..."
-                : hasVariance
-                ? "Confirm with Variance"
-                : "Complete Transfer"}
+              {isReceiving ? "Processing…" : hasVariance ? "Confirm with Variance" : "Complete Transfer"}
             </Button>
           </div>
 
         </DialogContent>
       </Dialog>
 
-      {/* Unknown Barcode Confirmation Dialog */}
+      {/* ── Unknown Barcode Confirmation ──────────────────────────────────── */}
       <AlertDialog open={showUnknownConfirm} onOpenChange={setShowUnknownConfirm}>
-        <AlertDialogContent className="w-[95vw] sm:max-w-lg rounded-lg bg-card text-card-foreground border-border">
+        <AlertDialogContent className="receive-dialog w-[92vw] sm:max-w-md rounded-2xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100">
           <AlertDialogHeader>
-            <AlertDialogTitle>Unknown Barcode</AlertDialogTitle>
-            <AlertDialogDescription>
-              <div className="mt-2 p-2 bg-destructive-muted rounded-md text-sm border border-destructive/20 font-mono text-center">
+            <AlertDialogTitle className="text-zinc-900 dark:text-zinc-100">Unknown Barcode</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <div className="mono mt-2 px-3 py-2.5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm text-zinc-700 dark:text-zinc-300 text-center tracking-wider break-all">
                 {pendingUnknownBarcode}
               </div>
-              <p className="mt-2">Barcode not found in inventory. Record as <strong>Unknown</strong>?</p>
+              <p className="text-zinc-500 dark:text-zinc-400 text-sm">
+                This barcode wasn't found in inventory. Record it as <strong className="text-rose-500 dark:text-rose-400">Unknown</strong>?
+              </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex-row gap-2 justify-end">
-            <AlertDialogCancel onClick={() => {
-              setPendingUnknownBarcode("");
-              if (inputRef.current) inputRef.current.focus();
-            }} className="mt-0">Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmUnknownBarcode} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Record</AlertDialogAction>
+          <AlertDialogFooter className="flex-row gap-2 justify-end mt-2">
+            <AlertDialogCancel
+              onClick={() => { setPendingUnknownBarcode(""); inputRef.current?.focus(); }}
+              className="h-9 rounded-lg bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 mt-0"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmUnknownBarcode}
+              className="h-9 rounded-lg bg-rose-600 hover:bg-rose-500 text-white"
+            >
+              Record as Unknown
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

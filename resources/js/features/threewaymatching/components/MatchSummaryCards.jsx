@@ -1,8 +1,8 @@
 import React from "react";
 import { ClipboardCheck, GitCompare, PackageCheck, ReceiptText } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { PAYMENT_META } from "../utils/threeWayMatchingMeta";
-import { formatDate, formatDateTime, formatMoney } from "../utils/threeWayMatchingFormatters";
+import { PAYMENT_META } from "../lib/constants";
+import { formatDate, formatDateTime, formatMoney } from "../lib/formatters";
 
 export default function MatchSummaryCards({ selectedMatch, onOpenPaymentDialog }) {
   const poQty = selectedMatch.lines.reduce((sum, line) => sum + (line.poQuantity || 0), 0);

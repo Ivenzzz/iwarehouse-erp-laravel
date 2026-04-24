@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PurchaseOrderPayable extends Model
 {
@@ -32,5 +33,9 @@ class PurchaseOrderPayable extends Model
     {
         return $this->belongsTo(User::class, 'paid_by_id');
     }
-}
 
+    public function documents(): HasMany
+    {
+        return $this->hasMany(PurchaseOrderPayableDocument::class, 'purchase_order_payable_id')->orderByDesc('id');
+    }
+}

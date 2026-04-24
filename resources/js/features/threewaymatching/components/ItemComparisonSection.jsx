@@ -4,8 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import ComparisonDocumentCard from "./ComparisonDocumentCard";
 import { CheckBadge } from "./StatusBadge";
-import { formatDate, formatMoney, formatQuantity } from "../utils/threeWayMatchingFormatters";
-import { MATCHED } from "../utils/threeWayMatchingMeta";
+import { formatDate, formatMoney, formatQuantity } from "../lib/formatters";
+import { MATCHED } from "../lib/constants";
 
 function PaymentPanel({ selectedMatch }) {
   return (
@@ -167,3 +167,4 @@ export default function ItemComparisonSection({ lines, selectedMatch }) {
     </Card>
   );
 }
+

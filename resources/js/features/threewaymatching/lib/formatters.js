@@ -33,6 +33,3 @@ export const formatQuantity = (value) => {
     maximumFractionDigits: 2,
   });
 };
-
-export const buildSpecSummary = (spec = {}) =>
-  [spec.ram, spec.rom, spec.condition].filter(Boolean).join(" / ") || "No spec";

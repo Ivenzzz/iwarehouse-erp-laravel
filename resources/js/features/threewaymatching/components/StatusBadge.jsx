@@ -1,10 +1,17 @@
 import React from "react";
 import { Badge } from "@/components/ui/badge";
-import { CHECK_META, PAYMENT_META, PENDING, STATUS_META } from "../utils/threeWayMatchingMeta";
+import { CHECK_META, PAYMENT_META, PENDING, STATUS_META } from "../lib/constants";
+import { AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+
+const STATUS_ICONS = {
+  matched: CheckCircle2,
+  pending: AlertTriangle,
+  discrepancy: XCircle,
+};
 
 export function StatusBadge({ status, className = "" }) {
   const meta = STATUS_META[status] || STATUS_META[PENDING];
-  const Icon = meta.icon;
+  const Icon = STATUS_ICONS[status] || STATUS_ICONS[PENDING];
 
   return (
     <Badge variant="outline" className={`${meta.badgeClass} ${className}`}>

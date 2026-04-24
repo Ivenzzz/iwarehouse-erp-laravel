@@ -1,5 +1,3 @@
-import { AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
-
 export const MATCHED = "matched";
 export const PENDING = "pending";
 export const DISCREPANCY = "discrepancy";
@@ -8,17 +6,14 @@ export const STATUS_META = {
   [MATCHED]: {
     label: "Matched",
     badgeClass: "border-success/20 bg-success-muted text-success-muted-foreground",
-    icon: CheckCircle2,
   },
   [PENDING]: {
     label: "Pending",
     badgeClass: "border-warning/20 bg-warning-muted text-warning-muted-foreground",
-    icon: AlertTriangle,
   },
   [DISCREPANCY]: {
     label: "Discrepancy",
     badgeClass: "border-destructive/20 bg-destructive-muted text-destructive-muted-foreground",
-    icon: XCircle,
   },
 };
 

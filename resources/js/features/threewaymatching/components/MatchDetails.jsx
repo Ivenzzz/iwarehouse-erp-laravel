@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PaymentBadge, StatusBadge } from "./StatusBadge";
 import MatchSummaryCards from "./MatchSummaryCards";
 import ItemComparisonSection from "./ItemComparisonSection";
-import { formatMoney } from "../utils/threeWayMatchingFormatters";
-import { MATCHED } from "../utils/threeWayMatchingMeta";
+import { formatMoney } from "../lib/formatters";
+import { MATCHED } from "../lib/constants";
 
 function SelectedMatchTimeline({ selectedMatch }) {
   const stages = [
@@ -113,3 +113,4 @@ export default function MatchDetails({ selectedMatch, onOpenPaymentDialog }) {
     </div>
   );
 }
+

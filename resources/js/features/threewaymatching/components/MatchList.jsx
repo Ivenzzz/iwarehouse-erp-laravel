@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatDate } from "../utils/threeWayMatchingFormatters";
+import { Button } from "@/components/ui/button";
+import { formatDate } from "../lib/formatters";
 import { PaymentBadge, StatusBadge } from "./StatusBadge";
 
 function MatchListCards({ matches, selectedMatchId, onSelect }) {
@@ -66,16 +67,18 @@ function MatchListCards({ matches, selectedMatchId, onSelect }) {
   });
 }
 
-export default function MatchList({ matches, selectedMatchId, onSelect }) {
-  const [paymentTab, setPaymentTab] = useState("unpaid");
-
-  const { paidMatches, unpaidMatches } = useMemo(
-    () => ({
-      paidMatches: matches.filter((match) => match.isPaid),
-      unpaidMatches: matches.filter((match) => !match.isPaid),
-    }),
-    [matches]
-  );
+export default function MatchList({
+  matches,
+  selectedMatchId,
+  onSelect,
+  status,
+  onStatusChange,
+  pagination,
+  onPageChange,
+  counts,
+}) {
+  const page = Number(pagination?.page || 1);
+  const lastPage = Number(pagination?.last_page || 1);
 
   return (
     <Card className="overflow-hidden border-border/70 bg-gradient-to-b from-card via-card to-muted/10 shadow-none xl:flex xl:h-full xl:flex-col">
@@ -83,27 +86,32 @@ export default function MatchList({ matches, selectedMatchId, onSelect }) {
         <CardTitle className="text-xs tracking-tight">Purchase Orders</CardTitle>
       </CardHeader>
 
-      <Tabs value={paymentTab} onValueChange={setPaymentTab} className="flex min-h-0 flex-1 flex-col">
+      <Tabs value={status} onValueChange={onStatusChange} className="flex min-h-0 flex-1 flex-col">
         <div className="border-b border-border/70 px-4 py-3">
           <TabsList className="grid h-auto w-full grid-cols-2 rounded-xl border border-border/70 bg-background/20 p-1">
             <TabsTrigger value="unpaid" className="text-xs">
-              Unpaid ({unpaidMatches.length})
+              Unpaid ({counts?.paidCount != null && counts?.totalCount != null ? counts.totalCount - counts.paidCount : "-"})
             </TabsTrigger>
             <TabsTrigger value="paid" className="text-xs">
-              Paid ({paidMatches.length})
+              Paid ({counts?.paidCount ?? "-"})
             </TabsTrigger>
           </TabsList>
         </div>
 
-        <TabsContent value="unpaid" className="mt-0 min-h-0 flex-1">
+        <TabsContent value={status} className="mt-0 min-h-0 flex-1">
           <CardContent className="space-y-4 overflow-y-auto p-4 xl:h-full">
-            <MatchListCards matches={unpaidMatches} selectedMatchId={selectedMatchId} onSelect={onSelect} />
-          </CardContent>
-        </TabsContent>
-
-        <TabsContent value="paid" className="mt-0 min-h-0 flex-1">
-          <CardContent className="space-y-4 overflow-y-auto p-4 xl:h-full">
-            <MatchListCards matches={paidMatches} selectedMatchId={selectedMatchId} onSelect={onSelect} />
+            <MatchListCards matches={matches} selectedMatchId={selectedMatchId} onSelect={onSelect} />
+            <div className="flex items-center justify-between border-t border-border/70 pt-3">
+              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
+                Previous
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Page {page} of {lastPage}
+              </p>
+              <Button variant="outline" size="sm" disabled={page >= lastPage} onClick={() => onPageChange(page + 1)}>
+                Next
+              </Button>
+            </div>
           </CardContent>
         </TabsContent>
       </Tabs>

@@ -107,7 +107,7 @@ export function getAdminNavSections({ permissions = [] } = {}) {
             defaultOpen: false,
             links: [
                 { label: 'Credit Memos', href: route('dashboard'), icon: FileMinus2 },
-                { label: '3 Way Matching', href: route('dashboard'), icon: GitCompareArrows },
+                { label: '3 Way Matching', href: route('three-way-matching.index'), active: route().current('three-way-matching.*'), icon: GitCompareArrows },
                 { label: 'Price Control', href: route('price-control.index'), active: route().current('price-control.*'), icon: HandCoins },
             ],
         },

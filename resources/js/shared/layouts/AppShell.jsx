@@ -22,7 +22,7 @@ export default function AppShell({ title, children }) {
     return (
         <div className="h-screen overflow-hidden bg-accent text-xs text-slate-900">
             <div className="flex h-full">
-                <aside className="hidden h-full w-64 flex-col lg:flex">
+                <aside className="hidden h-full w-56 sm:w-62 flex-col lg:flex">
                     <SidebarContent sections={sections} storageKey="desktop" />
                 </aside>
 

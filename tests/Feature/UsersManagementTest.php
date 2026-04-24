@@ -9,6 +9,7 @@ use App\Models\JobTitle;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -207,6 +208,102 @@ class UsersManagementTest extends TestCase
                 ->where('cashier.user_id', $user->id)
                 ->where('cashier.setup_error', null)
             );
+    }
+
+    public function test_users_import_requires_users_create_permission(): void
+    {
+        $viewer = $this->userWithRole('Stockman');
+
+        $csv = implode("\n", [
+            'Username,Name',
+            'import.user,Import User',
+        ]);
+
+        $file = UploadedFile::fake()->createWithContent('users.csv', $csv);
+
+        $this->actingAs($viewer)
+            ->post(route('settings.users.import'), [
+                'file' => $file,
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_company_admin_can_import_users_from_csv_and_assigns_default_role(): void
+    {
+        $admin = $this->userWithRole('Company Admin');
+
+        $existing = User::factory()->create([
+            'name' => 'Existing User',
+            'username' => 'existing.user',
+            'status' => User::STATUS_ACTIVE,
+        ]);
+        $existing->assignRole('Stockman');
+
+        $csv = implode("\n", [
+            ' User Name , NAME ',
+            'import.user,Import User',
+            'IMPORT.USER,Duplicate In CSV',
+            'existing.user,Existing In DB',
+            ',',
+        ]);
+
+        $file = UploadedFile::fake()->createWithContent('users.csv', $csv);
+
+        $this->actingAs($admin)
+            ->post(route('settings.users.import'), [
+                'file' => $file,
+            ])
+            ->assertRedirect(route('settings.users.index'))
+            ->assertSessionHas('success', 'Import complete: 1 user(s) created; 2 existing or duplicate username row(s) skipped. Initial password is username.');
+
+        $created = User::query()->where('username', 'import.user')->firstOrFail();
+
+        $this->assertSame('Import User', $created->name);
+        $this->assertSame(User::STATUS_ACTIVE, $created->status);
+        $this->assertSame($admin->id, $created->created_by_id);
+        $this->assertTrue($created->hasRole('Default'));
+        $this->assertTrue(Hash::check('import.user', $created->password));
+
+        $existing->refresh();
+        $this->assertSame('Existing User', $existing->name);
+        $this->assertTrue($existing->hasRole('Stockman'));
+    }
+
+    public function test_users_import_validates_file_headers_and_rows(): void
+    {
+        $admin = $this->userWithRole('Company Admin');
+
+        $badMimeFile = UploadedFile::fake()->create('users.pdf', 10, 'application/pdf');
+
+        $this->actingAs($admin)
+            ->post(route('settings.users.import'), [
+                'file' => $badMimeFile,
+            ])
+            ->assertSessionHasErrors('file');
+
+        $missingHeaderFile = UploadedFile::fake()->createWithContent('users.csv', "Username\nonly.username");
+
+        $this->actingAs($admin)
+            ->post(route('settings.users.import'), [
+                'file' => $missingHeaderFile,
+            ])
+            ->assertSessionHasErrors([
+                'file' => 'The CSV must include Username and Name headers.',
+            ]);
+
+        $invalidRowCsv = implode("\n", [
+            'Username,Name',
+            ',Missing Username',
+            'valid.username,',
+        ]);
+
+        $invalidRowFile = UploadedFile::fake()->createWithContent('users.csv', $invalidRowCsv);
+
+        $this->actingAs($admin)
+            ->post(route('settings.users.import'), [
+                'file' => $invalidRowFile,
+            ])
+            ->assertSessionHasErrors('file');
     }
 
     private function userWithRole(string $role, array $attributes = []): User

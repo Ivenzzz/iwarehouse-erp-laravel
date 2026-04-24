@@ -12,6 +12,7 @@ class UserManagement
     public const ROLE_COMPANY_ADMIN = 'Company Admin';
     public const ROLE_WAREHOUSE_INVENTORY_ADMIN = 'Warehouse Inventory Admin';
     public const ROLE_STOCKMAN = 'Stockman';
+    public const ROLE_DEFAULT = 'Default';
 
     public const USER_PERMISSIONS = [
         'users.view',
@@ -28,6 +29,7 @@ class UserManagement
         self::ROLE_COMPANY_ADMIN,
         self::ROLE_WAREHOUSE_INVENTORY_ADMIN,
         self::ROLE_STOCKMAN,
+        self::ROLE_DEFAULT,
     ];
 
     public static function statuses(): array

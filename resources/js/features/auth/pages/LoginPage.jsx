@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import InputError from '@/shared/components/feedback/InputError';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent } from '@/shared/components/ui/card';
@@ -12,6 +12,7 @@ const SAVED_LOGIN_KEY = 'iwarehouse.saved_login_credentials';
 
 export default function LoginPage({ status }) {
     const [showPassword, setShowPassword] = useState(false);
+    const shouldForceDarkAfterLoginRef = useRef(false);
 
     const { data, setData, post, processing, errors, reset } = useForm({
         username: '',
@@ -28,6 +29,12 @@ export default function LoginPage({ status }) {
         root.style.colorScheme = 'light';
 
         return () => {
+            if (shouldForceDarkAfterLoginRef.current) {
+                root.classList.add('dark');
+                root.style.colorScheme = 'dark';
+                return;
+            }
+
             if (hadDarkClass) {
                 root.classList.add('dark');
             }
@@ -66,6 +73,17 @@ export default function LoginPage({ status }) {
             // Ignore storage errors and continue login.
         }
         post(route('login'), {
+            onSuccess: () => {
+                try {
+                    window.localStorage.setItem('darkMode', JSON.stringify(true));
+                } catch {
+                    // Ignore storage errors; auth flow should still continue.
+                }
+
+                shouldForceDarkAfterLoginRef.current = true;
+                document.documentElement.classList.add('dark');
+                document.documentElement.style.colorScheme = 'dark';
+            },
             onFinish: () => reset('password'),
         });
     };

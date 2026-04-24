@@ -6,8 +6,8 @@ import { Button } from '@/shared/components/ui/button';
 import { usePageToasts } from '@/shared/hooks/use-page-toasts';
 import AppShell from '@/shared/layouts/AppShell';
 import { Head, router, usePage } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Plus, Upload } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
 
 export default function UsersPage({
     users,
@@ -28,8 +28,9 @@ export default function UsersPage({
     const [profileDialogOpen, setProfileDialogOpen] = useState(false);
     const [resetDialogOpen, setResetDialogOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
+    const fileInputRef = useRef(null);
 
-    usePageToasts(Object.values(errors ?? {}), 'destructive');
+    usePageToasts([...(Object.values(errors ?? {})), errors?.file], 'destructive');
 
     const visitUsers = (params) => {
         router.get(
@@ -124,6 +125,26 @@ export default function UsersPage({
         router.delete(route('settings.users.destroy', user.id), { preserveScroll: true });
     };
 
+    const handleImport = (event) => {
+        const file = event.target.files?.[0];
+
+        if (!file) {
+            return;
+        }
+
+        router.post(
+            route('settings.users.import'),
+            { file },
+            {
+                forceFormData: true,
+                preserveScroll: true,
+                onFinish: () => {
+                    event.target.value = '';
+                },
+            },
+        );
+    };
+
     return (
         <AppShell title="Users">
             <Head title="Users" />
@@ -146,6 +167,13 @@ export default function UsersPage({
                 onOpenChange={setProfileDialogOpen}
                 user={selectedUser}
             />
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={handleImport}
+            />
 
             <div className="mx-auto flex w-full max-w-full flex-col gap-4">
                 <section className="bg-card shadow-[0_14px_40px_rgba(15,23,42,0.08)]">
@@ -158,12 +186,20 @@ export default function UsersPage({
                                 </p>
                             </div>
 
-                            {can('users.create') ? (
-                                <Button type="button" onClick={openCreate}>
-                                    <Plus className="size-4" />
-                                    Add User
-                                </Button>
-                            ) : null}
+                            <div className="flex items-center gap-2">
+                                {can('users.create') ? (
+                                    <>
+                                        <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                                            <Upload className="size-4" />
+                                            Import CSV
+                                        </Button>
+                                        <Button type="button" onClick={openCreate}>
+                                            <Plus className="size-4" />
+                                            Add User
+                                        </Button>
+                                    </>
+                                ) : null}
+                            </div>
                         </div>
                     </div>
 

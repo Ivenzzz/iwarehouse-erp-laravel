@@ -1,34 +1,40 @@
 import {
     BarChart3,
+    Banknote,
     Boxes,
+    Building2,
+    CalendarCheck,
     ChartColumn,
     ClipboardCheck,
     ClipboardList,
-    Cog,
-    FileCheck2,
+    CreditCard,
+    FileMinus2,
     FileSpreadsheet,
     FileText,
     FolderCog,
+    GitCompareArrows,
     HandCoins,
     Home,
     LayoutDashboard,
-    Mail,
     PackageCheck,
     Package2,
     ReceiptText,
-    ShoppingBag,
+    RefreshCcw,
     Settings,
+    Shapes,
     ShieldCheck,
+    ShoppingBag,
     ShoppingCart,
+    SlidersHorizontal,
     Store,
     Tags,
-    CreditCard,
     Truck,
-    Users,
-    User,
+    UserCheck,
     UserCog,
+    Users,
     Warehouse,
     Waypoints,
+    Wrench,
 } from 'lucide-react';
 
 export function getAdminNavSections({ permissions = [] } = {}) {
@@ -40,7 +46,14 @@ export function getAdminNavSections({ permissions = [] } = {}) {
             icon: Home,
             active: route().current('dashboard'),
             defaultOpen: true,
-            links: [{ label: 'Dashboard', href: route('dashboard'), active: route().current('dashboard'), icon: LayoutDashboard }],
+            links: [
+                {
+                    label: 'Dashboard',
+                    href: route('dashboard'),
+                    active: route().current('dashboard'),
+                    icon: LayoutDashboard,
+                },
+            ],
         },
         {
             label: 'OPERATIONS',
@@ -52,7 +65,6 @@ export function getAdminNavSections({ permissions = [] } = {}) {
                 { label: 'Sales Reports', href: route('sales-report.index'), active: route().current('sales-report.*'), icon: FileSpreadsheet },
                 { label: 'Product Reports', href: route('dashboard'), icon: BarChart3 },
                 { label: 'Placement Reports', href: route('placement-reports.index'), active: route().current('placement-reports.*'), icon: FileText },
-                { label: 'Customers', href: route('dashboard'), icon: Users },
             ],
         },
         {
@@ -78,12 +90,34 @@ export function getAdminNavSections({ permissions = [] } = {}) {
             ],
         },
         {
-            label: 'FINANCE',
-            icon: Mail,
+            label: 'QUALITY & SERVICE',
+            icon: ShieldCheck,
             defaultOpen: false,
             links: [
-                { label: '3 Way Matching', href: route('dashboard'), icon: FileCheck2 },
+                { label: 'RMA Dashboard', href: route('dashboard'), icon: RefreshCcw },
+                { label: 'RMA Validation', href: route('dashboard'), icon: ClipboardCheck },
+                { label: 'Technical Assessment', href: route('dashboard'), icon: Wrench },
+                { label: 'RMA Final Approval', href: route('dashboard'), icon: UserCheck },
+            ],
+        },
+        {
+            label: 'FINANCE',
+            icon: Banknote,
+            defaultOpen: false,
+            links: [
+                { label: 'Credit Memos', href: route('dashboard'), icon: FileMinus2 },
+                { label: '3 Way Matching', href: route('dashboard'), icon: GitCompareArrows },
                 { label: 'Price Control', href: route('price-control.index'), active: route().current('price-control.*'), icon: HandCoins },
+            ],
+        },
+        {
+            label: 'HUMAN RESOURCES',
+            icon: Users,
+            defaultOpen: false,
+            links: [
+                { label: 'Employees', href: route('dashboard'), icon: Users },
+                { label: 'Attendance', href: route('dashboard'), icon: CalendarCheck },
+                { label: 'Payroll', href: route('dashboard'), icon: Banknote },
             ],
         },
         {
@@ -107,7 +141,7 @@ export function getAdminNavSections({ permissions = [] } = {}) {
                     label: 'Categories',
                     href: route('categories.index'),
                     active: route().current('categories.*'),
-                    icon: Tags,
+                    icon: Shapes,
                 },
                 {
                     label: 'Suppliers',
@@ -125,7 +159,7 @@ export function getAdminNavSections({ permissions = [] } = {}) {
                     label: 'Customers',
                     href: route('customers.index'),
                     active: route().current('customers.*'),
-                    icon: User,
+                    icon: Users,
                 },
                 {
                     label: 'Payment Methods',
@@ -145,7 +179,7 @@ export function getAdminNavSections({ permissions = [] } = {}) {
                         label: 'Companies',
                         href: route('settings.companies.index'),
                         active: route().current('settings.companies.*'),
-                        icon: FolderCog,
+                        icon: Building2,
                     }]
                     : []),
                 ...(can('users.view')
@@ -167,10 +201,9 @@ export function getAdminNavSections({ permissions = [] } = {}) {
                 {
                     label: 'Configurations',
                     href: route('dashboard'),
-                    icon: ShieldCheck,
+                    icon: SlidersHorizontal,
                 },
             ],
         },
     ];
 }
-

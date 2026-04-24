@@ -4,8 +4,10 @@ namespace App\Features\Users\Http\Controllers;
 
 use App\Features\Users\Actions\ResetUserPassword;
 use App\Features\Users\Actions\SaveUser;
+use App\Features\Users\Actions\ImportUsersFromCsv;
 use App\Features\Users\Actions\UpdateEmployeeAccount;
 use App\Features\Users\Actions\UpdateUserStatus;
+use App\Features\Users\Http\Requests\ImportUsersRequest;
 use App\Features\Users\Http\Requests\SaveUserRequest;
 use App\Features\Users\Queries\ListUsers;
 use App\Features\Users\Support\UserManagement;
@@ -34,6 +36,17 @@ class UserController extends Controller
         return redirect()
             ->route('settings.users.index')
             ->with('success', 'User account created.');
+    }
+
+    public function import(
+        ImportUsersRequest $request,
+        ImportUsersFromCsv $importUsersFromCsv,
+    ): RedirectResponse {
+        $summary = $importUsersFromCsv->handle($request->csvFile(), $request->user());
+
+        return redirect()
+            ->route('settings.users.index')
+            ->with('success', $summary);
     }
 
     public function update(SaveUserRequest $request, User $user, SaveUser $saveUser): RedirectResponse

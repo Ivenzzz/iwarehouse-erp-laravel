@@ -15,6 +15,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'Company Admin',
         'Warehouse Inventory Admin',
         'Stockman',
+        'Default',
     ];
 
     public function run(): void

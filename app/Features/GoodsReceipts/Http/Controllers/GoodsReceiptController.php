@@ -124,6 +124,7 @@ class GoodsReceiptController extends Controller
     {
         $validated = $request->validate([
             'brandConflicts' => ['required', 'array'],
+            'brandConflicts.*.selectedBrandId' => ['nullable', 'string'],
         ]);
 
         return $this->respondGoodsReceiptAction(

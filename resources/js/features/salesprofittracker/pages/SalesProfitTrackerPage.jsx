@@ -46,7 +46,7 @@ export default function SalesProfitTrackerPage({ filters, options, kpis, chart, 
   return (
     <AppShell title="Sales / Profit Tracker">
       <Head title="Sales / Profit Tracker" />
-      <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
+      <div className="p-4 md:p-6 max-w-full mx-auto space-y-6">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl">

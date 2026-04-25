@@ -43,7 +43,7 @@ export default function AddPurchaseDialog({
           <DialogTitle className="text-xl font-bold text-card-foreground">
             {step === STEPS.FORM && "Add a Purchase"}
             {step === STEPS.VALIDATING && "Validating CSV..."}
-            {step === STEPS.BRAND_CONFLICTS && "Resolve Brand Conflicts"}
+            {step === STEPS.BRAND_CONFLICTS && "Resolve Brands by Model"}
             {step === STEPS.PREVIEW && "Import Preview"}
             {step === STEPS.IMPORTING && "Importing..."}
             {step === STEPS.DONE && "Import Complete"}

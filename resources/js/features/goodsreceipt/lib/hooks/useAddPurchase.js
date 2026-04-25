@@ -67,6 +67,37 @@ export function useAddPurchase({ mainWarehouse, currentUser, refreshPage }) {
     setFormData((prev) => ({ ...prev, [field]: value }));
   }, []);
 
+  const normalizeModelKey = useCallback((value) => (
+    (value || "").toString().trim().toLowerCase().replace(/\s+/g, " ")
+  ), []);
+
+  const buildGroupedConflictMeta = useCallback((conflicts) => {
+    const grouped = conflicts.reduce((acc, conflict, index) => {
+      const key = normalizeModelKey(conflict?.normalizedModelName || conflict?.modelName);
+      if (!key) return acc;
+
+      if (!acc[key]) {
+        acc[key] = {
+          indexes: [],
+          brandIds: new Set(),
+        };
+      }
+
+      acc[key].indexes.push(index);
+      (conflict?.brands || []).forEach((brand) => {
+        const brandId = (brand?.brandId || "").toString();
+        if (brandId) acc[key].brandIds.add(brandId);
+      });
+
+      return acc;
+    }, {});
+
+    return Object.values(grouped).map((group) => ({
+      indexes: group.indexes,
+      brandIds: Array.from(group.brandIds),
+    }));
+  }, [normalizeModelKey]);
+
   const handleValidateCSV = useCallback(async (csvText) => {
     setStep(STEPS.VALIDATING);
     setValidationErrors([]);
@@ -80,6 +111,37 @@ export function useAddPurchase({ mainWarehouse, currentUser, refreshPage }) {
     }
 
     if (conflicts.length > 0) {
+      const groupedMeta = buildGroupedConflictMeta(conflicts);
+      const canAutoResolve =
+        groupedMeta.length > 0 &&
+        groupedMeta.every((group) => group.brandIds.length === 1);
+
+      if (canAutoResolve) {
+        const autoResolvedConflicts = conflicts.map((conflict) => ({ ...conflict }));
+
+        groupedMeta.forEach((group) => {
+          const selectedBrandId = group.brandIds[0];
+          group.indexes.forEach((index) => {
+            autoResolvedConflicts[index] = {
+              ...autoResolvedConflicts[index],
+              selectedBrandId,
+            };
+          });
+        });
+
+        const { resolved, errors: resolveErrors } = await resolveConflictsOnServer(autoResolvedConflicts);
+        if (resolveErrors.length > 0) {
+          setValidationErrors((prev) => [...prev, ...resolveErrors]);
+          setStep(STEPS.FORM);
+          return;
+        }
+
+        setValidatedRows([...valid, ...resolved]);
+        setBrandConflicts([]);
+        setStep(STEPS.PREVIEW);
+        return;
+      }
+
       setBrandConflicts(conflicts);
       setValidatedRows(valid);
       setStep(STEPS.BRAND_CONFLICTS);
@@ -88,7 +150,7 @@ export function useAddPurchase({ mainWarehouse, currentUser, refreshPage }) {
 
     setValidatedRows(valid);
     setStep(STEPS.PREVIEW);
-  }, []);
+  }, [buildGroupedConflictMeta]);
 
   const handleResolveConflicts = useCallback(async () => {
     setStep(STEPS.VALIDATING);

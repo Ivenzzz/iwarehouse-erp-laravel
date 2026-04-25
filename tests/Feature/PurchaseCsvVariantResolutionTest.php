@@ -229,6 +229,7 @@ class PurchaseCsvVariantResolutionTest extends TestCase
 
         $selectedConflict = $validateResult['brandConflicts'][0];
         $selectedConflict['selectedBrandId'] = (string) $msiMaster->model->brand->id;
+        $selectedConflict['selectedBrandMode'] = 'existing';
 
         $resolved = app(ResolvePurchaseBrandConflicts::class)->handle([$selectedConflict]);
 
@@ -243,6 +244,178 @@ class PurchaseCsvVariantResolutionTest extends TestCase
         $this->assertDatabaseMissing('product_variants', [
             'product_master_id' => $asusMaster->id,
             'model_code' => 'ANV15',
+        ]);
+    }
+
+    public function test_validate_csv_returns_no_brand_match_conflict_when_model_missing(): void
+    {
+        ProductBrand::create(['name' => 'Lenovo']);
+
+        $result = app(ValidatePurchaseCsv::class)->handle($this->csvWithRows([
+            $this->rowFor('Phantom X Pro', [
+                'Model Code' => 'PXP',
+                'Condition' => 'Brand New',
+            ]),
+        ]));
+
+        $this->assertSame([], $result['errors']);
+        $this->assertCount(1, $result['brandConflicts']);
+        $this->assertSame('no_brand_match', $result['brandConflicts'][0]['type']);
+        $this->assertFalse((bool) ($result['brandConflicts'][0]['allowCreateBrand'] ?? true));
+    }
+
+    public function test_resolve_conflicts_returns_error_when_model_missing_under_selected_brand(): void
+    {
+        $this->createFallbackCategoryTree();
+        $brand = ProductBrand::create(['name' => 'MSI']);
+        $conflict = [
+            'type' => 'no_brand_match',
+            'rowIndex' => 0,
+            'modelName' => 'Titan 17',
+            'row' => $this->rowFor('Titan 17', [
+                'Model Code' => 'T17',
+                'Condition' => 'Brand New',
+                'Ram Capacity' => '32GB',
+                'Rom Capacity' => '1TB',
+                'Color' => 'Black',
+                'CPU' => 'Intel i9',
+                'GPU' => 'RTX 4080',
+                'OS' => 'Windows 11',
+                'Resolution' => '2560x1600',
+            ]),
+            'brands' => [[
+                'brandId' => (string) $brand->id,
+                'brandName' => $brand->name,
+                'productMasterId' => null,
+            ]],
+            'selectedBrandId' => (string) $brand->id,
+            'allowCreateBrand' => false,
+        ];
+
+        $resolved = app(ResolvePurchaseBrandConflicts::class)->handle([$conflict]);
+
+        $this->assertCount(1, $resolved['errors']);
+        $this->assertStringContainsString(
+            'Model Titan 17 was not found under selected brand MSI.',
+            (string) ($resolved['errors'][0]['message'] ?? '')
+        );
+        $this->assertCount(0, $resolved['resolved']);
+        $this->assertDatabaseMissing('product_models', ['model_name' => 'TITAN 17']);
+        $this->assertDatabaseMissing('product_variants', ['model_code' => 'T17']);
+    }
+
+    public function test_resolve_conflicts_existing_model_creates_missing_master_then_variant(): void
+    {
+        $this->createFallbackCategoryTree();
+        $brand = ProductBrand::create(['name' => 'Acer']);
+        ProductModel::create([
+            'brand_id' => $brand->id,
+            'model_name' => 'NITRO 18',
+        ]);
+        $conflict = [
+            'type' => 'no_brand_match',
+            'rowIndex' => 0,
+            'modelName' => 'Nitro 18',
+            'row' => $this->rowFor('Nitro 18', [
+                'Model Code' => 'N18',
+                'Condition' => 'Brand New',
+                'Ram Capacity' => '16GB',
+                'Rom Capacity' => '512GB',
+                'Color' => 'Black',
+            ]),
+            'brands' => [[
+                'brandId' => (string) $brand->id,
+                'brandName' => $brand->name,
+                'productMasterId' => null,
+            ]],
+            'selectedBrandId' => (string) $brand->id,
+            'allowCreateBrand' => false,
+        ];
+
+        $resolved = app(ResolvePurchaseBrandConflicts::class)->handle([$conflict]);
+
+        $this->assertSame([], $resolved['errors']);
+        $this->assertCount(1, $resolved['resolved']);
+        $this->assertDatabaseHas('product_models', [
+            'brand_id' => $brand->id,
+            'model_name' => 'NITRO 18',
+        ]);
+        $this->assertDatabaseHas('product_masters', [
+            'master_sku' => 'ACER-NITRO18',
+        ]);
+        $this->assertDatabaseHas('product_variants', ['model_code' => 'N18']);
+    }
+
+    public function test_resolve_conflicts_returns_error_when_fallback_subcategory_missing(): void
+    {
+        $brand = ProductBrand::create(['name' => 'Lenovo']);
+        ProductModel::create([
+            'brand_id' => $brand->id,
+            'model_name' => 'YOGA ULTRA',
+        ]);
+        $conflict = [
+            'type' => 'no_brand_match',
+            'rowIndex' => 0,
+            'modelName' => 'Yoga Ultra',
+            'row' => $this->rowFor('Yoga Ultra'),
+            'brands' => [[
+                'brandId' => (string) $brand->id,
+                'brandName' => $brand->name,
+                'productMasterId' => null,
+            ]],
+            'selectedBrandId' => (string) $brand->id,
+            'allowCreateBrand' => false,
+        ];
+
+        $resolved = app(ResolvePurchaseBrandConflicts::class)->handle([$conflict]);
+
+        $this->assertCount(1, $resolved['errors']);
+        $this->assertStringContainsString('Fallback category "No Category" was not found.', (string) ($resolved['errors'][0]['message'] ?? ''));
+    }
+
+    public function test_resolve_conflicts_returns_error_on_generated_master_sku_conflict(): void
+    {
+        $this->createFallbackCategoryTree();
+        $targetBrand = ProductBrand::create(['name' => 'Acer']);
+        $targetModel = ProductModel::create([
+            'brand_id' => $targetBrand->id,
+            'model_name' => 'NITRO 16',
+        ]);
+        $otherBrand = ProductBrand::create(['name' => 'Ac er']);
+        $otherModel = ProductModel::create([
+            'brand_id' => $otherBrand->id,
+            'model_name' => 'Nitro 16',
+        ]);
+        $fallbackSubcategory = ProductCategory::query()
+            ->whereNotNull('parent_category_id')
+            ->where('name', 'No Subcategory')
+            ->firstOrFail();
+        ProductMaster::create([
+            'master_sku' => 'ACER-NITRO16',
+            'model_id' => $otherModel->id,
+            'subcategory_id' => $fallbackSubcategory->id,
+        ]);
+
+        $conflict = [
+            'type' => 'no_brand_match',
+            'rowIndex' => 0,
+            'modelName' => 'Nitro 16',
+            'row' => $this->rowFor('Nitro 16'),
+            'brands' => [[
+                'brandId' => (string) $targetBrand->id,
+                'brandName' => $targetBrand->name,
+                'productMasterId' => null,
+            ]],
+            'selectedBrandId' => (string) $targetBrand->id,
+            'allowCreateBrand' => false,
+        ];
+
+        $resolved = app(ResolvePurchaseBrandConflicts::class)->handle([$conflict]);
+
+        $this->assertCount(1, $resolved['errors']);
+        $this->assertStringContainsString('Generated master SKU ACER-NITRO16 is already in use', (string) ($resolved['errors'][0]['message'] ?? ''));
+        $this->assertDatabaseMissing('product_masters', [
+            'model_id' => $targetModel->id,
         ]);
     }
 
@@ -262,6 +435,63 @@ class PurchaseCsvVariantResolutionTest extends TestCase
         $this->assertArrayHasKey('validatedRows', $result);
         $this->assertArrayHasKey('errors', $result);
         $this->assertArrayHasKey('brandConflicts', $result);
+    }
+
+    public function test_validate_csv_matches_exact_model_name_only_not_accessory_names(): void
+    {
+        $exactMaster = $this->createProductMaster(modelName: 'IPHONE 14', brandName: 'Apple');
+        $this->createProductMaster(modelName: 'IPHONE 14 CASE', brandName: 'Apple');
+        $this->createProductMaster(modelName: 'IPHONE 14 TEMPERED GLASS', brandName: 'Apple');
+
+        $result = app(ValidatePurchaseCsv::class)->handle($this->csvWithRows([
+            $this->rowFor('IPHONE 14', [
+                'Model Code' => 'A2882',
+                'Condition' => 'Brand New',
+                'Ram Capacity' => '6GB',
+                'Rom Capacity' => '128GB',
+            ]),
+        ]));
+
+        $this->assertSame([], $result['errors']);
+        $this->assertSame([], $result['brandConflicts']);
+        $this->assertCount(1, $result['validatedRows']);
+        $this->assertSame($exactMaster->id, (int) $result['validatedRows'][0]['product_master_id']);
+    }
+
+    public function test_validate_csv_model_matching_normalizes_case_and_whitespace(): void
+    {
+        $master = $this->createProductMaster(modelName: 'IPHONE 14', brandName: 'Apple');
+
+        $result = app(ValidatePurchaseCsv::class)->handle($this->csvWithRows([
+            $this->rowFor('  iphone   14 ', [
+                'Model Code' => 'A2882',
+                'Condition' => 'Brand New',
+                'Ram Capacity' => '6GB',
+                'Rom Capacity' => '128GB',
+            ]),
+        ]));
+
+        $this->assertSame([], $result['errors']);
+        $this->assertSame([], $result['brandConflicts']);
+        $this->assertCount(1, $result['validatedRows']);
+        $this->assertSame($master->id, (int) $result['validatedRows'][0]['product_master_id']);
+    }
+
+    public function test_validate_csv_no_longer_uses_partial_model_match(): void
+    {
+        $this->createProductMaster(modelName: 'IPHONE 14 CASE', brandName: 'Apple');
+        $this->createProductMaster(modelName: 'IPHONE 14 TEMPERED GLASS', brandName: 'Apple');
+
+        $result = app(ValidatePurchaseCsv::class)->handle($this->csvWithRows([
+            $this->rowFor('IPHONE 14', [
+                'Model Code' => 'A2882',
+                'Condition' => 'Brand New',
+            ]),
+        ]));
+
+        $this->assertSame([], $result['errors']);
+        $this->assertCount(1, $result['brandConflicts']);
+        $this->assertSame('no_brand_match', $result['brandConflicts'][0]['type']);
     }
 
     private function csvWithRows(array $rows): string
@@ -320,6 +550,19 @@ class PurchaseCsvVariantResolutionTest extends TestCase
             'master_sku' => strtoupper($brandName).'-'.strtoupper(str_replace(' ', '', $modelName)).'-'.random_int(10, 99),
             'model_id' => $model->id,
             'subcategory_id' => $subcategory->id,
+        ]);
+    }
+
+    private function createFallbackCategoryTree(): void
+    {
+        $category = ProductCategory::firstOrCreate([
+            'name' => 'No Category',
+            'parent_category_id' => null,
+        ]);
+
+        ProductCategory::firstOrCreate([
+            'name' => 'No Subcategory',
+            'parent_category_id' => $category->id,
         ]);
     }
 }

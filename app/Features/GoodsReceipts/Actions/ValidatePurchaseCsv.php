@@ -3,6 +3,7 @@
 namespace App\Features\GoodsReceipts\Actions;
 
 use App\Models\ProductMaster;
+use App\Models\ProductBrand;
 use App\Models\ProductVariant;
 
 class ValidatePurchaseCsv
@@ -45,6 +46,16 @@ class ValidatePurchaseCsv
         $productMasters = ProductMaster::query()
             ->with(['model.brand', 'subcategory.parent'])
             ->get();
+        $allBrands = ProductBrand::query()
+            ->orderBy('name')
+            ->get()
+            ->map(fn (ProductBrand $brand) => [
+                'brandId' => (string) $brand->id,
+                'brandName' => (string) $brand->name,
+                'productMasterId' => null,
+            ])
+            ->values()
+            ->all();
 
         $validatedRows = [];
         $errors = [];
@@ -68,14 +79,25 @@ class ValidatePurchaseCsv
             $candidateMasters = $productMasters->filter(
                 function (ProductMaster $pm) use ($modelName) {
                     $csv = $this->normalizeText($modelName);
-                    $name = $this->normalizeText($pm->product_name);
+                    $name = $this->normalizeText((string) ($pm->model?->model_name ?? ''));
 
-                    return $name === $csv || str_contains($name, $csv) || str_contains($csv, $name);
+                    return $name === $csv;
                 }
             )->values();
 
             if ($candidateMasters->isEmpty()) {
-                $errors[] = ['row' => $rowNumber, 'message' => "Row {$rowNumber}: Model \"{$modelName}\" not found."];
+                $brandConflicts[] = [
+                    'type' => 'no_brand_match',
+                    'rowIndex' => $index,
+                    'modelName' => $modelName,
+                    'normalizedModelName' => $this->normalizeText($modelName),
+                    'row' => $row,
+                    'brands' => $allBrands,
+                    'selectedBrandId' => null,
+                    'selectedBrandMode' => 'existing',
+                    'newBrandName' => null,
+                    'allowCreateBrand' => false,
+                ];
 
                 continue;
             }
@@ -93,11 +115,16 @@ class ValidatePurchaseCsv
 
                 if (count($brandChoices) > 1) {
                     $brandConflicts[] = [
+                        'type' => 'multiple_brand_match',
                         'rowIndex' => $index,
                         'modelName' => $modelName,
+                        'normalizedModelName' => $this->normalizeText($modelName),
                         'row' => $row,
                         'brands' => $brandChoices,
                         'selectedBrandId' => null,
+                        'selectedBrandMode' => 'existing',
+                        'newBrandName' => null,
+                        'allowCreateBrand' => false,
                     ];
 
                     continue;
@@ -136,13 +163,33 @@ class ValidatePurchaseCsv
 
     private function parseCsv(string $csvText): array
     {
-        $lines = preg_split('/\r\n|\r|\n/', trim($csvText));
-        if (! is_array($lines) || count($lines) < 2) {
+        $csvText = trim($csvText);
+        if ($csvText === '') {
             return ['rows' => [], 'error' => 'CSV must have a header row and at least one data row.'];
         }
 
-        $delimiter = str_contains((string) $lines[0], "\t") ? "\t" : ',';
-        $header = str_getcsv((string) $lines[0], $delimiter);
+        $firstLine = strtok($csvText, "\r\n");
+        $delimiter = str_contains((string) $firstLine, "\t") ? "\t" : ',';
+
+        $stream = fopen('php://temp', 'r+');
+        if ($stream === false) {
+            return ['rows' => [], 'error' => 'Unable to read CSV content.'];
+        }
+
+        fwrite($stream, $csvText);
+        rewind($stream);
+
+        $header = fgetcsv($stream, 0, $delimiter);
+        if (! is_array($header)) {
+            fclose($stream);
+
+            return ['rows' => [], 'error' => 'CSV must have a header row and at least one data row.'];
+        }
+
+        if (isset($header[0])) {
+            $header[0] = preg_replace('/^\xEF\xBB\xBF/', '', (string) $header[0]) ?: '';
+        }
+
         $headerMap = collect($header)
             ->map(fn ($value) => trim((string) $value))
             ->mapWithKeys(fn ($name, $idx) => [$this->normalizeHeader($name) => $idx]);
@@ -152,12 +199,13 @@ class ValidatePurchaseCsv
             ->values()
             ->all();
         if (count($missing) > 0) {
+            fclose($stream);
+
             return ['rows' => [], 'error' => 'Missing columns: '.implode(', ', $missing)];
         }
 
         $rows = [];
-        for ($i = 1; $i < count($lines); $i++) {
-            $values = str_getcsv((string) $lines[$i], $delimiter);
+        while (($values = fgetcsv($stream, 0, $delimiter)) !== false) {
             $row = [];
             foreach (self::EXPECTED_HEADERS as $headerName) {
                 $index = $headerMap->get($this->normalizeHeader($headerName));
@@ -169,6 +217,8 @@ class ValidatePurchaseCsv
             }
             $rows[] = $row;
         }
+
+        fclose($stream);
 
         return ['rows' => $rows, 'error' => null];
     }

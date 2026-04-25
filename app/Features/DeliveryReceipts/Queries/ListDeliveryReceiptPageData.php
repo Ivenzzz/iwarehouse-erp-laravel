@@ -36,7 +36,7 @@ class ListDeliveryReceiptPageData
             'dr_search' => ['nullable', 'string', 'max:100'],
             'dr_status' => ['nullable', 'string', 'in:all,ready_for_warehouse,warehouse_encoding,completed,with_variance'],
             'dr_page' => ['nullable', 'integer', 'min:1'],
-            'dr_per_page' => ['nullable', 'integer', 'in:10,25,50,100'],
+            'dr_per_page' => ['nullable', 'integer', 'in:100,500,1000,5000'],
             'dr_sort' => ['nullable', 'string', 'in:date_received,dr_number,supplier_name,total_landed_cost,status'],
             'dr_direction' => ['nullable', 'string', 'in:asc,desc'],
         ]);
@@ -50,7 +50,7 @@ class ListDeliveryReceiptPageData
 
         $drSearch = trim((string) ($validated['dr_search'] ?? ''));
         $drStatus = (string) ($validated['dr_status'] ?? 'all');
-        $drPerPage = (int) ($validated['dr_per_page'] ?? 10);
+        $drPerPage = (int) ($validated['dr_per_page'] ?? 100);
         $drSort = (string) ($validated['dr_sort'] ?? 'date_received');
         $drDirection = (string) ($validated['dr_direction'] ?? 'desc');
 

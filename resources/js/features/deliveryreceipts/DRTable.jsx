@@ -26,6 +26,7 @@ export default function DRTable({
   onSearchChange,
   onStatusFilterChange,
   onPageChange,
+  onPageSizeChange,
   onViewDetails,
   onViewPhotos,
   onViewHistory,
@@ -235,6 +236,21 @@ export default function DRTable({
               </div>
 
               <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Rows</span>
+                  <Select value={String(pageSize)} onValueChange={onPageSizeChange}>
+                    <SelectTrigger className="h-8 w-[110px] border-input bg-background text-foreground focus:ring-2 focus:ring-ring">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="border-border bg-popover text-popover-foreground">
+                      <SelectItem value="100" className="focus:bg-accent focus:text-accent-foreground">100</SelectItem>
+                      <SelectItem value="500" className="focus:bg-accent focus:text-accent-foreground">500</SelectItem>
+                      <SelectItem value="1000" className="focus:bg-accent focus:text-accent-foreground">1k</SelectItem>
+                      <SelectItem value="5000" className="focus:bg-accent focus:text-accent-foreground">5k</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <Button
                   variant="outline"
                   size="sm"

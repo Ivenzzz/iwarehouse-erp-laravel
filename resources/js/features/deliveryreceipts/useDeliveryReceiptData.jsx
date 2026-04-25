@@ -59,6 +59,13 @@ export function useDeliveryReceiptData() {
     updateQuery({ dr_page: Math.max(1, page), active_tab: "all_drs" });
   }, [updateQuery]);
 
+  const setDRPageSize = useCallback((value) => {
+    const allowed = [100, 500, 1000, 5000];
+    const parsed = Number(value);
+    const safePageSize = allowed.includes(parsed) ? parsed : 100;
+    updateQuery({ dr_per_page: safePageSize, dr_page: 1, active_tab: "all_drs" });
+  }, [updateQuery]);
+
   const refreshData = useCallback(() => {
     router.reload({ only: ["incoming_pos", "delivery_receipts", "active_tab"], preserveScroll: true });
   }, []);
@@ -78,10 +85,11 @@ export function useDeliveryReceiptData() {
     drSearch: drFilters.search || "",
     drStatusFilter: drFilters.status || "all",
     drPage: toNumber(drPagination.page, 1),
-    drPageSize: toNumber(drPagination.per_page, DEFAULT_PAGE_SIZE),
+    drPageSize: toNumber(drPagination.per_page, 100),
     setDRSearch,
     setDRStatusFilter,
     setDRPage,
+    setDRPageSize,
 
     purchaseOrders: incoming.data || [],
     purchaseOrdersTotal: incomingPagination.total ?? 0,

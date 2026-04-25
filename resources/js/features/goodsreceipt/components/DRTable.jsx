@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -9,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Package, ChevronDown } from "lucide-react";
+import { Package, ChevronLeft, ChevronRight, Loader2, Search } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const formatCurrency = (value) =>
@@ -110,13 +111,43 @@ function PendingDRRow({ dr, onSelectDR }) {
 export default function DRTable({
   deliveryReceipts,
   loadingDRs,
-  hasNextPage,
-  isFetchingNextPage,
-  onLoadMore,
+  pendingPagination,
+  pendingFilters,
+  onChangePage,
+  onChangeFilters,
+  isFetchingPendingList,
   onSelectDR,
 }) {
+  const [searchQuery, setSearchQuery] = useState(pendingFilters?.search || "");
+
+  useEffect(() => {
+    setSearchQuery(pendingFilters?.search || "");
+  }, [pendingFilters?.search]);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if ((pendingFilters?.search || "") !== searchQuery) {
+        onChangeFilters({ dr_search: searchQuery });
+      }
+    }, 350);
+
+    return () => clearTimeout(timeoutId);
+  }, [onChangeFilters, pendingFilters?.search, searchQuery]);
+
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-accent text-card-foreground shadow-sm">
+      <div className="border-b border-border bg-background p-3">
+        <div className="relative w-72">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search DR number or supplier..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      </div>
+
       <div className="overflow-x-auto bg-background">
         <div className="">
           <div className="overflow-auto">
@@ -158,20 +189,38 @@ export default function DRTable({
             </Table>
           </div>
 
-          {(hasNextPage || isFetchingNextPage) && (
-            <div className="flex items-center justify-center border-t border-border bg-background px-4 py-4">
+          <div className="flex items-center justify-between border-t border-border bg-background px-4 py-4">
+            <p className="text-xs text-muted-foreground">
+              Page {pendingPagination?.page || 1} of {pendingPagination?.last_page || 1} • Total {pendingPagination?.total || 0}
+            </p>
+            <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => onLoadMore?.()}
-                disabled={!hasNextPage || isFetchingNextPage}
+                onClick={() => onChangePage((pendingPagination?.page || 1) - 1)}
+                disabled={(pendingPagination?.page || 1) <= 1 || isFetchingPendingList}
                 className="border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
               >
-                <ChevronDown className="mr-2 h-4 w-4" />
-                {isFetchingNextPage ? "Loading more..." : hasNextPage ? "Load more" : "All loaded"}
+                <ChevronLeft className="mr-1 h-4 w-4" />
+                Prev
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onChangePage((pendingPagination?.page || 1) + 1)}
+                disabled={(pendingPagination?.page || 1) >= (pendingPagination?.last_page || 1) || isFetchingPendingList}
+                className="border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
+              >
+                Next
+                {isFetchingPendingList ? (
+                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <ChevronRight className="ml-1 h-4 w-4" />
+                )}
               </Button>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

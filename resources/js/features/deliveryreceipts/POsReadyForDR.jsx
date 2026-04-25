@@ -1,11 +1,12 @@
-import React, { useMemo, useCallback, startTransition, useEffect, useRef } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import React, { useMemo, useCallback, startTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Search,
   RefreshCcw,
   Plus,
@@ -17,9 +18,6 @@ import {
 } from "lucide-react";
 import { differenceInCalendarDays } from "date-fns";
 import POTableRow from "./POTableRow";
-
-const ROW_HEIGHT = 73;
-const TABLE_HEIGHT = 640;
 
 export default function POsReadyForDR({
   purchaseOrders,
@@ -42,54 +40,12 @@ export default function POsReadyForDR({
   onRefresh,
   metrics,
 }) {
-  const parentRef = useRef(null);
-  const lastRequestedPageRef = useRef(currentPage);
-
   const handleSearchChange = useCallback((e) => {
     const val = e.target.value;
     startTransition(() => {
       onSearchChange(val);
     });
   }, [onSearchChange]);
-
-  const rowVirtualizer = useVirtualizer({
-    count: purchaseOrders.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => ROW_HEIGHT,
-    overscan: 8,
-  });
-
-  const virtualRows = rowVirtualizer.getVirtualItems();
-  const topPaddingHeight = virtualRows.length > 0 ? virtualRows[0].start : 0;
-  const bottomPaddingHeight =
-    virtualRows.length > 0
-      ? rowVirtualizer.getTotalSize() - virtualRows[virtualRows.length - 1].end
-      : 0;
-
-  useEffect(() => {
-    lastRequestedPageRef.current = currentPage;
-  }, [currentPage]);
-
-  useEffect(() => {
-    if (parentRef.current) {
-      parentRef.current.scrollTop = 0;
-    }
-    rowVirtualizer.scrollToOffset(0);
-    lastRequestedPageRef.current = 1;
-  }, [searchValue, filterTime, filterWarehouse, rowVirtualizer]);
-
-  useEffect(() => {
-    const lastItem = virtualRows[virtualRows.length - 1];
-    if (!lastItem || !hasMorePages || isFetchingMore) {
-      return;
-    }
-
-    const nextPage = currentPage + 1;
-    if (lastItem.index >= purchaseOrders.length - 5 && lastRequestedPageRef.current < nextPage) {
-      lastRequestedPageRef.current = nextPage;
-      onPageChange(nextPage);
-    }
-  }, [currentPage, hasMorePages, isFetchingMore, onPageChange, purchaseOrders.length, virtualRows]);
 
   const localMetrics = useMemo(() => {
     const today = new Date();
@@ -251,7 +207,7 @@ export default function POsReadyForDR({
           </div>
 
           <div className="overflow-hidden rounded-lg border border-border bg-background">
-            <div ref={parentRef} className="overflow-auto" style={{ height: `${TABLE_HEIGHT}px` }}>
+            <div className="overflow-x-auto">
               <table className="w-full min-w-[1200px]">
                 <thead className="sticky top-0 z-10 border-b border-border bg-muted/80 backdrop-blur">
                   <tr>
@@ -290,61 +246,53 @@ export default function POsReadyForDR({
                       </td>
                     </tr>
                   ) : (
-                    <>
-                      {topPaddingHeight > 0 && (
-                        <tr>
-                          <td colSpan="7" style={{ height: `${topPaddingHeight}px`, padding: 0 }} />
-                        </tr>
-                      )}
-
-                      {virtualRows.map((virtualRow) => {
-                        const po = purchaseOrders[virtualRow.index];
-
-                        return (
-                          <POTableRow
-                            key={po.id}
-                            po={po}
-                            productMasters={productMasters}
-                            onSelectPO={onSelectPO}
-                          />
-                        );
-                      })}
-
-                      {bottomPaddingHeight > 0 && (
-                        <tr>
-                          <td colSpan="7" style={{ height: `${bottomPaddingHeight}px`, padding: 0 }} />
-                        </tr>
-                      )}
-                    </>
+                    purchaseOrders.map((po) => (
+                      <POTableRow key={po.id} po={po} productMasters={productMasters} onSelectPO={onSelectPO} />
+                    ))
                   )}
                 </tbody>
               </table>
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-4">
-            <div className="text-sm text-muted-foreground">
-              {purchaseOrders.length === 0
-                ? "Showing 0 orders"
-                : `Showing 1 to ${purchaseOrders.length} of ${
-                    typeof purchaseOrdersTotal === "number" ? purchaseOrdersTotal : `${purchaseOrders.length}${hasMorePages ? "+" : ""}`
-                  } orders`}
-            </div>
+          {(currentPage > 1 || hasMorePages) && (
+            <div className="flex items-center justify-between pt-4">
+              <div className="text-sm text-muted-foreground">
+                {purchaseOrders.length === 0
+                  ? "Showing 0 orders"
+                  : `Showing ${(currentPage - 1) * pageSize + 1} to ${(currentPage - 1) * pageSize + purchaseOrders.length} of ${
+                      typeof purchaseOrdersTotal === "number" ? purchaseOrdersTotal : `${currentPage}${hasMorePages ? "+" : ""}`
+                    } orders`}
+              </div>
 
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              {isFetchingMore ? (
-                <>
-                  <RefreshCcw className="h-4 w-4 animate-spin" />
-                  <span>Loading more orders...</span>
-                </>
-              ) : hasMorePages ? (
-                <span>Scroll to load more</span>
-              ) : (
-                <span>All matching orders loaded</span>
-              )}
-              {pageSize > 0 && <span className="text-xs">Page size: {pageSize}</span>}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onPageChange(currentPage - 1)}
+                  disabled={currentPage === 1 || isFetchingMore}
+                  className="border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+
+                <div className="text-sm font-medium text-foreground">
+                  Page {currentPage}
+                  {typeof purchaseOrdersTotal === "number" ? ` of ${Math.max(Math.ceil(purchaseOrdersTotal / pageSize), 1)}` : ""}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onPageChange(currentPage + 1)}
+                  disabled={!hasMorePages || isFetchingMore}
+                  className="border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {isFetchingMore ? <RefreshCcw className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 

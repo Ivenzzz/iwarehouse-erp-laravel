@@ -33,6 +33,7 @@ export default function DeliveryReceipts() {
     setDRSearch,
     setDRStatusFilter,
     setDRPage,
+    setDRPageSize,
 
     purchaseOrders,
     purchaseOrdersTotal,
@@ -218,6 +219,7 @@ export default function DeliveryReceipts() {
               onSearchChange={setDRSearch}
               onStatusFilterChange={setDRStatusFilter}
               onPageChange={setDRPage}
+              onPageSizeChange={setDRPageSize}
               onViewDetails={handleViewDetails}
               onViewPhotos={handleViewPhotos}
               onViewHistory={handleViewHistory}

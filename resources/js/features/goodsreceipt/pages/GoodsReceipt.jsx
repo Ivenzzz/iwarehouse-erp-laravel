@@ -21,9 +21,11 @@ export default function GoodsReceipt() {
   const {
     deliveryReceipts,
     loadingDRs,
-    fetchNextPendingPage,
-    hasNextPendingPage,
-    isFetchingNextPendingPage,
+    pendingPagination,
+    pendingFilters,
+    setPendingPage,
+    setPendingFilters,
+    isFetchingPendingList,
     productMasters,
     variants,
     suppliers,
@@ -123,9 +125,11 @@ export default function GoodsReceipt() {
               <DRTable
                 deliveryReceipts={deliveryReceipts}
                 loadingDRs={loadingDRs}
-                hasNextPage={hasNextPendingPage}
-                isFetchingNextPage={isFetchingNextPendingPage}
-                onLoadMore={fetchNextPendingPage}
+                pendingPagination={pendingPagination}
+                pendingFilters={pendingFilters}
+                onChangePage={setPendingPage}
+                onChangeFilters={setPendingFilters}
+                isFetchingPendingList={isFetchingPendingList}
                 onSelectDR={actions.handleSelectDR}
               />
             </TabsContent>

@@ -30,6 +30,7 @@ export function useGRNData() {
   const deliveryReceipts = pending.data || [];
   const allGRNs = grns.data || [];
   const pendingPagination = pending.pagination || {};
+  const pendingFilters = pending.filters || {};
   const grnPagination = grns.pagination || {};
   const grnFilters = grns.filters || {};
   const activeTab = pageData.active_tab || "delivery-receipts";
@@ -64,6 +65,27 @@ export function useGRNData() {
     if ((pendingPagination.page || 1) >= (pendingPagination.last_page || 1)) return;
     pushQuery({ dr_page: (pendingPagination.page || 1) + 1, active_tab: "delivery-receipts" }, setIsFetchingPending);
   }, [pendingPagination.last_page, pendingPagination.page, pushQuery]);
+
+  const setPendingQuery = useCallback(
+    (changes) => {
+      pushQuery({ ...changes, active_tab: "delivery-receipts" }, setIsFetchingPending);
+    },
+    [pushQuery]
+  );
+
+  const setPendingPage = useCallback(
+    (page) => {
+      setPendingQuery({ dr_page: page });
+    },
+    [setPendingQuery]
+  );
+
+  const setPendingFilters = useCallback(
+    (changes) => {
+      setPendingQuery({ ...changes, dr_page: 1 });
+    },
+    [setPendingQuery]
+  );
 
   const setGrnQuery = useCallback(
     (changes) => {
@@ -152,8 +174,13 @@ export function useGRNData() {
     allDeliveryReceipts: deliveryReceipts,
     loadingDRs: false,
     fetchNextPendingPage,
+    pendingPagination,
+    pendingFilters,
+    setPendingPage,
+    setPendingFilters,
     hasNextPendingPage: (pendingPagination.page || 1) < (pendingPagination.last_page || 1),
     isFetchingNextPendingPage: isFetchingPending,
+    isFetchingPendingList: isFetchingPending,
     loadingGRNs: false,
     productMasters: catalog.productMasters,
     variants: catalog.variants,

@@ -116,7 +116,7 @@ export function getAdminNavSections({ permissions = [] } = {}) {
             icon: Users,
             defaultOpen: false,
             links: [
-                { label: 'Employees', href: route('dashboard'), icon: Users },
+                { label: 'Employees', href: route('employees.index'), active: route().current('employees.*'), icon: Users },
                 { label: 'Attendance', href: route('dashboard'), icon: CalendarCheck },
                 { label: 'Payroll', href: route('dashboard'), icon: Banknote },
             ],

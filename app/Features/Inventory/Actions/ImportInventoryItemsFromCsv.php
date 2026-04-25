@@ -17,6 +17,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class ImportInventoryItemsFromCsv
 {
@@ -58,7 +59,17 @@ class ImportInventoryItemsFromCsv
 
         foreach ($rows as $index => $row) {
             $rowNumber = $index + 2;
-            $result = $this->analyzeRow($row, $references, $existingIdentifiers, $batchSeen, false);
+            try {
+                $result = $this->analyzeRow($row, $references, $existingIdentifiers, $batchSeen, false);
+            } catch (\Throwable $exception) {
+                $skippedItems[] = [
+                    'row' => $rowNumber,
+                    'label' => $this->buildRowLabel($this->mapRowToCanonicalColumns($row)),
+                    'reason' => $exception->getMessage(),
+                ];
+
+                continue;
+            }
 
             if (! $result['valid']) {
                 $skippedItems[] = [
@@ -152,7 +163,18 @@ class ImportInventoryItemsFromCsv
                 continue;
             }
 
-            $result = $this->analyzeRow($row, $references, $existingIdentifiers, $batchSeen, true);
+            try {
+                $result = $this->analyzeRow($row, $references, $existingIdentifiers, $batchSeen, true);
+            } catch (\Throwable $exception) {
+                $failed++;
+                $skippedItems[] = [
+                    'row' => $rowNumber,
+                    'label' => $this->buildRowLabel($this->mapRowToCanonicalColumns($row)),
+                    'reason' => $exception->getMessage(),
+                ];
+
+                continue;
+            }
 
             if (! $result['valid']) {
                 $failed++;
@@ -170,6 +192,7 @@ class ImportInventoryItemsFromCsv
                     $payload = $this->buildInventoryPayload($row, $result['variant'], $result['warehouse']);
                     $item = InventoryItem::query()->create($payload);
 
+                    $resolutionNote = $result['resolutionNote'] ?? null;
                     $this->logInventoryActivity->handle(
                         $item,
                         'CSV_IMPORT',
@@ -179,6 +202,7 @@ class ImportInventoryItemsFromCsv
                             'brand' => $row['Brand'] ?? null,
                             'model' => $row['Model'] ?? null,
                             'warehouse' => $result['warehouse']->name,
+                            'resolution_note' => $resolutionNote,
                         ],
                     );
 
@@ -187,6 +211,7 @@ class ImportInventoryItemsFromCsv
                         'row' => $rowNumber,
                         'label' => $this->buildRowLabel($row),
                         'warehouse' => $result['warehouse']->name,
+                        'note' => $resolutionNote,
                     ];
                 });
             } catch (\Throwable $exception) {
@@ -386,7 +411,8 @@ class ImportInventoryItemsFromCsv
      *     reason?: string,
      *     warehouse?: Warehouse,
      *     variant?: ProductVariant|null,
-     *     variantCreated?: bool
+     *     variantCreated?: bool,
+     *     resolutionNote?: string
      * }
      */
     private function analyzeRow(
@@ -417,13 +443,19 @@ class ImportInventoryItemsFromCsv
         $variantMatches = $this->resolveVariantMatches($mappedRow, $references['variantsByMaster'][$masterId] ?? []);
         $variantCreated = false;
         $variant = null;
+        $resolutionNote = $masterResolution['resolutionNote'] ?? null;
 
         if (count($variantMatches) > 1) {
-            return [
-                'valid' => false,
-                'label' => $label,
-                'reason' => 'Multiple variants matched the provided variant attributes.',
-            ];
+            $variant = $this->findNearestVariant($mappedRow, $masterId, $references);
+            $resolutionNote = 'Attached to closest matched variant after multiple normalized variant matches.';
+
+            if (! $variant instanceof ProductVariant) {
+                return [
+                    'valid' => false,
+                    'label' => $label,
+                    'reason' => 'Multiple variants matched normalized attributes, but no product variant was available to attach.',
+                ];
+            }
         }
 
         if (count($variantMatches) === 1) {
@@ -454,6 +486,8 @@ class ImportInventoryItemsFromCsv
         }
 
         if (count($variantMatches) === 0) {
+            $createdNewVariant = false;
+
             if ($createMissingVariant) {
                 if (! $productMaster instanceof ProductMaster) {
                     return [
@@ -462,16 +496,75 @@ class ImportInventoryItemsFromCsv
                         'reason' => 'Unable to resolve product master for import.',
                     ];
                 }
-                $variant = $this->createVariantForRow($mappedRow, $productMaster);
+                $latestMatches = $this->resolveVariantMatches(
+                    $mappedRow,
+                    $this->loadVariantDescriptorsForMaster($masterId),
+                );
+
+                if (count($latestMatches) > 1) {
+                    $variant = $this->findNearestVariantFromDescriptors($mappedRow, $latestMatches);
+                    $resolutionNote = 'Attached to closest matched variant after multiple normalized variant matches.';
+
+                    if (! $variant instanceof ProductVariant) {
+                        return [
+                            'valid' => false,
+                            'label' => $label,
+                            'reason' => 'Multiple variants matched normalized attributes, but no product variant was available to attach.',
+                        ];
+                    }
+                }
+
+                if ($variant === null && count($latestMatches) === 1) {
+                    $variant = $latestMatches[0]['variant'];
+                } elseif ($variant === null) {
+                    try {
+                        $variant = $this->createVariantForRow($mappedRow, $productMaster);
+                        $createdNewVariant = true;
+                    } catch (\Throwable $exception) {
+                        if ($this->isVariantSkuCollisionException($exception)) {
+                            $nearestVariant = $this->findNearestVariantFromDescriptors(
+                                $mappedRow,
+                                $this->loadVariantDescriptorsForMaster($masterId),
+                            ) ?? $this->findNearestVariant($mappedRow, $masterId, $references);
+
+                            if ($nearestVariant instanceof ProductVariant) {
+                                $variant = $nearestVariant;
+                                $resolutionNote = 'Attached to closest matched variant after expanded SKU collision.';
+                            } else {
+                                return [
+                                    'valid' => false,
+                                    'label' => $label,
+                                    'reason' => 'Expanded SKU collision occurred, but no product variant was available to attach.',
+                                ];
+                            }
+                        } else {
+                            return [
+                                'valid' => false,
+                                'label' => $label,
+                                'reason' => $exception->getMessage(),
+                            ];
+                        }
+                    }
+                }
+
+                if (! $variant instanceof ProductVariant) {
+                    return [
+                        'valid' => false,
+                        'label' => $label,
+                        'reason' => 'Unable to resolve product variant for import.',
+                    ];
+                }
+
                 $references['variants'][] = $variant;
                 $references['variantsByMaster'][$masterId] ??= [];
                 $references['variantsByMaster'][$masterId][] = $this->buildVariantDescriptor($variant);
             } else {
                 $references['variantsByMaster'][$masterId] ??= [];
                 $references['variantsByMaster'][$masterId][] = $this->buildPredictedVariantDescriptor($mappedRow);
+                $createdNewVariant = true;
             }
 
-            $variantCreated = true;
+            $variantCreated = $createdNewVariant;
         } elseif ($variant === null && $createMissingVariant) {
             if (! $productMaster instanceof ProductMaster) {
                 return [
@@ -480,7 +573,33 @@ class ImportInventoryItemsFromCsv
                     'reason' => 'Unable to resolve product master for import.',
                 ];
             }
-            $variant = $this->createVariantForRow($mappedRow, $productMaster);
+            try {
+                $variant = $this->createVariantForRow($mappedRow, $productMaster);
+            } catch (\Throwable $exception) {
+                if ($this->isVariantSkuCollisionException($exception)) {
+                    $nearestVariant = $this->findNearestVariantFromDescriptors(
+                        $mappedRow,
+                        $this->loadVariantDescriptorsForMaster($masterId),
+                    ) ?? $this->findNearestVariant($mappedRow, $masterId, $references);
+
+                    if ($nearestVariant instanceof ProductVariant) {
+                        $variant = $nearestVariant;
+                        $resolutionNote = 'Attached to closest matched variant after expanded SKU collision.';
+                    } else {
+                        return [
+                            'valid' => false,
+                            'label' => $label,
+                            'reason' => 'Expanded SKU collision occurred, but no product variant was available to attach.',
+                        ];
+                    }
+                } else {
+                    return [
+                        'valid' => false,
+                        'label' => $label,
+                        'reason' => $exception->getMessage(),
+                    ];
+                }
+            }
             $references['variants'][] = $variant;
             $references['variantsByMaster'][$masterId] = array_values(array_filter(
                 $references['variantsByMaster'][$masterId] ?? [],
@@ -506,12 +625,13 @@ class ImportInventoryItemsFromCsv
             'warehouse' => $warehouseMatches[0],
             'variant' => $variant,
             'variantCreated' => $variantCreated,
+            'resolutionNote' => $resolutionNote,
         ];
     }
 
     /**
      * @param  array<string, mixed>  $references
-     * @return array{valid: bool, reason?: string, productMaster?: ProductMaster|null, productMasterId?: int}
+     * @return array{valid: bool, reason?: string, productMaster?: ProductMaster|null, productMasterId?: int, resolutionNote?: string}
      */
     private function resolveProductMasterForRow(array $row, array &$references, bool $createMissingGraph): array
     {
@@ -595,9 +715,25 @@ class ImportInventoryItemsFromCsv
                 ->exists();
 
             if ($conflicts) {
+                $nearestMaster = $this->findNearestProductMaster($row, $references, $masterSku);
+
+                if (! $nearestMaster instanceof ProductMaster) {
+                    return [
+                        'valid' => false,
+                        'reason' => "Generated master SKU {$masterSku} is already in use, but no product master was available to attach.",
+                    ];
+                }
+
+                $references['productMasterMap'][$brandModelKey] = [[
+                    'id' => $nearestMaster->id,
+                    'productMaster' => $nearestMaster,
+                ]];
+
                 return [
-                    'valid' => false,
-                    'reason' => "Generated master SKU {$masterSku} is already in use by another model.",
+                    'valid' => true,
+                    'productMaster' => $nearestMaster,
+                    'productMasterId' => $nearestMaster->id,
+                    'resolutionNote' => 'Attached to closest matched master after master SKU collision.',
                 ];
             }
 
@@ -608,6 +744,7 @@ class ImportInventoryItemsFromCsv
             ])->fresh(['model.brand', 'subcategory.parent']);
 
             $references['productMastersByModelId'][$model->id] = $productMaster;
+            $references['productMasters'][] = $productMaster;
         }
 
         $references['productMasterMap'][$brandModelKey] = [[
@@ -696,7 +833,9 @@ class ImportInventoryItemsFromCsv
     /**
      * @param  array<int, array{
      *     variant: ProductVariant|null,
+     *     signature: string,
      *     condition: string,
+     *     model_code: string,
      *     color: string,
      *     ram: string,
      *     rom: string,
@@ -709,7 +848,9 @@ class ImportInventoryItemsFromCsv
      * }>  $variants
      * @return array<int, array{
      *     variant: ProductVariant|null,
+     *     signature: string,
      *     condition: string,
+     *     model_code: string,
      *     color: string,
      *     ram: string,
      *     rom: string,
@@ -723,35 +864,29 @@ class ImportInventoryItemsFromCsv
      */
     private function resolveVariantMatches(array $row, array $variants): array
     {
-        $csvRam = $this->normalizeStorageValue($row['RAM'] ?? '');
-        $csvRom = $this->normalizeStorageValue($row['ROM'] ?? '');
-        $csvColor = $this->normalizeKey($row['Color'] ?? '');
-        $csvCondition = $this->normalizeCondition($row['Condition'] ?? '');
-        $csvCpu = $this->normalizeKey($row['CPU'] ?? '');
-        $csvGpu = $this->normalizeKey($row['GPU'] ?? '');
-        $csvRamType = $this->normalizeKey($row['RAM Type'] ?? '');
-        $csvRomType = $this->normalizeKey($row['ROM Type'] ?? '');
-        $csvOperatingSystem = $this->normalizeKey($row['Operating System'] ?? '');
-        $csvScreen = $this->normalizeKey($row['Screen'] ?? '');
+        $rowSignature = $this->variantSignature([
+            'condition' => $row['Condition'] ?? '',
+            'model_code' => $row['Model Code'] ?? '',
+            'color' => $row['Color'] ?? '',
+            'ram' => $row['RAM'] ?? '',
+            'rom' => $row['ROM'] ?? '',
+            'cpu' => $row['CPU'] ?? '',
+            'gpu' => $row['GPU'] ?? '',
+            'ram_type' => $row['RAM Type'] ?? '',
+            'rom_type' => $row['ROM Type'] ?? '',
+            'operating_system' => $row['Operating System'] ?? '',
+            'screen' => $row['Screen'] ?? '',
+        ]);
 
-        return array_values(array_filter($variants, function (array $variant) use ($csvRam, $csvRom, $csvColor, $csvCondition, $csvCpu, $csvGpu, $csvRamType, $csvRomType, $csvOperatingSystem, $csvScreen): bool {
-            return ($variant['ram'] ?? '') === $csvRam
-                && ($variant['rom'] ?? '') === $csvRom
-                && ($variant['color'] ?? '') === $csvColor
-                && ($variant['condition'] ?? '') === $csvCondition
-                && ($variant['cpu'] ?? '') === $csvCpu
-                && ($variant['gpu'] ?? '') === $csvGpu
-                && ($variant['ram_type'] ?? '') === $csvRamType
-                && ($variant['rom_type'] ?? '') === $csvRomType
-                && ($variant['operating_system'] ?? '') === $csvOperatingSystem
-                && ($variant['screen'] ?? '') === $csvScreen;
-        }));
+        return array_values(array_filter($variants, fn (array $variant): bool => ($variant['signature'] ?? '') === $rowSignature));
     }
 
     /**
      * @return array{
      *     variant: ProductVariant|null,
+     *     signature: string,
      *     condition: string,
+     *     model_code: string,
      *     color: string,
      *     ram: string,
      *     rom: string,
@@ -765,25 +900,43 @@ class ImportInventoryItemsFromCsv
      */
     private function buildVariantDescriptor(ProductVariant $variant): array
     {
+        $attributes = [
+            'condition' => $variant->condition,
+            'model_code' => $variant->model_code ?? '',
+            'color' => $variant->color ?? '',
+            'ram' => $variant->ram ?? '',
+            'rom' => $variant->rom ?? '',
+            'cpu' => $variant->cpu ?? '',
+            'gpu' => $variant->gpu ?? '',
+            'ram_type' => $variant->ram_type ?? '',
+            'rom_type' => $variant->rom_type ?? '',
+            'operating_system' => $variant->operating_system ?? '',
+            'screen' => $variant->screen ?? '',
+        ];
+
         return [
             'variant' => $variant,
-            'condition' => $this->normalizeCondition($variant->condition),
-            'color' => $this->normalizeKey($variant->color ?? ''),
-            'ram' => $this->normalizeStorageValue($variant->ram ?? ''),
-            'rom' => $this->normalizeStorageValue($variant->rom ?? ''),
-            'cpu' => $this->normalizeKey($variant->cpu ?? ''),
-            'gpu' => $this->normalizeKey($variant->gpu ?? ''),
-            'ram_type' => $this->normalizeKey($variant->ram_type ?? ''),
-            'rom_type' => $this->normalizeKey($variant->rom_type ?? ''),
-            'operating_system' => $this->normalizeKey($variant->operating_system ?? ''),
-            'screen' => $this->normalizeKey($variant->screen ?? ''),
+            'signature' => $this->variantSignature($attributes),
+            'condition' => $this->normalizeCondition($attributes['condition']),
+            'model_code' => $this->normalizeSignatureText($attributes['model_code']),
+            'color' => $this->normalizeSignatureText($attributes['color']),
+            'ram' => $this->normalizeStorageValue($attributes['ram']),
+            'rom' => $this->normalizeStorageValue($attributes['rom']),
+            'cpu' => $this->normalizeSignatureText($attributes['cpu']),
+            'gpu' => $this->normalizeSignatureText($attributes['gpu']),
+            'ram_type' => $this->normalizeSignatureText($attributes['ram_type']),
+            'rom_type' => $this->normalizeSignatureText($attributes['rom_type']),
+            'operating_system' => $this->normalizeSignatureText($attributes['operating_system']),
+            'screen' => $this->normalizeSignatureText($attributes['screen']),
         ];
     }
 
     /**
      * @return array{
      *     variant: ProductVariant|null,
+     *     signature: string,
      *     condition: string,
+     *     model_code: string,
      *     color: string,
      *     ram: string,
      *     rom: string,
@@ -797,18 +950,34 @@ class ImportInventoryItemsFromCsv
      */
     private function buildPredictedVariantDescriptor(array $row): array
     {
+        $attributes = [
+            'condition' => $row['Condition'] ?? '',
+            'model_code' => $row['Model Code'] ?? '',
+            'color' => $row['Color'] ?? '',
+            'ram' => $row['RAM'] ?? '',
+            'rom' => $row['ROM'] ?? '',
+            'cpu' => $row['CPU'] ?? '',
+            'gpu' => $row['GPU'] ?? '',
+            'ram_type' => $row['RAM Type'] ?? '',
+            'rom_type' => $row['ROM Type'] ?? '',
+            'operating_system' => $row['Operating System'] ?? '',
+            'screen' => $row['Screen'] ?? '',
+        ];
+
         return [
             'variant' => null,
-            'condition' => $this->normalizeCondition($row['Condition'] ?? ''),
-            'color' => $this->normalizeKey($row['Color'] ?? ''),
-            'ram' => $this->normalizeStorageValue($row['RAM'] ?? ''),
-            'rom' => $this->normalizeStorageValue($row['ROM'] ?? ''),
-            'cpu' => $this->normalizeKey($row['CPU'] ?? ''),
-            'gpu' => $this->normalizeKey($row['GPU'] ?? ''),
-            'ram_type' => $this->normalizeKey($row['RAM Type'] ?? ''),
-            'rom_type' => $this->normalizeKey($row['ROM Type'] ?? ''),
-            'operating_system' => $this->normalizeKey($row['Operating System'] ?? ''),
-            'screen' => $this->normalizeKey($row['Screen'] ?? ''),
+            'signature' => $this->variantSignature($attributes),
+            'condition' => $this->normalizeCondition($attributes['condition']),
+            'model_code' => $this->normalizeSignatureText($attributes['model_code']),
+            'color' => $this->normalizeSignatureText($attributes['color']),
+            'ram' => $this->normalizeStorageValue($attributes['ram']),
+            'rom' => $this->normalizeStorageValue($attributes['rom']),
+            'cpu' => $this->normalizeSignatureText($attributes['cpu']),
+            'gpu' => $this->normalizeSignatureText($attributes['gpu']),
+            'ram_type' => $this->normalizeSignatureText($attributes['ram_type']),
+            'rom_type' => $this->normalizeSignatureText($attributes['rom_type']),
+            'operating_system' => $this->normalizeSignatureText($attributes['operating_system']),
+            'screen' => $this->normalizeSignatureText($attributes['screen']),
         ];
     }
 
@@ -926,7 +1095,19 @@ class ImportInventoryItemsFromCsv
 
     private function collapseWhitespace(mixed $value): string
     {
-        return preg_replace('/\s+/', ' ', trim((string) $value)) ?: '';
+        $value = $this->sanitizeText((string) $value);
+
+        return preg_replace('/\s+/', ' ', trim($value)) ?: '';
+    }
+
+    private function sanitizeText(string $value): string
+    {
+        $cleanValue = iconv('UTF-8', 'UTF-8//IGNORE', $value);
+        $value = $cleanValue === false ? $value : $cleanValue;
+
+        $value = str_replace("\xEF\xBF\xBD", '', $value);
+
+        return preg_replace('/[\p{C}&&[^\t\r\n]]/u', '', $value) ?: '';
     }
 
     private function normalizeKey(mixed $value): string
@@ -957,9 +1138,30 @@ class ImportInventoryItemsFromCsv
 
     private function normalizeStorageValue(mixed $value): string
     {
-        $normalized = preg_replace('/\s*(gb|tb|mb)$/i', '', $this->normalizeKey($value)) ?: '';
+        $value = $this->collapseWhitespace($value);
 
-        return $this->normalizeWholeNumberString($normalized);
+        if ($value === '') {
+            return '';
+        }
+
+        if (preg_match('/^(?<number>\d+(?:\.\d+)?)\s*(?<unit>gb|tb|mb)?$/i', $value, $matches) === 1) {
+            $number = (float) $matches['number'];
+            $unit = strtolower((string) ($matches['unit'] ?? 'gb'));
+
+            $valueInGb = match ($unit) {
+                'tb' => $number * 1024,
+                'mb' => $number / 1024,
+                default => $number,
+            };
+
+            if (is_finite($valueInGb)) {
+                $normalized = rtrim(rtrim(number_format($valueInGb, 6, '.', ''), '0'), '.');
+
+                return $normalized === '' ? '0' : $normalized;
+            }
+        }
+
+        return $this->normalizeSignatureText($value);
     }
 
     private function normalizeCondition(mixed $value): string
@@ -1104,20 +1306,297 @@ class ImportInventoryItemsFromCsv
     }
 
     /**
-     * @param  array<string, string>  $attributes
+     * @param  array<string, mixed>  $attributes
      */
     private function uniqueSku(ProductMaster $productMaster, string $condition, array $attributes): string
     {
         $baseSku = $this->generatesProductVariantSku->fromAttributes($productMaster, $condition, $attributes);
-        $sku = $baseSku;
-        $suffix = 1;
 
-        while (ProductVariant::query()->where('sku', $sku)->exists()) {
-            $suffix++;
-            $sku = "{$baseSku}-{$suffix}";
+        if (! ProductVariant::query()->where('sku', $baseSku)->exists()) {
+            return $baseSku;
         }
 
-        return $sku;
+        $expansionAttributes = [
+            'cpu' => $attributes['cpu'] ?? '',
+            'gpu' => $attributes['gpu'] ?? '',
+            'ram_type' => $attributes['ram_type'] ?? '',
+            'rom_type' => $attributes['rom_type'] ?? '',
+            'operating_system' => $attributes['operating_system'] ?? '',
+            'screen' => $attributes['screen'] ?? '',
+        ];
+
+        $suffixParts = [];
+        foreach ($expansionAttributes as $attributeValue) {
+            $part = Str::upper($this->normalizeSignatureText($attributeValue));
+            if ($part !== '') {
+                $suffixParts[] = $part;
+            }
+        }
+
+        if ($suffixParts === []) {
+            throw new RuntimeException("Unable to create variant SKU without numeric suffix. Base SKU collision: {$baseSku}.");
+        }
+
+        $expandedSku = $baseSku.'-'.implode('-', $suffixParts);
+
+        if (ProductVariant::query()->where('sku', $expandedSku)->exists()) {
+            throw new RuntimeException("Unable to create variant SKU; expanded SKU collision: {$expandedSku}.");
+        }
+
+        return $expandedSku;
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function variantSignature(array $attributes): string
+    {
+        $normalized = [
+            'condition' => $this->normalizeCondition($attributes['condition'] ?? ''),
+            'model_code' => $this->normalizeSignatureText($attributes['model_code'] ?? ''),
+            'color' => $this->normalizeSignatureText($attributes['color'] ?? ''),
+            'ram' => $this->normalizeStorageValue($attributes['ram'] ?? ''),
+            'rom' => $this->normalizeStorageValue($attributes['rom'] ?? ''),
+            'cpu' => $this->normalizeSignatureText($attributes['cpu'] ?? ''),
+            'gpu' => $this->normalizeSignatureText($attributes['gpu'] ?? ''),
+            'ram_type' => $this->normalizeSignatureText($attributes['ram_type'] ?? ''),
+            'rom_type' => $this->normalizeSignatureText($attributes['rom_type'] ?? ''),
+            'operating_system' => $this->normalizeSignatureText($attributes['operating_system'] ?? ''),
+            'screen' => $this->normalizeSignatureText($attributes['screen'] ?? ''),
+        ];
+
+        return implode('|', [
+            $normalized['condition'],
+            $normalized['model_code'],
+            $normalized['color'],
+            $normalized['ram'],
+            $normalized['rom'],
+            $normalized['cpu'],
+            $normalized['gpu'],
+            $normalized['ram_type'],
+            $normalized['rom_type'],
+            $normalized['operating_system'],
+            $normalized['screen'],
+        ]);
+    }
+
+    private function normalizeSignatureText(mixed $value): string
+    {
+        return $this->sanitizeForLooseMatch($value);
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  array<string, mixed>  $references
+     */
+    private function findNearestProductMaster(array $row, array $references, ?string $masterSku = null): ?ProductMaster
+    {
+        $productMasters = $references['productMasters'] ?? [];
+        $productMasters = $productMasters instanceof \Illuminate\Support\Collection
+            ? $productMasters->all()
+            : (array) $productMasters;
+
+        $masters = array_values(array_filter(
+            $productMasters,
+            fn ($master): bool => $master instanceof ProductMaster
+        ));
+
+        if ($masterSku !== null) {
+            $skuMatches = ProductMaster::query()
+                ->with(['model.brand', 'subcategory.parent'])
+                ->where('master_sku', $masterSku)
+                ->get()
+                ->all();
+
+            $masters = array_values(array_reduce(
+                array_merge($skuMatches, $masters),
+                function (array $carry, ProductMaster $master): array {
+                    $carry[(int) $master->id] = $master;
+
+                    return $carry;
+                },
+                [],
+            ));
+        }
+
+        if ($masters === []) {
+            $masters = ProductMaster::query()
+                ->with(['model.brand', 'subcategory.parent'])
+                ->get()
+                ->all();
+        }
+
+        if ($masters === []) {
+            return null;
+        }
+
+        $rowBrand = $this->normalizeKey($row['Brand'] ?? '');
+        $rowModel = $this->normalizeKey($row['Model'] ?? '');
+        $rowCombined = $this->sanitizeForLooseMatch($rowBrand.' '.$rowModel);
+
+        $sameBrand = array_values(array_filter(
+            $masters,
+            fn (ProductMaster $master): bool => $this->normalizeKey($master->model?->brand?->name ?? '') === $rowBrand
+        ));
+        $candidates = $sameBrand !== [] ? $sameBrand : $masters;
+
+        $ranked = [];
+        foreach ($candidates as $candidate) {
+            $candidateBrand = $this->normalizeKey($candidate->model?->brand?->name ?? '');
+            $candidateModel = $this->normalizeKey($candidate->model?->model_name ?? '');
+            $candidateCombined = $this->sanitizeForLooseMatch($candidateBrand.' '.$candidateModel);
+            $similarity = $this->textSimilarity($rowCombined, $candidateCombined);
+            $distance = levenshtein($rowCombined, $candidateCombined);
+
+            $ranked[] = [
+                'master' => $candidate,
+                'similarity' => $similarity,
+                'exact_brand' => $candidateBrand === $rowBrand,
+                'exact_model' => $candidateModel === $rowModel,
+                'distance' => $distance,
+                'id' => (int) $candidate->id,
+            ];
+        }
+
+        usort($ranked, function (array $a, array $b): int {
+            $similarityComparison = $b['similarity'] <=> $a['similarity'];
+            if ($similarityComparison !== 0) {
+                return $similarityComparison;
+            }
+
+            $exactBrandComparison = (int) $b['exact_brand'] <=> (int) $a['exact_brand'];
+            if ($exactBrandComparison !== 0) {
+                return $exactBrandComparison;
+            }
+
+            $exactModelComparison = (int) $b['exact_model'] <=> (int) $a['exact_model'];
+            if ($exactModelComparison !== 0) {
+                return $exactModelComparison;
+            }
+
+            $distanceComparison = $a['distance'] <=> $b['distance'];
+            if ($distanceComparison !== 0) {
+                return $distanceComparison;
+            }
+
+            return $a['id'] <=> $b['id'];
+        });
+
+        return ($ranked[0] ?? null)['master'] ?? null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  array<string, mixed>  $references
+     */
+    private function findNearestVariant(array $row, int $masterId, array $references): ?ProductVariant
+    {
+        $descriptors = $references['variantsByMaster'][$masterId] ?? [];
+        if (! is_array($descriptors) || $descriptors === []) {
+            return null;
+        }
+
+        return $this->findNearestVariantFromDescriptors($row, $descriptors);
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  array<int, array<string, mixed>>  $descriptors
+     */
+    private function findNearestVariantFromDescriptors(array $row, array $descriptors): ?ProductVariant
+    {
+        $rowDescriptor = $this->buildPredictedVariantDescriptor($row);
+        $fields = ['condition', 'model_code', 'color', 'ram', 'rom', 'cpu', 'gpu', 'ram_type', 'rom_type', 'operating_system', 'screen'];
+        $ranked = [];
+
+        foreach ($descriptors as $descriptor) {
+            $candidateVariant = $descriptor['variant'] ?? null;
+            if (! $candidateVariant instanceof ProductVariant) {
+                continue;
+            }
+
+            $score = 0;
+            foreach ($fields as $field) {
+                if (($descriptor[$field] ?? '') === ($rowDescriptor[$field] ?? '')) {
+                    $score++;
+                }
+            }
+
+            $ranked[] = [
+                'variant' => $candidateVariant,
+                'score' => $score,
+                'exact_signature' => ($descriptor['signature'] ?? '') === ($rowDescriptor['signature'] ?? ''),
+                'id' => (int) $candidateVariant->id,
+            ];
+        }
+
+        if ($ranked === []) {
+            return null;
+        }
+
+        usort($ranked, function (array $a, array $b): int {
+            $scoreComparison = $b['score'] <=> $a['score'];
+            if ($scoreComparison !== 0) {
+                return $scoreComparison;
+            }
+
+            $signatureComparison = (int) $b['exact_signature'] <=> (int) $a['exact_signature'];
+            if ($signatureComparison !== 0) {
+                return $signatureComparison;
+            }
+
+            return $a['id'] <=> $b['id'];
+        });
+
+        return ($ranked[0] ?? null)['variant'] ?? null;
+    }
+
+    private function textSimilarity(string $left, string $right): float
+    {
+        if ($left === '' || $right === '') {
+            return 0.0;
+        }
+
+        similar_text($left, $right, $percent);
+
+        return $percent / 100;
+    }
+
+    private function isVariantSkuCollisionException(\Throwable $exception): bool
+    {
+        $message = Str::lower($exception->getMessage());
+
+        return str_contains($message, 'expanded sku collision')
+            || str_contains($message, 'base sku collision')
+            || (str_contains($message, 'sku') && str_contains($message, 'duplicate'))
+            || str_contains($message, 'product_variants_sku_unique');
+    }
+
+    /**
+     * @return array<int, array{
+     *     variant: ProductVariant|null,
+     *     signature: string,
+     *     condition: string,
+     *     model_code: string,
+     *     color: string,
+     *     ram: string,
+     *     rom: string,
+     *     cpu: string,
+     *     gpu: string,
+     *     ram_type: string,
+     *     rom_type: string,
+     *     operating_system: string,
+     *     screen: string
+     * }>
+     */
+    private function loadVariantDescriptorsForMaster(int $productMasterId): array
+    {
+        return ProductVariant::query()
+            ->where('product_master_id', $productMasterId)
+            ->get()
+            ->map(fn (ProductVariant $variant): array => $this->buildVariantDescriptor($variant))
+            ->values()
+            ->all();
     }
 
     private function cacheKey(string $importToken): string

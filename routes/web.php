@@ -28,4 +28,5 @@ require __DIR__.'/web/price-control.php';
 require __DIR__.'/web/three-way-matching.php';
 require __DIR__.'/web/users.php';
 require __DIR__.'/web/companies.php';
+require __DIR__.'/web/employees.php';
 require __DIR__.'/web/roles-permissions.php';

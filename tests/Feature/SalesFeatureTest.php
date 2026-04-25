@@ -19,13 +19,16 @@ use App\Models\ProductMaster;
 use App\Models\ProductModel;
 use App\Models\ProductVariant;
 use App\Models\SalesTransaction;
+use App\Models\SalesTransactionDocument;
 use App\Models\SalesTransactionItem;
 use App\Models\SalesTransactionPayment;
 use App\Models\SalesTransactionPaymentDetail;
+use App\Models\SalesTransactionPaymentDocument;
 use App\Models\User;
 use App\Models\Warehouse;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Inertia\Testing\AssertableInertia as Assert;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use Tests\TestCase;
@@ -271,6 +274,431 @@ class SalesFeatureTest extends TestCase
         @unlink($tempFile);
     }
 
+    public function test_sales_import_pos_sessions_creates_rows_from_valid_csv(): void
+    {
+        $user = User::factory()->create();
+        $warehouse = $this->createWarehouse('Import Branch', 1);
+
+        $csv = implode("\n", [
+            'session_number,notes,shift_start_time,shift_end_time,closing_balance,opening_balance,warehouse_name,status,cashier_remarks,created_date,updated_date',
+            'POS-1001,Imported row,2026-04-25T06:23:28.770Z,,,"1000",Import Branch,opened,Start shift,2026-04-24T22:23:28.357Z,2026-04-24T22:23:28.357Z',
+        ]);
+
+        $file = UploadedFile::fake()->createWithContent('pos-sessions.csv', $csv);
+
+        $this->actingAs($user)
+            ->post(route('sales.import.pos-sessions'), ['file' => $file])
+            ->assertRedirect(route('sales.index'))
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('pos_sessions', [
+            'session_number' => 'POS-1001',
+            'warehouse_id' => $warehouse->id,
+            'user_id' => $user->id,
+            'status' => PosSession::STATUS_OPENED,
+        ]);
+    }
+
+    public function test_sales_import_pos_sessions_upserts_existing_session_and_keeps_closed_from_reopen(): void
+    {
+        $user = User::factory()->create();
+        $warehouseA = $this->createWarehouse('Import Branch A', 1);
+        $warehouseB = $this->createWarehouse('Import Branch B', 2);
+
+        $session = PosSession::create([
+            'session_number' => 'POS-2001',
+            'user_id' => $user->id,
+            'warehouse_id' => $warehouseA->id,
+            'opening_balance' => 500,
+            'closing_balance' => 900,
+            'shift_start_time' => Carbon::parse('2026-04-24T06:00:00Z'),
+            'shift_end_time' => Carbon::parse('2026-04-24T14:00:00Z'),
+            'status' => PosSession::STATUS_CLOSED,
+            'notes' => 'Original',
+        ]);
+
+        $csv = implode("\n", [
+            'session_number,notes,shift_start_time,shift_end_time,closing_balance,opening_balance,warehouse_name,status,cashier_remarks,created_date,updated_date',
+            'POS-2001,Updated notes,2026-04-25T06:00:00.000Z,2026-04-25T10:00:00.000Z,1300,1200,Import Branch B,opened,csv remarks,2026-04-24T20:00:00.000Z,2026-04-24T20:00:00.000Z',
+        ]);
+        $file = UploadedFile::fake()->createWithContent('pos-sessions.csv', $csv);
+
+        $this->actingAs($user)
+            ->post(route('sales.import.pos-sessions'), ['file' => $file])
+            ->assertRedirect(route('sales.index'));
+
+        $session->refresh();
+        $this->assertSame(PosSession::STATUS_CLOSED, $session->status);
+        $this->assertSame((string) $warehouseB->id, (string) $session->warehouse_id);
+        $this->assertSame('Updated notes', $session->notes);
+        $this->assertSame(900.0, (float) $session->closing_balance);
+    }
+
+    public function test_sales_import_pos_sessions_skips_invalid_rows_and_reports_summary(): void
+    {
+        $user = User::factory()->create();
+        $this->createWarehouse('Import Branch', 1);
+
+        $csv = implode("\n", [
+            'session_number,notes,shift_start_time,shift_end_time,closing_balance,opening_balance,warehouse_name,status,cashier_remarks,created_date,updated_date',
+            'POS-3001,Unknown warehouse,2026-04-25T06:00:00.000Z,,,"1000",Missing Branch,opened,remarks,2026-04-25T00:00:00.000Z,2026-04-25T00:00:00.000Z',
+            'POS-3002,Invalid status,2026-04-25T06:00:00.000Z,,,"1000",Import Branch,invalid,remarks,2026-04-25T00:00:00.000Z,2026-04-25T00:00:00.000Z',
+            'POS-3003,Missing closed fields,2026-04-25T06:00:00.000Z,,,1000,Import Branch,closed,remarks,2026-04-25T00:00:00.000Z,2026-04-25T00:00:00.000Z',
+        ]);
+        $file = UploadedFile::fake()->createWithContent('pos-sessions.csv', $csv);
+
+        $response = $this->actingAs($user)->post(route('sales.import.pos-sessions'), ['file' => $file]);
+        $response->assertRedirect(route('sales.index'));
+        $response->assertSessionHas('import_summary');
+
+        $summary = session('import_summary');
+        $this->assertSame(0, $summary['created']);
+        $this->assertSame(0, $summary['updated']);
+        $this->assertSame(3, $summary['skipped']);
+        $this->assertSame(3, $summary['errors']);
+        $this->assertNotEmpty($summary['error_rows']);
+        $response->assertSessionHas('error');
+    }
+
+    public function test_sales_import_pos_sessions_rejects_non_csv_file(): void
+    {
+        $user = User::factory()->create();
+        $file = UploadedFile::fake()->create('sessions.pdf', 10, 'application/pdf');
+
+        $this->actingAs($user)
+            ->post(route('sales.import.pos-sessions'), ['file' => $file])
+            ->assertSessionHasErrors('file');
+    }
+
+    public function test_sales_import_pos_sessions_accepts_utf8_bom_header_csv(): void
+    {
+        $user = User::factory()->create();
+        $warehouse = $this->createWarehouse('Infinix SM Kiosk', 1);
+
+        $header = "\xEF\xBB\xBFsession_number,notes,shift_start_time,shift_end_time,closing_balance,opening_balance,warehouse_name,status,cashier_remarks,created_date,updated_date";
+        $row = 'POS-BOM-1,,2026-04-25T06:23:28.770Z,,,0,Infinix SM Kiosk,opened,,2026-04-24T22:23:28.357Z,2026-04-24T22:23:28.357Z';
+        $csv = $header."\n".$row;
+
+        $file = UploadedFile::fake()->createWithContent('pos-sessions-bom.csv', $csv);
+
+        $this->actingAs($user)
+            ->post(route('sales.import.pos-sessions'), ['file' => $file])
+            ->assertRedirect(route('sales.index'));
+
+        $this->assertDatabaseHas('pos_sessions', [
+            'session_number' => 'POS-BOM-1',
+            'warehouse_id' => $warehouse->id,
+            'user_id' => $user->id,
+        ]);
+    }
+
+    public function test_sales_import_pos_sessions_allows_import_when_user_already_has_open_session(): void
+    {
+        $user = User::factory()->create();
+        $warehouse = $this->createWarehouse('Infinix SM Kiosk', 1);
+
+        PosSession::create([
+            'session_number' => 'POS-EXISTING-OPEN',
+            'user_id' => $user->id,
+            'warehouse_id' => $warehouse->id,
+            'opening_balance' => 1000,
+            'shift_start_time' => Carbon::parse('2026-04-25T01:00:00Z'),
+            'status' => PosSession::STATUS_OPENED,
+        ]);
+
+        $csv = implode("\n", [
+            'session_number,notes,shift_start_time,shift_end_time,closing_balance,opening_balance,warehouse_name,status,cashier_remarks,created_date,updated_date',
+            'POS-NEW-OPEN,,2026-04-25T06:23:28.770Z,,,0,Infinix SM Kiosk,opened,,2026-04-24T22:23:28.357Z,2026-04-24T22:23:28.357Z',
+        ]);
+        $file = UploadedFile::fake()->createWithContent('pos-sessions.csv', $csv);
+
+        $this->actingAs($user)
+            ->post(route('sales.import.pos-sessions'), ['file' => $file])
+            ->assertRedirect(route('sales.index'))
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('pos_sessions', [
+            'session_number' => 'POS-NEW-OPEN',
+            'user_id' => $user->id,
+            'warehouse_id' => $warehouse->id,
+            'status' => PosSession::STATUS_OPENED,
+        ]);
+    }
+
+    public function test_sales_import_transactions_creates_rows_from_valid_csv_and_dedupes_items(): void
+    {
+        $user = User::factory()->create();
+        $warehouse = $this->createWarehouse('Import Branch', 1);
+        $cashier = User::factory()->create();
+        $session = PosSession::create([
+            'session_number' => 'POS-TXN-1',
+            'user_id' => $cashier->id,
+            'warehouse_id' => $warehouse->id,
+            'opening_balance' => 1000,
+            'shift_start_time' => Carbon::parse('2026-04-25T01:00:00Z'),
+            'status' => PosSession::STATUS_OPENED,
+        ]);
+        $salesRep = $this->createEmployee('Sales Representative');
+        $customer = $this->createCustomer('Import', 'Buyer');
+        $cash = PaymentMethod::create(['name' => 'Cash', 'type' => 'cash']);
+        $card = PaymentMethod::create(['name' => 'Credit Card', 'type' => 'card']);
+        [$variant] = $this->createProductGraph('Apple', 'iPhone 18', 'APPLE-IPHONE18', [
+            ['name' => '256GB Blue', 'sku' => 'APPLE-IPHONE18-256'],
+        ]);
+        $inventory = $this->createInventoryItem($variant, $warehouse, imei: '359250730563234', cash: 11999, cost: 10120);
+
+        $csv = $this->salesTransactionsCsv([
+            [
+                'transaction_number' => 'TXN-IMPORT-1',
+                'or_number' => 'OR-IMPORT-1',
+                'mode_of_release' => SalesTransaction::MODE_PICKUP,
+                'transaction_date' => '2026-04-25T06:37:15.048Z',
+                'customer_name' => 'Import Buyer',
+                'warehouse_name' => 'Import Branch',
+                'pos_session_number' => 'POS-TXN-1',
+                'sales_representative_name' => 'Sales Representative 001',
+                'inventory_identifier' => '359250730563234',
+                'unit_price' => '11999',
+                'price_basis' => 'cash',
+                'snapshot_cash_price' => '11999',
+                'snapshot_srp' => '12499',
+                'snapshot_cost_price' => '10120',
+                'discount_amount' => '0',
+                'line_total' => '11999',
+                'is_bundle' => 'false',
+                'payment_method_name' => 'Cash',
+                'amount' => '5000',
+                'official_receipt_url' => 'https://example.test/or.jpg',
+                'customer_id_url' => 'https://example.test/id.jpg',
+            ],
+            [
+                'transaction_number' => 'TXN-IMPORT-1',
+                'or_number' => 'OR-IMPORT-1',
+                'mode_of_release' => SalesTransaction::MODE_PICKUP,
+                'transaction_date' => '2026-04-25T06:37:15.048Z',
+                'customer_name' => 'Import Buyer',
+                'warehouse_name' => 'Import Branch',
+                'pos_session_number' => 'POS-TXN-1',
+                'sales_representative_name' => 'Sales Representative 001',
+                'inventory_identifier' => '359250730563234',
+                'unit_price' => '11999',
+                'price_basis' => 'cash',
+                'snapshot_cash_price' => '11999',
+                'snapshot_srp' => '12499',
+                'snapshot_cost_price' => '10120',
+                'discount_amount' => '0',
+                'line_total' => '11999',
+                'is_bundle' => 'false',
+                'payment_method_name' => 'Credit Card',
+                'amount' => '6999',
+                'reference_number' => 'CC-123',
+                'bank' => 'BPI',
+                'terminal_used' => 'Terminal 1',
+                'card_holder_name' => 'Import Buyer',
+                'loan_term_months' => '6',
+                'supporting_doc_url' => 'https://example.test/card.jpg',
+                'supporting_doc_name' => 'Card Slip',
+                'supporting_doc_type' => 'card_slip',
+                'official_receipt_url' => 'https://example.test/or.jpg',
+                'customer_id_url' => 'https://example.test/id.jpg',
+                'customer_agreement_url' => 'https://example.test/agreement.jpg',
+                'other_supporting_documents' => 'https://example.test/other.jpg',
+            ],
+        ]);
+
+        $file = UploadedFile::fake()->createWithContent('sales-transactions.csv', $csv);
+
+        $this->actingAs($user)
+            ->post(route('sales.import.transactions'), ['file' => $file])
+            ->assertRedirect(route('sales.index'))
+            ->assertSessionHas('success');
+
+        $transaction = SalesTransaction::where('transaction_number', 'TXN-IMPORT-1')->firstOrFail();
+        $this->assertSame('OR-IMPORT-1', $transaction->or_number);
+        $this->assertSame((string) $customer->id, (string) $transaction->customer_id);
+        $this->assertSame((string) $session->id, (string) $transaction->pos_session_id);
+        $this->assertSame((string) $salesRep->id, (string) $transaction->sales_representative_id);
+        $this->assertSame(11999.0, (float) $transaction->total_amount);
+        $this->assertSame(1, SalesTransactionItem::where('sales_transaction_id', $transaction->id)->count());
+        $this->assertSame(2, SalesTransactionPayment::where('sales_transaction_id', $transaction->id)->count());
+        $this->assertSame(1, SalesTransactionPaymentDetail::query()->count());
+        $this->assertSame(1, SalesTransactionPaymentDocument::query()->count());
+        $this->assertSame(4, SalesTransactionDocument::where('sales_transaction_id', $transaction->id)->count());
+        $this->assertDatabaseHas('inventory_items', [
+            'id' => $inventory->id,
+            'status' => 'sold',
+        ]);
+    }
+
+    public function test_sales_import_transactions_skips_existing_transaction(): void
+    {
+        $user = User::factory()->create();
+        $warehouse = $this->createWarehouse('Duplicate Branch', 1);
+        $cash = PaymentMethod::create(['name' => 'Cash', 'type' => 'cash']);
+        $salesRep = $this->createEmployee('Sales Representative');
+        $customer = $this->createCustomer('Duplicate', 'Buyer');
+        $session = $this->createSession($this->createEmployee('Cashier'), $warehouse);
+        [$variant] = $this->createProductGraph('Apple', 'iPhone 19', 'APPLE-IPHONE19', [
+            ['name' => '128GB Black', 'sku' => 'APPLE-IPHONE19-128'],
+        ]);
+        $inventory = $this->createInventoryItem($variant, $warehouse, imei: 'DUP-IMEI-1');
+        $this->createTransaction($session, $customer, $inventory, $cash, $salesRep, orNumber: 'OR-DUP-1');
+        $existing = SalesTransaction::where('or_number', 'OR-DUP-1')->firstOrFail();
+
+        $csv = $this->salesTransactionsCsv([[
+            'transaction_number' => $existing->transaction_number,
+            'or_number' => 'OR-DUP-1',
+            'mode_of_release' => SalesTransaction::MODE_PICKUP,
+            'transaction_date' => '2026-04-25T06:37:15.048Z',
+            'customer_name' => 'Duplicate Buyer',
+            'warehouse_name' => 'Duplicate Branch',
+            'pos_session_number' => $session->session_number,
+            'sales_representative_name' => 'Sales Representative 001',
+            'inventory_identifier' => 'DUP-IMEI-1',
+            'unit_price' => '10000',
+            'price_basis' => 'cash',
+            'line_total' => '10000',
+            'payment_method_name' => 'Cash',
+            'amount' => '10000',
+        ]]);
+
+        $this->actingAs($user)
+            ->post(route('sales.import.transactions'), ['file' => UploadedFile::fake()->createWithContent('sales-transactions.csv', $csv)])
+            ->assertRedirect(route('sales.index'))
+            ->assertSessionHas('success');
+
+        $this->assertSame(1, SalesTransaction::where('or_number', 'OR-DUP-1')->count());
+        $summary = session('import_summary');
+        $this->assertSame(0, $summary['created']);
+        $this->assertSame(1, $summary['skipped']);
+    }
+
+    public function test_sales_import_transactions_requires_expected_csv_headers(): void
+    {
+        $user = User::factory()->create();
+        $file = UploadedFile::fake()->createWithContent('sales-transactions.csv', 'transaction_number,or_number');
+
+        $this->actingAs($user)
+            ->post(route('sales.import.transactions'), ['file' => $file])
+            ->assertSessionHasErrors('file');
+    }
+
+    public function test_sales_import_transactions_skips_blank_or_unknown_inventory(): void
+    {
+        $user = User::factory()->create();
+        $warehouse = $this->createWarehouse('Inventory Branch', 1);
+        PosSession::create([
+            'session_number' => 'POS-INV-1',
+            'user_id' => $user->id,
+            'warehouse_id' => $warehouse->id,
+            'opening_balance' => 1000,
+            'shift_start_time' => Carbon::parse('2026-04-25T01:00:00Z'),
+            'status' => PosSession::STATUS_OPENED,
+        ]);
+        $this->createEmployee('Sales Representative');
+        $this->createCustomer('Inventory', 'Buyer');
+        PaymentMethod::create(['name' => 'Cash', 'type' => 'cash']);
+
+        $csv = $this->salesTransactionsCsv([[
+            'transaction_number' => 'TXN-MISSING-INV',
+            'or_number' => 'OR-MISSING-INV',
+            'mode_of_release' => SalesTransaction::MODE_PICKUP,
+            'transaction_date' => '2026-04-25T06:37:15.048Z',
+            'customer_name' => 'Inventory Buyer',
+            'warehouse_name' => 'Inventory Branch',
+            'pos_session_number' => 'POS-INV-1',
+            'sales_representative_name' => 'Sales Representative 001',
+            'inventory_identifier' => '',
+            'unit_price' => '10000',
+            'price_basis' => 'cash',
+            'line_total' => '10000',
+            'payment_method_name' => 'Cash',
+            'amount' => '10000',
+        ]]);
+
+        $response = $this->actingAs($user)
+            ->post(route('sales.import.transactions'), ['file' => UploadedFile::fake()->createWithContent('sales-transactions.csv', $csv)]);
+
+        $response->assertRedirect(route('sales.index'));
+        $response->assertSessionHas('error');
+        $this->assertDatabaseMissing('sales_transactions', ['transaction_number' => 'TXN-MISSING-INV']);
+        $this->assertStringContainsString('inventory_identifier is required', session('import_summary')['error_rows'][0]);
+    }
+
+    public function test_sales_import_transactions_skips_missing_lookup_records(): void
+    {
+        $user = User::factory()->create();
+        $csv = $this->salesTransactionsCsv([[
+            'transaction_number' => 'TXN-MISSING-LOOKUP',
+            'or_number' => 'OR-MISSING-LOOKUP',
+            'mode_of_release' => SalesTransaction::MODE_PICKUP,
+            'transaction_date' => '2026-04-25T06:37:15.048Z',
+            'customer_name' => 'Missing Buyer',
+            'warehouse_name' => 'Missing Branch',
+            'pos_session_number' => 'POS-MISSING',
+            'sales_representative_name' => 'Missing Rep',
+            'inventory_identifier' => 'UNKNOWN',
+            'unit_price' => '10000',
+            'price_basis' => 'cash',
+            'line_total' => '10000',
+            'payment_method_name' => 'Cash',
+            'amount' => '10000',
+        ]]);
+
+        $this->actingAs($user)
+            ->post(route('sales.import.transactions'), ['file' => UploadedFile::fake()->createWithContent('sales-transactions.csv', $csv)])
+            ->assertRedirect(route('sales.index'))
+            ->assertSessionHas('error');
+
+        $this->assertDatabaseMissing('sales_transactions', ['transaction_number' => 'TXN-MISSING-LOOKUP']);
+        $this->assertStringContainsString("customer_name 'Missing Buyer' not found", session('import_summary')['error_rows'][0]);
+    }
+
+    public function test_sales_import_transactions_accepts_utf8_bom_header_csv(): void
+    {
+        $user = User::factory()->create();
+        $warehouse = $this->createWarehouse('BOM Branch', 1);
+        PosSession::create([
+            'session_number' => 'POS-BOM-TXN',
+            'user_id' => $user->id,
+            'warehouse_id' => $warehouse->id,
+            'opening_balance' => 1000,
+            'shift_start_time' => Carbon::parse('2026-04-25T01:00:00Z'),
+            'status' => PosSession::STATUS_OPENED,
+        ]);
+        $this->createEmployee('Sales Representative');
+        $this->createCustomer('Bom', 'Buyer');
+        PaymentMethod::create(['name' => 'Cash', 'type' => 'cash']);
+        [$variant] = $this->createProductGraph('Apple', 'iPhone BOM', 'APPLE-IPHONE-BOM', [
+            ['name' => '64GB', 'sku' => 'APPLE-IPHONE-BOM-64'],
+        ]);
+        $this->createInventoryItem($variant, $warehouse, imei: 'BOM-IMEI-1');
+
+        $csv = $this->salesTransactionsCsv([[
+            'transaction_number' => 'TXN-BOM',
+            'or_number' => 'OR-BOM',
+            'mode_of_release' => SalesTransaction::MODE_PICKUP,
+            'transaction_date' => '2026-04-25T06:37:15.048Z',
+            'customer_name' => 'Bom Buyer',
+            'warehouse_name' => 'BOM Branch',
+            'pos_session_number' => 'POS-BOM-TXN',
+            'sales_representative_name' => 'Sales Representative 001',
+            'inventory_identifier' => 'BOM-IMEI-1',
+            'unit_price' => '10000',
+            'price_basis' => 'cash',
+            'line_total' => '10000',
+            'payment_method_name' => 'Cash',
+            'amount' => '10000',
+        ]], true);
+
+        $this->actingAs($user)
+            ->post(route('sales.import.transactions'), ['file' => UploadedFile::fake()->createWithContent('sales-transactions-bom.csv', $csv)])
+            ->assertRedirect(route('sales.index'))
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('sales_transactions', ['transaction_number' => 'TXN-BOM']);
+    }
+
     private function createWarehouse(string $name, int $sortOrder): Warehouse
     {
         return Warehouse::create([
@@ -470,5 +898,62 @@ class SalesFeatureTest extends TestCase
     {
         CustomerGroup::firstOrCreate(['name' => 'Walk-in']);
         CustomerType::firstOrCreate(['name' => 'retail']);
+    }
+
+    private function salesTransactionsCsv(array $rows, bool $bom = false): string
+    {
+        $headers = [
+            'transaction_number',
+            'or_number',
+            'mode_of_release',
+            'remarks',
+            'transaction_date',
+            'customer_name',
+            'warehouse_name',
+            'pos_session_number',
+            'sales_representative_name',
+            'inventory_identifier',
+            'unit_price',
+            'price_basis',
+            'snapshot_cash_price',
+            'snapshot_srp',
+            'snapshot_cost_price',
+            'discount_amount',
+            'proof_image_url',
+            'validated_at',
+            'line_total',
+            'is_bundle',
+            'bundle_serial',
+            'payment_method_name',
+            'amount',
+            'reference_number',
+            'downpayment',
+            'bank',
+            'terminal_used',
+            'card_holder_name',
+            'loan_term_months',
+            'sender_mobile',
+            'contract_id',
+            'registered_mobile',
+            'supporting_doc_url',
+            'supporting_doc_name',
+            'supporting_doc_type',
+            'official_receipt_url',
+            'customer_id_url',
+            'customer_agreement_url',
+            'other_supporting_documents',
+        ];
+
+        $lines = [($bom ? "\xEF\xBB\xBF" : '').implode(',', $headers)];
+        foreach ($rows as $row) {
+            $values = [];
+            foreach ($headers as $header) {
+                $value = (string) ($row[$header] ?? '');
+                $values[] = str_contains($value, ',') ? '"'.str_replace('"', '""', $value).'"' : $value;
+            }
+            $lines[] = implode(',', $values);
+        }
+
+        return implode("\n", $lines);
     }
 }

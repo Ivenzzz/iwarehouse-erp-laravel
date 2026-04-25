@@ -1,24 +1,6 @@
+in /sales,
+* add an export sales transaction to csv functionality
+* this should include these columns: 
+  * transaction_number, or_number, mode_of_release, remarks, transaction_date, customer_name, warehouse name, pos session number, sales representative name, product variant name, unit_price, price_basis, snapshot_cash_price, snapshot_srp, snapshot_cost_price, discount_amount, proof_image_url, validated_at, line_total, is_bundle, bundle_serial, payment method name, amount, reference_number, downpayment, bank, terminal_used, card_holder_name, loan_term_months, sender_mobile, contract_id, registered_mobile, supporting_doc_url, supporting_doc_name, supporting_doc_type, official_receipt_url, customer_id_url, customer_agreement_url, other_supporting_documents
 
----
-
-**Phase 2 — Inspection & Technical Assessment**
-
-- **Single-Tier Inspection (Technician)**
-The assigned technician performs a comprehensive end-to-end assessment in one unified pass:
-  - Visual check for physical damage (cracks, liquid damage indicators, burn marks)
-  - Basic power-on and functional test
-  - Verification of all accessories and packaging per the original claim
-  - Manufacturer diagnostic tools, stress tests, and component-level checks as needed for intermittent issues, software faults, or disputed damage
-  - Each product category (Mobile Devices, Computers, etc.) should have its own different input fields
-
-  This tier answers: *Does the unit behave the way the customer described, and if so, what is the root cause — manufacturing defect or user-induced damage?*
-
-- **Categorization After Inspection**
-Every unit gets classified into one of these buckets:
-  - **Confirmed Defect — Manufacturing/Warranty** → Eligible for full RMA resolution
-  - **Physical or Liquid Damage — User-Caused** → Policy applies differently; possible paid repair path
-  - **No Fault Found (NFF)** → We document, test again, and decide whether to return as-is or offer a goodwill resolution
-  - **Tampered / Voided Warranty** → Rejected from RMA; customer is notified with evidence
-
----
-
+  * make sure that the exported csv has only one atomic value per column. no multiple values or json values.

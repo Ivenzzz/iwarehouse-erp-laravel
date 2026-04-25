@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Head, router } from "@inertiajs/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Head, router, usePage } from "@inertiajs/react";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -7,7 +7,8 @@ import { Combobox } from "@/shared/components/ui/combobox";
 import AppShell from "@/shared/layouts/AppShell";
 import SalesTableRow from "@/features/sales/SalesTableRow";
 import TransactionDetailsDialog from "@/features/salesreport/TransactionDetailsDialog";
-import { Search, Package, RefreshCw, Calendar as CalendarIcon, X, ChevronUp, ChevronDown, Download } from "lucide-react";
+import { usePageToasts } from "@/shared/hooks/use-page-toasts";
+import { Search, Package, RefreshCw, Calendar as CalendarIcon, X, ChevronUp, ChevronDown, Download, Upload } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
 import { format, getISOWeek, getYear, startOfISOWeek, endOfISOWeek, subWeeks } from "date-fns";
 import { generateWarrantyReceiptHTML } from "@/features/pos/lib/services/sale/warrantyReceiptService";
@@ -42,10 +43,17 @@ function SortableHeader({ label, sortKey, filters, onSort }) {
 }
 
 export default function Sales({ filters, warehouses, rows }) {
+  const { props } = usePage();
+  usePageToasts([props.errors?.file], "destructive");
+
   const [searchTerm, setSearchTerm] = useState(filters.search ?? "");
   const [selectedDay, setSelectedDay] = useState(filters.day ? new Date(`${filters.day}T00:00:00`) : null);
   const [selectedTransactionId, setSelectedTransactionId] = useState(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [isImportingTransactions, setIsImportingTransactions] = useState(false);
+  const fileInputRef = useRef(null);
+  const transactionsFileInputRef = useRef(null);
   const weekOptions = useMemo(() => [{ value: "all", label: "All Weeks" }, ...generateWeekOptions()], []);
   const warehouseOptions = useMemo(() => [{ value: "all", label: "All Branches" }, ...warehouses.map((warehouse) => ({ value: String(warehouse.id), label: warehouse.name }))], [warehouses]);
   const visibleRows = rows?.data ?? [];
@@ -102,6 +110,50 @@ export default function Sales({ filters, warehouses, rows }) {
     if (!printWindow) return;
     printWindow.document.write(`${html}<script>window.onload=function(){window.print();}</script>`);
     printWindow.document.close();
+  };
+
+  const handleOpenImportPicker = () => {
+    if (isImporting) return;
+    fileInputRef.current?.click();
+  };
+
+  const handleOpenTransactionsImportPicker = () => {
+    if (isImportingTransactions) return;
+    transactionsFileInputRef.current?.click();
+  };
+
+  const handleImportPosSessions = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    router.post(route("sales.import.pos-sessions", filters), { file }, {
+      forceFormData: true,
+      preserveScroll: true,
+      onFinish: () => {
+        setIsImporting(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      },
+    });
+  };
+
+  const handleImportTransactions = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImportingTransactions(true);
+    router.post(route("sales.import.transactions", filters), { file }, {
+      forceFormData: true,
+      preserveScroll: true,
+      onFinish: () => {
+        setIsImportingTransactions(false);
+        if (transactionsFileInputRef.current) {
+          transactionsFileInputRef.current.value = "";
+        }
+      },
+    });
   };
 
   return (
@@ -167,6 +219,28 @@ export default function Sales({ filters, warehouses, rows }) {
 
               <Button variant="outline" onClick={() => { window.location.href = route("sales.export.xlsx", filters); }} disabled={pagination.total === 0}>
                 <Download className="mr-2 h-4 w-4" />Export XLSX
+              </Button>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,.txt"
+                className="hidden"
+                onChange={handleImportPosSessions}
+              />
+              <Button variant="outline" onClick={handleOpenImportPicker} disabled={isImporting}>
+                <Upload className="mr-2 h-4 w-4" />{isImporting ? "Importing..." : "Import POS Sessions"}
+              </Button>
+
+              <input
+                ref={transactionsFileInputRef}
+                type="file"
+                accept=".csv,.txt"
+                className="hidden"
+                onChange={handleImportTransactions}
+              />
+              <Button variant="outline" onClick={handleOpenTransactionsImportPicker} disabled={isImportingTransactions}>
+                <Upload className="mr-2 h-4 w-4" />{isImportingTransactions ? "Importing..." : "Import Sales Transactions"}
               </Button>
             </div>
 

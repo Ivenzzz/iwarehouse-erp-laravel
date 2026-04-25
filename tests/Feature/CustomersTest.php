@@ -176,11 +176,11 @@ class CustomersTest extends TestCase
         $user = User::factory()->create();
         $this->createCustomer([], ['email' => 'existing@example.test', 'phone' => '09170000001']);
         $csv = <<<'CSV'
-customer_kind,firstname,lastname,organization_name,legal_name,tax_id,date_of_birth,customer_group,customer_type,status,contact_firstname,contact_lastname,email,phone,street,region,province,city_municipality,barangay,postal_code
-person,Ada,Lovelace,,,,,Walk-in,retail,active,Ada,Lovelace,existing@example.test,09170000001,Main Street,NCR,,Manila,Ermita,1000
-person,Grace,Hopper,,,,,Walk-in,retail,active,Grace,Hopper,grace@example.test,09170000002,Main Street,NCR,,Manila,Ermita,1000
-person,Grace,Hopper,,,,,Walk-in,retail,active,Grace,Hopper,grace@example.test,09170000002,Main Street,NCR,,Manila,Ermita,1000
-organization,,,Northwind Traders,Northwind LLC,TAX-1,,Corporate,wholesale,inactive,Northwind,Orders,orders@northwind.test,09170000003,Commerce Ave,NCR,,Makati,Poblacion,1200
+Customer Code,Firstname,Lastname,Date of Birth,Email,Phone,Country,Region,Province,City,Barangay,Postal Code,Street,Customer Group,Customer Type
+CUST-001,Ada,Lovelace,,existing@example.test,09170000001,Philippines,NCR,,Manila,Ermita,1000,Main Street,Walk-in,retail
+CUST-002,Grace,Hopper,,grace@example.test,09170000002,Philippines,NCR,,Manila,Ermita,1000,Main Street,Walk-in,retail
+CUST-002,Grace,Hopper,,grace@example.test,09170000002,Philippines,NCR,,Manila,Ermita,1000,Main Street,Walk-in,retail
+CUST-003,Northwind,Traders,,orders@northwind.test,09170000003,Philippines,NCR,,Makati,Poblacion,1200,Commerce Ave,Corporate,wholesale
 CSV;
 
         $file = UploadedFile::fake()->createWithContent('customers.csv', $csv);
@@ -190,8 +190,24 @@ CSV;
             ->assertRedirect(route('customers.index', absolute: false))
             ->assertSessionHas('success');
 
-        $this->assertDatabaseHas('customers', ['firstname' => 'Grace', 'lastname' => 'Hopper']);
-        $this->assertDatabaseHas('customers', ['organization_name' => 'Northwind Traders']);
+        $this->assertDatabaseHas('customers', ['customer_code' => 'CUST-002', 'firstname' => 'Grace', 'lastname' => 'Hopper']);
+        $this->assertDatabaseHas('customers', ['customer_code' => 'CUST-003', 'firstname' => 'Northwind', 'lastname' => 'Traders']);
+        $grace = Customer::where('customer_code', 'CUST-002')->firstOrFail();
+        $this->assertDatabaseHas('customer_contacts', [
+            'customer_id' => $grace->id,
+            'email' => 'grace@example.test',
+            'phone' => '09170000002',
+            'is_primary' => true,
+        ]);
+        $this->assertDatabaseHas('customer_addresses', [
+            'customer_id' => $grace->id,
+            'country' => 'PH',
+            'region' => 'NCR',
+            'city_municipality' => 'Manila',
+            'barangay' => 'Ermita',
+            'street' => 'Main Street',
+            'is_primary' => true,
+        ]);
         $this->assertSame(1, Customer::where('firstname', 'Grace')->count());
     }
 

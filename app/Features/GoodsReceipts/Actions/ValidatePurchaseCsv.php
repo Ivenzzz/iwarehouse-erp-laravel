@@ -3,7 +3,7 @@
 namespace App\Features\GoodsReceipts\Actions;
 
 use App\Models\ProductMaster;
-use App\Models\ProductBrand;
+use App\Models\ProductModel;
 use App\Models\ProductVariant;
 
 class ValidatePurchaseCsv
@@ -46,16 +46,9 @@ class ValidatePurchaseCsv
         $productMasters = ProductMaster::query()
             ->with(['model.brand', 'subcategory.parent'])
             ->get();
-        $allBrands = ProductBrand::query()
-            ->orderBy('name')
-            ->get()
-            ->map(fn (ProductBrand $brand) => [
-                'brandId' => (string) $brand->id,
-                'brandName' => (string) $brand->name,
-                'productMasterId' => null,
-            ])
-            ->values()
-            ->all();
+        $productModels = ProductModel::query()
+            ->with('brand')
+            ->get();
 
         $validatedRows = [];
         $errors = [];
@@ -76,6 +69,44 @@ class ValidatePurchaseCsv
                 continue;
             }
 
+            $normalizedModelName = $this->normalizeText($modelName);
+            $modelBrandChoices = $productModels
+                ->filter(
+                    fn (ProductModel $model): bool => $this->normalizeText((string) $model->model_name) === $normalizedModelName
+                )
+                ->map(function (ProductModel $model) use ($productMasters) {
+                    $master = $productMasters->first(
+                        fn (ProductMaster $pm): bool => (int) $pm->model_id === (int) $model->id
+                    );
+
+                    return [
+                        'brandId' => (string) ($model->brand?->id ?? ''),
+                        'brandName' => (string) ($model->brand?->name ?? 'Unknown Brand'),
+                        'productMasterId' => $master instanceof ProductMaster ? (int) $master->id : null,
+                    ];
+                })
+                ->filter(fn (array $choice): bool => $choice['brandId'] !== '')
+                ->unique('brandId')
+                ->sortBy(fn (array $choice): string => mb_strtolower((string) ($choice['brandName'] ?? '')))
+                ->values();
+
+            if ($modelBrandChoices->count() > 1) {
+                $brandConflicts[] = [
+                    'type' => 'multiple_brand_match',
+                    'rowIndex' => $index,
+                    'modelName' => $modelName,
+                    'normalizedModelName' => $normalizedModelName,
+                    'row' => $row,
+                    'brands' => $modelBrandChoices->all(),
+                    'selectedBrandId' => null,
+                    'selectedBrandMode' => 'existing',
+                    'newBrandName' => null,
+                    'allowCreateBrand' => false,
+                ];
+
+                continue;
+            }
+
             $candidateMasters = $productMasters->filter(
                 function (ProductMaster $pm) use ($modelName) {
                     $csv = $this->normalizeText($modelName);
@@ -86,13 +117,21 @@ class ValidatePurchaseCsv
             )->values();
 
             if ($candidateMasters->isEmpty()) {
+                $brandChoices = $modelBrandChoices->all();
+
+                if (count($brandChoices) === 0) {
+                    $errors[] = ['row' => $rowNumber, 'message' => "Row {$rowNumber}: Model \"{$modelName}\" was not found in product models for any brand."];
+
+                    continue;
+                }
+
                 $brandConflicts[] = [
                     'type' => 'no_brand_match',
                     'rowIndex' => $index,
                     'modelName' => $modelName,
-                    'normalizedModelName' => $this->normalizeText($modelName),
+                    'normalizedModelName' => $normalizedModelName,
                     'row' => $row,
-                    'brands' => $allBrands,
+                    'brands' => $brandChoices,
                     'selectedBrandId' => null,
                     'selectedBrandMode' => 'existing',
                     'newBrandName' => null,

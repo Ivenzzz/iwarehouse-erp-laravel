@@ -9,6 +9,7 @@ use App\Models\ProductCategory;
 use App\Models\ProductMaster;
 use App\Models\ProductModel;
 use App\Models\ProductVariant;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -258,10 +259,81 @@ class PurchaseCsvVariantResolutionTest extends TestCase
             ]),
         ]));
 
+        $this->assertCount(1, $result['errors']);
+        $this->assertSame([], $result['brandConflicts']);
+        $this->assertStringContainsString(
+            'was not found in product models for any brand',
+            (string) ($result['errors'][0]['message'] ?? '')
+        );
+    }
+
+    public function test_validate_csv_no_brand_match_conflict_returns_only_model_linked_brands(): void
+    {
+        $acerBrand = ProductBrand::create(['name' => 'Acer']);
+        $appleBrand = ProductBrand::create(['name' => 'Apple']);
+        ProductBrand::create(['name' => 'MSI']);
+
+        ProductModel::create([
+            'brand_id' => $acerBrand->id,
+            'model_name' => 'SWIFT X',
+        ]);
+        ProductModel::create([
+            'brand_id' => $appleBrand->id,
+            'model_name' => 'SWIFT X',
+        ]);
+        ProductModel::create([
+            'brand_id' => $appleBrand->id,
+            'model_name' => 'MACBOOK AIR',
+        ]);
+
+        $result = app(ValidatePurchaseCsv::class)->handle($this->csvWithRows([
+            $this->rowFor('Swift X', [
+                'Model Code' => 'SFX',
+                'Condition' => 'Brand New',
+            ]),
+        ]));
+
         $this->assertSame([], $result['errors']);
         $this->assertCount(1, $result['brandConflicts']);
-        $this->assertSame('no_brand_match', $result['brandConflicts'][0]['type']);
-        $this->assertFalse((bool) ($result['brandConflicts'][0]['allowCreateBrand'] ?? true));
+        $this->assertSame('multiple_brand_match', $result['brandConflicts'][0]['type']);
+
+        $brands = collect($result['brandConflicts'][0]['brands'] ?? []);
+        $this->assertCount(2, $brands);
+        $this->assertEqualsCanonicalizing(
+            [(string) $acerBrand->id, (string) $appleBrand->id],
+            $brands->pluck('brandId')->all()
+        );
+    }
+
+    public function test_validate_csv_prompts_conflict_when_model_exists_in_multiple_brands_but_only_one_has_master(): void
+    {
+        $acerMaster = $this->createProductMaster(modelName: 'Extensa 15 EX215-24-R3BM', brandName: 'Acer');
+        $appleBrand = ProductBrand::create(['name' => 'Apple']);
+        ProductModel::create([
+            'brand_id' => $appleBrand->id,
+            'model_name' => 'Extensa 15 EX215-24-R3BM',
+        ]);
+
+        $result = app(ValidatePurchaseCsv::class)->handle($this->csvWithRows([
+            $this->rowFor('Extensa 15 EX215-24-R3BM', [
+                'Model Code' => 'EX215-24-R3BM',
+                'Condition' => 'Brand New',
+            ]),
+        ]));
+
+        $this->assertSame([], $result['errors']);
+        $this->assertSame([], $result['validatedRows']);
+        $this->assertCount(1, $result['brandConflicts']);
+        $this->assertSame('multiple_brand_match', $result['brandConflicts'][0]['type']);
+
+        $brands = collect($result['brandConflicts'][0]['brands'] ?? []);
+        $this->assertCount(2, $brands);
+        $this->assertSame(['Acer', 'Apple'], $brands->pluck('brandName')->all());
+        $this->assertSame(
+            (int) $acerMaster->id,
+            (int) ($brands->firstWhere('brandName', 'Acer')['productMasterId'] ?? 0)
+        );
+        $this->assertNull($brands->firstWhere('brandName', 'Apple')['productMasterId'] ?? null);
     }
 
     public function test_resolve_conflicts_returns_error_when_model_missing_under_selected_brand(): void
@@ -419,6 +491,75 @@ class PurchaseCsvVariantResolutionTest extends TestCase
         ]);
     }
 
+    public function test_resolve_conflicts_rejects_selected_brand_not_in_conflict_choices(): void
+    {
+        $this->createFallbackCategoryTree();
+        $allowedBrand = ProductBrand::create(['name' => 'Acer']);
+        $otherBrand = ProductBrand::create(['name' => 'Apple']);
+
+        ProductModel::create([
+            'brand_id' => $allowedBrand->id,
+            'model_name' => 'SWIFT GO',
+        ]);
+
+        $conflict = [
+            'type' => 'no_brand_match',
+            'rowIndex' => 0,
+            'modelName' => 'Swift Go',
+            'row' => $this->rowFor('Swift Go'),
+            'brands' => [[
+                'brandId' => (string) $allowedBrand->id,
+                'brandName' => $allowedBrand->name,
+                'productMasterId' => null,
+            ]],
+            'selectedBrandId' => (string) $otherBrand->id,
+            'allowCreateBrand' => false,
+        ];
+
+        $resolved = app(ResolvePurchaseBrandConflicts::class)->handle([$conflict]);
+
+        $this->assertCount(1, $resolved['errors']);
+        $this->assertStringContainsString(
+            'Selected brand is invalid for model Swift Go.',
+            (string) ($resolved['errors'][0]['message'] ?? '')
+        );
+        $this->assertSame([], $resolved['resolved']);
+    }
+
+    public function test_resolve_conflicts_endpoint_uses_full_conflict_payload_not_only_selected_brand_id(): void
+    {
+        $user = User::factory()->create();
+        $master = $this->createProductMaster(modelName: 'Nitro V', brandName: 'Acer');
+
+        $response = $this->actingAs($user)->postJson(
+            route('goods-receipts.purchase-import.resolve-conflicts'),
+            [
+                'brandConflicts' => [[
+                    'type' => 'no_brand_match',
+                    'rowIndex' => 3,
+                    'modelName' => 'Nitro V',
+                    'row' => $this->rowFor('Nitro V', [
+                        'Model Code' => 'ANV15',
+                        'Condition' => 'Brand New',
+                        'Ram Capacity' => '16GB',
+                        'Rom Capacity' => '512GB',
+                    ]),
+                    'brands' => [[
+                        'brandId' => (string) $master->model->brand->id,
+                        'brandName' => (string) $master->model->brand->name,
+                        'productMasterId' => (int) $master->id,
+                    ]],
+                    'selectedBrandId' => (string) $master->model->brand->id,
+                    'allowCreateBrand' => false,
+                ]],
+            ]
+        );
+
+        $response->assertOk();
+        $response->assertJsonPath('errors', []);
+        $response->assertJsonCount(1, 'resolved');
+    }
+
     public function test_validate_csv_response_shape_is_unchanged(): void
     {
         $this->createProductMaster(modelName: 'Swift 14', brandName: 'Acer');
@@ -489,9 +630,12 @@ class PurchaseCsvVariantResolutionTest extends TestCase
             ]),
         ]));
 
-        $this->assertSame([], $result['errors']);
-        $this->assertCount(1, $result['brandConflicts']);
-        $this->assertSame('no_brand_match', $result['brandConflicts'][0]['type']);
+        $this->assertCount(1, $result['errors']);
+        $this->assertSame([], $result['brandConflicts']);
+        $this->assertStringContainsString(
+            'was not found in product models for any brand',
+            (string) ($result['errors'][0]['message'] ?? '')
+        );
     }
 
     private function csvWithRows(array $rows): string

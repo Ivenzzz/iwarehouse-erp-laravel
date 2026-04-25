@@ -4,7 +4,7 @@ import { useAddPurchase } from "./useAddPurchase";
 import { useGRNData } from "./useGRNData";
 import { useGRNEncoding } from "./useGRNEncoding";
 import { buildGRNData, buildSubmitDeclaredItemsList, getGRNWarehouse } from "../utils/grnTransforms";
-import { printBarcodes, printGRN } from "@/features/goodsreceipt/lib/services/grnPrintService";
+import { printGRN } from "@/features/goodsreceipt/lib/services/grnPrintService";
 import { printQRStickers } from "@/features/goodsreceipt/lib/services/grnQRPrintService";
 import { fetchGoodsReceiptDetail } from "../services/goodsReceiptService";
 import { markDeliveryReceiptComplete, validateDuplicates } from "../services/goodsReceiptService";
@@ -190,18 +190,6 @@ export function useGoodsReceiptPage() {
             open: true,
             title: "Print Error",
             description: error?.response?.data?.message || error.message || "Failed to load goods receipt for printing.",
-          });
-        }
-      },
-      handlePrintBarcodes: async (grn) => {
-        try {
-          const detail = await fetchGrnDetailOrThrow(grn);
-          printBarcodes({ grn: detail });
-        } catch (error) {
-          setAlertDialog({
-            open: true,
-            title: "Print Error",
-            description: error?.response?.data?.message || error.message || "Failed to load goods receipt for barcode printing.",
           });
         }
       },

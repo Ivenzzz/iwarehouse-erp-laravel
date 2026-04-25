@@ -134,7 +134,6 @@ export default function GoodsReceipt() {
                 loadingGRNs={loadingGRNs}
                 onViewDetails={actions.handleViewDetails}
                 onPrintGRN={actions.handlePrintGRN}
-                onPrintBarcodes={actions.handlePrintBarcodes}
                 onPrintQRStickers={actions.handlePrintQRStickers}
                 hasNextPage={hasNextPage}
                 isFetchingNextPage={isFetchingNextPage}

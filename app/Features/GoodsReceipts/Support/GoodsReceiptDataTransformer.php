@@ -82,6 +82,7 @@ class GoodsReceiptDataTransformer
                 'variant_id' => $item->product_variant_id,
                 'variant_name' => $variant?->variant_name,
                 'condition' => $variant?->condition,
+                'attributes' => self::buildVariantAttributes($variant),
                 'product_master_id' => $variant?->product_master_id,
                 'product_name' => $productMaster?->product_name,
                 'brand_name' => $brand?->name,
@@ -204,5 +205,39 @@ class GoodsReceiptDataTransformer
                 'destination' => $dr->logistics?->destination,
             ],
         ];
+    }
+
+    private static function buildVariantAttributes($variant): array
+    {
+        $normalized = [
+            'RAM' => $variant?->ram,
+            'ROM' => $variant?->rom,
+            'Storage' => $variant?->rom,
+            'Color' => $variant?->color,
+            'CPU' => $variant?->cpu,
+            'GPU' => $variant?->gpu,
+            'RAM Type' => $variant?->ram_type,
+            'ROM Type' => $variant?->rom_type,
+            'Model Code' => $variant?->model_code,
+            'Operating System' => $variant?->operating_system,
+            'OS' => $variant?->operating_system,
+            'Screen' => $variant?->screen,
+            'Condition' => $variant?->condition,
+        ];
+
+        if (method_exists($variant, 'attributesMap')) {
+            $raw = $variant->attributesMap(includeEmpty: false);
+            foreach ($raw as $key => $value) {
+                if ($value === null || trim((string) $value) === '') {
+                    continue;
+                }
+                $normalized[$key] = $value;
+            }
+        }
+
+        return array_filter(
+            $normalized,
+            fn ($value) => $value !== null && trim((string) $value) !== ''
+        );
     }
 }

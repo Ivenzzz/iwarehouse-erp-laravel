@@ -69,6 +69,16 @@ class ResolvePurchaseBrandConflicts
             throw new \RuntimeException("Missing selected brand for model {$modelName}.");
         }
 
+        $allowedBrandIds = collect($conflict['brands'] ?? [])
+            ->pluck('brandId')
+            ->map(fn ($id) => (string) $id)
+            ->filter(fn (string $id): bool => $id !== '')
+            ->values();
+
+        if ($allowedBrandIds->isEmpty() || ! $allowedBrandIds->contains($selectedBrandId)) {
+            throw new \RuntimeException("Selected brand is invalid for model {$modelName}.");
+        }
+
         $brand = ProductBrand::query()->find((int) $selectedBrandId);
         if (! $brand instanceof ProductBrand) {
             throw new \RuntimeException("Selected brand for model {$modelName} was not found.");

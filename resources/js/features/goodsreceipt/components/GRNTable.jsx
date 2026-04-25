@@ -69,7 +69,6 @@ export default function GRNTable({
   loadingGRNs,
   onViewDetails,
   onPrintGRN,
-  onPrintBarcodes,
   onPrintQRStickers,
   hasNextPage,
   isFetchingNextPage,
@@ -326,20 +325,6 @@ export default function GRNTable({
                           title="Print GRN"
                         >
                           <Printer className="w-4 h-4" />
-                        </Button>
-
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="
-                          h-7 text-xs ml-1
-                          bg-background border-border text-foreground
-                          hover:bg-accent hover:border-info/30
-                          focus-visible:ring-2 focus-visible:ring-ring
-                        "
-                          onClick={() => onPrintBarcodes(grn)}
-                        >
-                          Barcodes
                         </Button>
 
                         <Button

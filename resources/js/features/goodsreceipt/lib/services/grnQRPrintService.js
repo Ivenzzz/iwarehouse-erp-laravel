@@ -1,9 +1,5 @@
 import { printQRStickers as printGlobalQRStickers } from "@/shared/services/qrStickerPrintService";
 
-// ==========================================
-// HELPER FUNCTIONS
-// ==========================================
-
 const getAttributeValue = (attributes = {}, keys = []) => {
   for (const key of keys) {
     const value = attributes[key];
@@ -15,101 +11,98 @@ const getAttributeValue = (attributes = {}, keys = []) => {
   return "";
 };
 
-const normalizeText = (value) =>
-  String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/&/g, "and")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-
-const COMPUTER_KEYWORDS = [
-  "computer",
-  "computers",
-  "laptop",
-  "laptops",
-  "desktop",
-  "desktop pcs",
-  "mini pc",
-  "mini pcs",
-  "notebook",
-  "pc",
-];
-
-const isComputerStickerProduct = (category, subcategory) => {
-  const categoryName = normalizeText(category?.name);
-  const subcategoryName = normalizeText(subcategory?.name);
-
-  const matchesComputerKeyword = (value = "") =>
-    COMPUTER_KEYWORDS.some((keyword) => value.includes(keyword));
-
-  return matchesComputerKeyword(categoryName) || matchesComputerKeyword(subcategoryName);
-};
-
 const joinParts = (...parts) => parts.filter(Boolean).join(" ").trim();
 
-const getSpecsText = (pm, category, subcategory, variantAttrs) => {
-  const modelName = String(pm?.model || "").toLowerCase();
-  const catName = String(category?.name || "").toLowerCase();
-  const isIphone = modelName.includes("iphone") || catName.includes("iphone");
-  const isComputerSticker = isComputerStickerProduct(category, subcategory);
+const STORAGE_KEYS = ["Storage", "storage", "ROM", "rom"];
+const RAM_KEYS = ["RAM", "ram"];
+const COLOR_KEYS = ["Color", "color"];
+const CPU_KEYS = ["CPU", "cpu"];
+const GPU_KEYS = ["GPU", "gpu"];
+const CONDITION_KEYS = ["Condition", "condition"];
 
-  const ram = getAttributeValue(variantAttrs, ["RAM", "ram"]);
-  const storage = getAttributeValue(variantAttrs, ["Storage", "storage", "ROM", "rom"]);
-
-  if (isComputerSticker) {
-    const fixed = pm?.fixed_specifications || {};
-    const modelCode = getAttributeValue(variantAttrs, ["Model Code", "model_code", "Model code"]);
-    const ramType = getAttributeValue(variantAttrs, ["RAM Type", "ram_type", "Ram Type"]);
-    const romType = getAttributeValue(variantAttrs, ["ROM Type", "rom_type", "Rom Type"]);
-    const cpu = getAttributeValue(variantAttrs, ["CPU", "cpu"]) || fixed.platform_cpu || fixed.cpu || "";
-    const gpu = getAttributeValue(variantAttrs, ["GPU", "gpu"]) || fixed.platform_gpu || fixed.gpu || "";
-    const screen = getAttributeValue(variantAttrs, ["Screen", "screen"]);
-
-    const ramText = joinParts(ram, ramType);
-    const romText = joinParts(storage, romType);
-    const memoryLine = [ramText, romText].filter(Boolean).join(" / ");
-
-    return {
-      headerLine: joinParts(
-        String(pm?.brand_name || "").toUpperCase(),
-        String(pm?.model || "").toUpperCase(),
-        modelCode.toUpperCase()
-      ),
-      specLines: [
-        memoryLine,
-        cpu && gpu ? `${cpu} | ${gpu}` : cpu || gpu,
-        screen,
-      ].filter(Boolean),
-      mainSpecs: "",
-      subSpecs: "",
-    };
-  }
-
-  let mainSpecs = "";
-
-  if (isIphone) {
-    mainSpecs = storage;
-  } else {
-    if (ram && storage) mainSpecs = `${ram} / ${storage}`;
-    else mainSpecs = storage || ram;
-  }
-
-  let subSpecs = "";
-  if (catName.includes("laptop") || catName.includes("desktop")) {
-    const fixed = pm?.fixed_specifications || {};
-    const cpu = getAttributeValue(variantAttrs, ["CPU", "cpu"]) || fixed.platform_cpu || fixed.cpu || "";
-    const gpu = getAttributeValue(variantAttrs, ["GPU", "gpu"]) || fixed.platform_gpu || fixed.gpu || "";
-    if (cpu && gpu) subSpecs = `${cpu} | ${gpu}`;
-    else subSpecs = cpu || gpu;
-  }
-
-  return { mainSpecs, subSpecs, headerLine: "", specLines: [] };
+const DISPLAY_ATTRIBUTE_LABELS = {
+  model_code: "Model Code",
+  ram: "RAM",
+  rom: "ROM",
+  color: "Color",
+  cpu: "CPU",
+  gpu: "GPU",
+  ram_type: "RAM Type",
+  rom_type: "ROM Type",
+  operating_system: "Operating System",
+  screen: "Screen",
 };
 
-// ==========================================
-// MAIN ORCHESTRATION (delegates to global service)
-// ==========================================
+const PRIORITY_ATTR_KEYS = new Set([
+  ...RAM_KEYS,
+  ...STORAGE_KEYS,
+  ...COLOR_KEYS,
+  ...CPU_KEYS,
+  ...GPU_KEYS,
+  ...CONDITION_KEYS,
+  "Model Code",
+  "model_code",
+  "OS",
+  "Operating System",
+]);
+
+const formatAttributeLabel = (key) => {
+  if (DISPLAY_ATTRIBUTE_LABELS[key]) return DISPLAY_ATTRIBUTE_LABELS[key];
+  return String(key)
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const truncateLine = (value, maxLength = 68) => {
+  if (value.length <= maxLength) return value;
+  return `${value.slice(0, maxLength - 3).trimEnd()}...`;
+};
+
+const buildSpecsPayload = (grnItem, variantAttrs) => {
+  const ram = getAttributeValue(variantAttrs, RAM_KEYS);
+  const storage = getAttributeValue(variantAttrs, STORAGE_KEYS);
+  const color = grnItem.color || getAttributeValue(variantAttrs, COLOR_KEYS);
+  const cpu = getAttributeValue(variantAttrs, CPU_KEYS);
+  const gpu = getAttributeValue(variantAttrs, GPU_KEYS);
+  const modelCode = getAttributeValue(variantAttrs, ["Model Code", "model_code"]);
+
+  const memorySpec = [ram, storage].filter(Boolean).join(" / ");
+  const memoryAndColorLine = [memorySpec || storage || ram, color].filter(Boolean).join(" ");
+  const cpuGpuLine = cpu && gpu ? `${cpu} | ${gpu}` : cpu || gpu;
+
+  const overflowPairs = Object.entries(variantAttrs || {})
+    .filter(([key, value]) => !PRIORITY_ATTR_KEYS.has(key) && value !== undefined && value !== null && String(value).trim() !== "")
+    .map(([key, value]) => `${formatAttributeLabel(key)}: ${String(value).trim()}`);
+  const overflowLine = overflowPairs.length > 0 ? truncateLine(overflowPairs.join(" | ")) : "";
+
+  return {
+    headerLine: joinParts(
+      String(grnItem.brand_name || "").toUpperCase(),
+      String(grnItem.model_name || grnItem.product_name || "").toUpperCase(),
+      String(modelCode || "").toUpperCase(),
+    ),
+    specLines: [memoryAndColorLine, cpuGpuLine, overflowLine].filter(Boolean),
+  };
+};
+
+const resolveSerialRows = (grnItem) => {
+  if (grnItem.identifiers) {
+    return [
+      {
+        imei1: grnItem.identifiers?.imei1 || "",
+        imei2: grnItem.identifiers?.imei2 || "",
+        serial_number: grnItem.identifiers?.serial_number || "",
+        warranty: grnItem.warranty || "",
+        cash_price: grnItem.pricing?.cash_price || 0,
+        srp: grnItem.pricing?.srp || 0,
+      },
+    ];
+  }
+
+  return grnItem.serials || grnItem.serial_numbers || [];
+};
 
 export const printQRStickers = async ({ grn }) => {
   if (!grn.items?.length) {
@@ -120,56 +113,31 @@ export const printQRStickers = async ({ grn }) => {
   const stickerItems = [];
 
   for (const grnItem of grn.items) {
-    const serialNumbers = grnItem.identifiers
-      ? [{
-          imei1: grnItem.identifiers?.imei1 || "",
-          imei2: grnItem.identifiers?.imei2 || "",
-          serial_number: grnItem.identifiers?.serial_number || "",
-          warranty: grnItem.warranty || "",
-          cash_price: grnItem.pricing?.cash_price || 0,
-          srp: grnItem.pricing?.srp || 0,
-        }]
-      : grnItem.serials || grnItem.serial_numbers || [];
+    const serialNumbers = resolveSerialRows(grnItem);
     if (!serialNumbers.length) continue;
 
-    const pm = {
-      model: grnItem.model_name || grnItem.product_name || "",
-      brand_name: grnItem.brand_name || "",
-      fixed_specifications: grnItem.spec || {},
-      warranty_description: grnItem.warranty || "",
-    };
-    const category = { name: grnItem.category_name || "" };
-    const subcategory = { name: grnItem.subcategory_name || "" };
+    const variantAttrs = grnItem.attributes || {};
+    const { headerLine, specLines } = buildSpecsPayload(grnItem, variantAttrs);
 
     for (const sn of serialNumbers) {
       const identifier = sn.imei1 || sn.imei2 || sn.serial_number;
       if (!identifier) continue;
 
-      const variantAttrs = {};
-      const enrichedProductMaster = {
-        ...pm,
-        brand_name: pm.brand_name || "",
-      };
-      const { mainSpecs, subSpecs, headerLine, specLines } = getSpecsText(
-        enrichedProductMaster,
-        category,
-        subcategory,
-        variantAttrs
-      );
-      const color = grnItem.color || getAttributeValue(variantAttrs, ["Color", "color"]);
-      const combinedSpecLine = [mainSpecs, color].filter(Boolean).join(" ");
+      const condition = grnItem.condition || getAttributeValue(variantAttrs, CONDITION_KEYS) || "Brand New";
+      const warrantyLines = (sn.warranty || grnItem.warranty || "No Warranty")
+        .split(",")
+        .map((line) => line.trim())
+        .filter(Boolean);
 
       stickerItems.push({
-        brand: (pm?.brand_name || "").toUpperCase(),
-        model: pm?.model?.toUpperCase() || "",
+        brand: (grnItem.brand_name || "").toUpperCase(),
+        model: (grnItem.model_name || grnItem.product_name || "").toUpperCase(),
         headerLine: headerLine || undefined,
-        specLines: specLines?.length ? specLines : undefined,
-        specLine: combinedSpecLine,
-        subSpecLine: subSpecs,
-        condition: grnItem.condition || "Brand New",
-        warrantyLines: (sn.warranty || pm?.warranty_description || "No Warranty").split(",").map(w => w.trim()).filter(Boolean),
-        cashPrice: sn.cash_price || grnItem.costing?.cash_price || 0,
-        srp: sn.srp || grnItem.costing?.srp || 0,
+        specLines: specLines.length ? specLines : undefined,
+        condition,
+        warrantyLines,
+        cashPrice: sn.cash_price || grnItem.pricing?.cash_price || 0,
+        srp: sn.srp || grnItem.pricing?.srp || 0,
         identifier,
       });
     }

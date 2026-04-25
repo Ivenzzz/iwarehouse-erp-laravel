@@ -122,15 +122,17 @@ class GoodsReceiptController extends Controller
 
     public function resolvePurchaseBrandConflicts(Request $request, ResolvePurchaseBrandConflicts $action): JsonResponse|RedirectResponse
     {
-        $validated = $request->validate([
+        $request->validate([
             'brandConflicts' => ['required', 'array'],
             'brandConflicts.*.selectedBrandId' => ['nullable', 'string'],
         ]);
 
+        $brandConflicts = $request->input('brandConflicts', []);
+
         return $this->respondGoodsReceiptAction(
             $request,
             'resolve_conflicts',
-            $action->handle($validated['brandConflicts'])
+            $action->handle(is_array($brandConflicts) ? $brandConflicts : [])
         );
     }
 

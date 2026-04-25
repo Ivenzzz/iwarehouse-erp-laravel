@@ -28,7 +28,7 @@ class ListGoodsReceiptPageData
             'grn_search' => ['nullable', 'string', 'max:100'],
             'grn_supplier' => ['nullable', 'string', 'max:30'],
             'grn_page' => ['nullable', 'integer', 'min:1'],
-            'grn_per_page' => ['nullable', 'integer', 'in:10,25,50,100'],
+            'grn_per_page' => ['nullable', 'integer', 'in:10,25,50,100,500,1000,5000'],
             'grn_sort' => ['nullable', 'string', 'in:created_at,grn_number,status,supplier_name'],
             'grn_direction' => ['nullable', 'string', 'in:asc,desc'],
         ]);
@@ -40,7 +40,7 @@ class ListGoodsReceiptPageData
 
         $grnSearch = trim((string) ($validated['grn_search'] ?? ''));
         $grnSupplier = (string) ($validated['grn_supplier'] ?? 'all');
-        $grnPerPage = (int) ($validated['grn_per_page'] ?? 25);
+        $grnPerPage = (int) ($validated['grn_per_page'] ?? 100);
         $grnSort = (string) ($validated['grn_sort'] ?? 'created_at');
         $grnDirection = (string) ($validated['grn_direction'] ?? 'desc');
 

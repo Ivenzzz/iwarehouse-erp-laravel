@@ -182,9 +182,12 @@ class PriceControlQuery
             'warranty_description' => $item->warranty,
             'attrRAM' => $this->nullableString($item->getAttribute('attr_ram')) ?? '',
             'attrROM' => $this->nullableString($item->getAttribute('attr_rom')) ?? '',
+            'ram_type' => $this->nullableString($item->getAttribute('attr_ram_type')) ?? '',
+            'rom_type' => $this->nullableString($item->getAttribute('attr_rom_type')) ?? '',
             'attrColor' => $this->nullableString($item->getAttribute('attr_color')) ?? '',
             'cpu' => $this->nullableString($item->getAttribute('variant_cpu')),
             'gpu' => $this->nullableString($item->getAttribute('variant_gpu')),
+            'screen' => $this->nullableString($item->getAttribute('variant_screen')) ?? '',
             'platform_cpu' => $this->nullableString($item->getAttribute('platform_cpu')) ?? '',
             'platform_gpu' => $this->nullableString($item->getAttribute('platform_gpu')) ?? '',
         ];
@@ -299,9 +302,12 @@ class PriceControlQuery
         ])->addSelect([
             DB::raw('product_variants.ram as attr_ram'),
             DB::raw('product_variants.rom as attr_rom'),
+            DB::raw('product_variants.ram_type as attr_ram_type'),
+            DB::raw('product_variants.rom_type as attr_rom_type'),
             DB::raw('product_variants.color as attr_color'),
             DB::raw('product_variants.cpu as variant_cpu'),
             DB::raw('product_variants.gpu as variant_gpu'),
+            DB::raw('product_variants.screen as variant_screen'),
             'platform_cpu' => $this->productMasterSpecValueSubquery(['platform_cpu', 'cpu']),
             'platform_gpu' => $this->productMasterSpecValueSubquery(['platform_gpu', 'gpu']),
         ]);

@@ -1,4 +1,7 @@
-import { calculateVariantGenerationCount } from '@/features/product-masters/lib/productVariantForm';
+import {
+    calculateVariantGenerationCount,
+    sanitizeVariantAttributes,
+} from '@/features/product-masters/lib/productVariantForm';
 import InputError from '@/shared/components/feedback/InputError';
 import { Button } from '@/shared/components/ui/button';
 import {
@@ -102,7 +105,14 @@ export default function ProductVariantGenerateDialog({
         try {
             const response = await axios.post(
                 route('product-masters.variants.generate', productMaster.id),
-                { ...form, colors: parsedColors },
+                {
+                    ...form,
+                    colors: parsedColors,
+                    shared_attributes: sanitizeVariantAttributes(
+                        form.shared_attributes,
+                        variantDefinitions,
+                    ),
+                },
             );
             setSummary(response.data.summary);
             onGenerated?.(response.data.summary, productMaster);

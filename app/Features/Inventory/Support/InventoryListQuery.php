@@ -308,9 +308,12 @@ class InventoryListQuery
         ])->addSelect([
             DB::raw('product_variants.ram as attr_ram'),
             DB::raw('product_variants.rom as attr_rom'),
+            DB::raw('product_variants.ram_type as attr_ram_type'),
+            DB::raw('product_variants.rom_type as attr_rom_type'),
             DB::raw('product_variants.color as attr_color'),
             DB::raw('product_variants.cpu as variant_cpu'),
             DB::raw('product_variants.gpu as variant_gpu'),
+            DB::raw('product_variants.screen as variant_screen'),
             'platform_cpu' => $this->productMasterSpecValueSubquery(['platform_cpu', 'cpu']),
             'platform_gpu' => $this->productMasterSpecValueSubquery(['platform_gpu', 'gpu']),
         ]);

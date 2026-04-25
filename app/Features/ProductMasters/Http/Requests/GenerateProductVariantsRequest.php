@@ -41,6 +41,10 @@ class GenerateProductVariantsRequest extends FormRequest
     public function payload(): array
     {
         $validated = $this->validated();
+        $allowedKeys = collect(ProductVariantDefinitions::keys())
+            ->reject(fn ($key) => $key === 'condition')
+            ->values()
+            ->all();
 
         return [
             'conditions' => $this->cleanList($validated['conditions'] ?? []),
@@ -48,6 +52,7 @@ class GenerateProductVariantsRequest extends FormRequest
             'rams' => $this->cleanList($validated['rams'] ?? []),
             'roms' => $this->cleanList($validated['roms'] ?? []),
             'shared_attributes' => collect($validated['shared_attributes'] ?? [])
+                ->only($allowedKeys)
                 ->map(fn ($value) => trim((string) $value))
                 ->filter(fn ($value) => $value !== '')
                 ->all(),

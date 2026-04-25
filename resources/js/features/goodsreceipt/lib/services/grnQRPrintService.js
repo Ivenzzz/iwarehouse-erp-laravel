@@ -15,9 +15,13 @@ const joinParts = (...parts) => parts.filter(Boolean).join(" ").trim();
 
 const STORAGE_KEYS = ["Storage", "storage", "ROM", "rom"];
 const RAM_KEYS = ["RAM", "ram"];
+const RAM_TYPE_KEYS = ["RAM Type", "Ram Type", "ram_type", "ram type"];
+const ROM_TYPE_KEYS = ["ROM Type", "Rom Type", "rom_type", "rom type"];
 const COLOR_KEYS = ["Color", "color"];
 const CPU_KEYS = ["CPU", "cpu"];
 const GPU_KEYS = ["GPU", "gpu"];
+const OPERATING_SYSTEM_KEYS = ["Operating System", "operating_system", "operating system", "OS", "os"];
+const SCREEN_KEYS = ["Screen", "screen", "Display", "display"];
 const CONDITION_KEYS = ["Condition", "condition"];
 
 const DISPLAY_ATTRIBUTE_LABELS = {
@@ -40,10 +44,12 @@ const PRIORITY_ATTR_KEYS = new Set([
   ...CPU_KEYS,
   ...GPU_KEYS,
   ...CONDITION_KEYS,
+  ...RAM_TYPE_KEYS,
+  ...ROM_TYPE_KEYS,
+  ...OPERATING_SYSTEM_KEYS,
+  ...SCREEN_KEYS,
   "Model Code",
   "model_code",
-  "OS",
-  "Operating System",
 ]);
 
 const formatAttributeLabel = (key) => {
@@ -60,17 +66,25 @@ const truncateLine = (value, maxLength = 68) => {
   return `${value.slice(0, maxLength - 3).trimEnd()}...`;
 };
 
+const combineCapacityAndType = (capacity, type) => [capacity, type].filter(Boolean).join(" ").trim();
+
 const buildSpecsPayload = (grnItem, variantAttrs) => {
   const ram = getAttributeValue(variantAttrs, RAM_KEYS);
   const storage = getAttributeValue(variantAttrs, STORAGE_KEYS);
+  const ramType = getAttributeValue(variantAttrs, RAM_TYPE_KEYS);
+  const romType = getAttributeValue(variantAttrs, ROM_TYPE_KEYS);
   const color = grnItem.color || getAttributeValue(variantAttrs, COLOR_KEYS);
   const cpu = getAttributeValue(variantAttrs, CPU_KEYS);
   const gpu = getAttributeValue(variantAttrs, GPU_KEYS);
+  const screen = getAttributeValue(variantAttrs, SCREEN_KEYS);
   const modelCode = getAttributeValue(variantAttrs, ["Model Code", "model_code"]);
 
-  const memorySpec = [ram, storage].filter(Boolean).join(" / ");
-  const memoryAndColorLine = [memorySpec || storage || ram, color].filter(Boolean).join(" ");
+  const ramWithType = combineCapacityAndType(ram, ramType);
+  const romWithType = combineCapacityAndType(storage, romType);
+  const memorySpec = [ramWithType, romWithType].filter(Boolean).join(" / ");
+  const memoryAndColorLine = [memorySpec, color].filter(Boolean).join(" ").trim();
   const cpuGpuLine = cpu && gpu ? `${cpu} | ${gpu}` : cpu || gpu;
+  const screenLine = screen || "";
 
   const overflowPairs = Object.entries(variantAttrs || {})
     .filter(([key, value]) => !PRIORITY_ATTR_KEYS.has(key) && value !== undefined && value !== null && String(value).trim() !== "")
@@ -83,7 +97,7 @@ const buildSpecsPayload = (grnItem, variantAttrs) => {
       String(grnItem.model_name || grnItem.product_name || "").toUpperCase(),
       String(modelCode || "").toUpperCase(),
     ),
-    specLines: [memoryAndColorLine, cpuGpuLine, overflowLine].filter(Boolean),
+    specLines: [memoryAndColorLine, cpuGpuLine, screenLine, overflowLine].filter(Boolean),
   };
 };
 

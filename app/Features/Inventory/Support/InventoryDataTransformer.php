@@ -136,7 +136,10 @@ class InventoryDataTransformer
             'variantCondition' => self::nullableString($item->getAttribute('variant_condition')),
             'attrRAM' => self::nullableString($item->getAttribute('attr_ram')) ?? '',
             'attrROM' => self::nullableString($item->getAttribute('attr_rom')) ?? '',
+            'ram_type' => self::nullableString($item->getAttribute('attr_ram_type')) ?? '',
+            'rom_type' => self::nullableString($item->getAttribute('attr_rom_type')) ?? '',
             'attrColor' => self::nullableString($item->getAttribute('attr_color')) ?? '',
+            'screen' => self::nullableString($item->getAttribute('variant_screen')) ?? '',
         ];
     }
 

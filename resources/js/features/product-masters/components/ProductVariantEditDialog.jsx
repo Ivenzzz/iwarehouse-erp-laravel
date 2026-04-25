@@ -2,6 +2,7 @@ import {
     buildVariantNamePreview,
     buildVariantSkuPreview,
     getEditableAttributeDefinitions,
+    sanitizeVariantAttributes,
 } from '@/features/product-masters/lib/productVariantForm';
 import InputError from '@/shared/components/feedback/InputError';
 import { Button } from '@/shared/components/ui/button';
@@ -48,7 +49,7 @@ export default function ProductVariantEditDialog({
     }, [open, variant]);
 
     const visibleDefinitions = useMemo(
-        () => getEditableAttributeDefinitions(variantDefinitions, true),
+        () => getEditableAttributeDefinitions(variantDefinitions),
         [variantDefinitions],
     );
 
@@ -95,7 +96,10 @@ export default function ProductVariantEditDialog({
                     variant_name: namePreview,
                     sku: skuPreview,
                     condition: form.condition,
-                    attributes: form.attributes,
+                    attributes: sanitizeVariantAttributes(
+                        form.attributes,
+                        variantDefinitions,
+                    ),
                 },
             );
 

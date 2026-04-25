@@ -48,14 +48,24 @@ export function getVariantDefinitionMap(variantDefinitions) {
     return (variantDefinitions?.groups ?? []).flatMap((group) => group.definitions ?? []);
 }
 
-export function getVisibleVariantDefinitions(variantDefinitions, supportsComputerVariants) {
-    return getVariantDefinitionMap(variantDefinitions).filter((definition) =>
-        supportsComputerVariants ? true : !definition.is_computer_only,
+export function getEditableAttributeDefinitions(variantDefinitions) {
+    return getVariantDefinitionMap(variantDefinitions).filter(
+        (definition) => definition.key !== 'condition',
     );
 }
 
-export function getEditableAttributeDefinitions(variantDefinitions, supportsComputerVariants) {
-    return getVisibleVariantDefinitions(variantDefinitions, supportsComputerVariants).filter(
-        (definition) => definition.key !== 'condition',
+export function sanitizeVariantAttributes(attributes = {}, variantDefinitions) {
+    const allowedKeys = new Set(
+        getEditableAttributeDefinitions(variantDefinitions).map((definition) => definition.key),
     );
+
+    return Object.entries(attributes).reduce((sanitized, [key, value]) => {
+        if (!allowedKeys.has(key)) {
+            return sanitized;
+        }
+
+        sanitized[key] = value;
+
+        return sanitized;
+    }, {});
 }

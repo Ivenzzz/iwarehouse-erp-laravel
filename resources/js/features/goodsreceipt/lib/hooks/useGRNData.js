@@ -31,6 +31,7 @@ export function useGRNData() {
   const allGRNs = grns.data || [];
   const pendingPagination = pending.pagination || {};
   const grnPagination = grns.pagination || {};
+  const grnFilters = grns.filters || {};
   const activeTab = pageData.active_tab || "delivery-receipts";
   const mainWarehouse = (lookups.warehouses || []).find((warehouse) => warehouse.warehouse_type === "main_warehouse") || null;
 
@@ -64,10 +65,26 @@ export function useGRNData() {
     pushQuery({ dr_page: (pendingPagination.page || 1) + 1, active_tab: "delivery-receipts" }, setIsFetchingPending);
   }, [pendingPagination.last_page, pendingPagination.page, pushQuery]);
 
-  const fetchNextPage = useCallback(() => {
-    if ((grnPagination.page || 1) >= (grnPagination.last_page || 1)) return;
-    pushQuery({ grn_page: (grnPagination.page || 1) + 1, active_tab: "goods-receipts" }, setIsFetchingGrn);
-  }, [grnPagination.last_page, grnPagination.page, pushQuery]);
+  const setGrnQuery = useCallback(
+    (changes) => {
+      pushQuery({ ...changes, active_tab: "goods-receipts" }, setIsFetchingGrn);
+    },
+    [pushQuery]
+  );
+
+  const setGrnPage = useCallback(
+    (page) => {
+      setGrnQuery({ grn_page: page });
+    },
+    [setGrnQuery]
+  );
+
+  const setGrnFilters = useCallback(
+    (changes) => {
+      setGrnQuery({ ...changes, grn_page: 1 });
+    },
+    [setGrnQuery]
+  );
 
   const handleTabChange = useCallback(
     (tab) => {
@@ -151,9 +168,11 @@ export function useGRNData() {
     mainWarehouse,
     kpis,
     allGRNs,
-    fetchNextPage,
-    hasNextPage: (grnPagination.page || 1) < (grnPagination.last_page || 1),
-    isFetchingNextPage: isFetchingGrn,
+    grnPagination,
+    grnFilters,
+    setGrnPage,
+    setGrnFilters,
+    isFetchingGRNList: isFetchingGrn,
     activeTab,
     handleTabChange,
     prefetchCatalogData: () => {},

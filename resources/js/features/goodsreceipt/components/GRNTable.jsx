@@ -1,9 +1,9 @@
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, Eye, Printer, Search, User, Loader2, ChevronDown } from "lucide-react";
+import { Package, Eye, Printer, Search, User, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -66,42 +66,41 @@ const formatLocalTime = (dateStr) => {
 
 export default function GRNTable({
   allGRNs,
+  suppliers,
   loadingGRNs,
+  grnPagination,
+  grnFilters,
+  isFetchingGRNList,
+  onChangePage,
+  onChangeFilters,
   onViewDetails,
   onPrintGRN,
   onPrintQRStickers,
-  hasNextPage,
-  isFetchingNextPage,
-  onLoadMore,
 }) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [supplierFilter, setSupplierFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState(grnFilters?.search || "");
+  const supplierFilter = grnFilters?.supplier || "all";
+  const perPage = String(grnPagination?.per_page || 100);
+
+  useEffect(() => {
+    setSearchQuery(grnFilters?.search || "");
+  }, [grnFilters?.search]);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if ((grnFilters?.search || "") !== searchQuery) {
+        onChangeFilters({ grn_search: searchQuery });
+      }
+    }, 350);
+
+    return () => clearTimeout(timeoutId);
+  }, [grnFilters?.search, onChangeFilters, searchQuery]);
 
   const uniqueSuppliers = useMemo(() => {
-    const map = new Map();
-    allGRNs.forEach((grn) => {
-      if (!grn.supplier_id) return;
-      map.set(grn.supplier_id, grn.supplier_name || "Unknown Supplier");
-    });
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }, [allGRNs]);
-
-  const filteredGRNs = useMemo(() => {
-    return allGRNs.filter((grn) => {
-      const grnNumber = getGRNNumber(grn);
-      const supplierId = grn.supplier_id;
-      const supplierName = grn.supplier_name || "";
-
-      const matchesSearch =
-        !searchQuery ||
-        grnNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        supplierName.toLowerCase().includes(searchQuery.toLowerCase());
-
-      const matchesSupplier = supplierFilter === "all" || String(supplierId) === String(supplierFilter);
-
-      return matchesSearch && matchesSupplier;
-    });
-  }, [allGRNs, searchQuery, supplierFilter]);
+    return (suppliers || []).map((supplier) => ({
+      id: supplier.id,
+      name: supplier.master_profile?.legal_business_name || supplier.master_profile?.trade_name || "Unknown Supplier",
+    }));
+  }, [suppliers]);
 
   if (loadingGRNs) {
     return (
@@ -115,32 +114,58 @@ export default function GRNTable({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
-        <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-          <SelectTrigger
-            className="
-            w-[240px]
-            bg-background border-border text-foreground
-            focus:ring-2 focus:ring-ring
-          "
+        <div className="flex items-center gap-3">
+          <Select
+            value={supplierFilter}
+            onValueChange={(value) => onChangeFilters({ grn_supplier: value })}
           >
-            <SelectValue placeholder="Filter by Supplier" />
-          </SelectTrigger>
+            <SelectTrigger
+              className="
+              w-[240px]
+              bg-background border-border text-foreground
+              focus:ring-2 focus:ring-ring
+            "
+            >
+              <SelectValue placeholder="Filter by Supplier" />
+            </SelectTrigger>
 
-          <SelectContent className="bg-popover border-border text-popover-foreground">
-            <SelectItem value="all" className="focus:bg-accent">
-              All Suppliers
-            </SelectItem>
-            {uniqueSuppliers.map((supplier) => (
-              <SelectItem
-                key={supplier.id}
-                value={supplier.id}
-                className="focus:bg-accent"
-              >
-                {supplier.name || "Unknown"}
+            <SelectContent className="bg-popover border-border text-popover-foreground">
+              <SelectItem value="all" className="focus:bg-accent">
+                All Suppliers
               </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+              {uniqueSuppliers.map((supplier) => (
+                <SelectItem
+                  key={supplier.id}
+                  value={String(supplier.id)}
+                  className="focus:bg-accent"
+                >
+                  {supplier.name || "Unknown"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={perPage}
+            onValueChange={(value) => onChangeFilters({ grn_per_page: value })}
+          >
+            <SelectTrigger
+              className="
+              w-[120px]
+              bg-background border-border text-foreground
+              focus:ring-2 focus:ring-ring
+            "
+            >
+              <SelectValue placeholder="Rows" />
+            </SelectTrigger>
+            <SelectContent className="bg-popover border-border text-popover-foreground">
+              <SelectItem value="100">100</SelectItem>
+              <SelectItem value="500">500</SelectItem>
+              <SelectItem value="1000">1k</SelectItem>
+              <SelectItem value="5000">5k</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
         <div className="relative w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -158,7 +183,7 @@ export default function GRNTable({
         </div>
       </div>
 
-      {filteredGRNs.length === 0 ? (
+      {allGRNs.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground bg-card border border-border rounded-lg">
           <Package className="w-12 h-12 mx-auto mb-3 opacity-20" />
           <p className="font-medium text-foreground">No Goods Receipt Notes found</p>
@@ -194,7 +219,7 @@ export default function GRNTable({
             </thead>
 
             <tbody className="divide-y divide-border">
-              {filteredGRNs.map((grn) => {
+              {allGRNs.map((grn) => {
                 const rawDate = getGRNDate(grn);
                 const { date: displayDate, time: displayTime } = formatLocalTime(rawDate);
                 const status = getGRNStatus(grn);
@@ -350,33 +375,46 @@ export default function GRNTable({
         </div>
       )}
 
-      {hasNextPage && (
-        <div className="flex justify-center pt-4">
+      <div className="flex items-center justify-between gap-3 pt-2">
+        <p className="text-xs text-muted-foreground">
+          Page {grnPagination?.page || 1} of {grnPagination?.last_page || 1} • Total {grnPagination?.total || 0}
+        </p>
+        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
-            onClick={onLoadMore}
-            disabled={isFetchingNextPage}
+            onClick={() => onChangePage((grnPagination?.page || 1) - 1)}
+            disabled={(grnPagination?.page || 1) <= 1 || isFetchingGRNList}
             className="
               bg-background border-border text-foreground
               hover:bg-accent hover:text-accent-foreground
               focus-visible:ring-2 focus-visible:ring-ring
             "
           >
-            {isFetchingNextPage ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Loading...
-              </>
+            <ChevronLeft className="w-4 h-4 mr-1" />
+            Prev
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onChangePage((grnPagination?.page || 1) + 1)}
+            disabled={(grnPagination?.page || 1) >= (grnPagination?.last_page || 1) || isFetchingGRNList}
+            className="
+              bg-background border-border text-foreground
+              hover:bg-accent hover:text-accent-foreground
+              focus-visible:ring-2 focus-visible:ring-ring
+            "
+          >
+            Next
+            {isFetchingGRNList ? (
+              <Loader2 className="w-4 h-4 ml-2 animate-spin" />
             ) : (
-              <>
-                <ChevronDown className="w-4 h-4 mr-2" />
-                Load More
-              </>
+              <ChevronRight className="w-4 h-4 ml-1" />
             )}
           </Button>
         </div>
-      )}
+      </div>
     </div>
   );
 }

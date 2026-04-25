@@ -30,9 +30,11 @@ export default function GoodsReceipt() {
     kpis,
     allGRNs,
     loadingGRNs,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
+    grnPagination,
+    grnFilters,
+    setGrnPage,
+    setGrnFilters,
+    isFetchingGRNList,
     activeTab,
     handleTabChange,
     createGRNMutation,
@@ -132,12 +134,15 @@ export default function GoodsReceipt() {
               <GRNTable
                 allGRNs={allGRNs}
                 loadingGRNs={loadingGRNs}
+                suppliers={suppliers}
+                grnPagination={grnPagination}
+                grnFilters={grnFilters}
+                isFetchingGRNList={isFetchingGRNList}
+                onChangePage={setGrnPage}
+                onChangeFilters={setGrnFilters}
                 onViewDetails={actions.handleViewDetails}
                 onPrintGRN={actions.handlePrintGRN}
                 onPrintQRStickers={actions.handlePrintQRStickers}
-                hasNextPage={hasNextPage}
-                isFetchingNextPage={isFetchingNextPage}
-                onLoadMore={fetchNextPage}
               />
             </TabsContent>
           </Tabs>

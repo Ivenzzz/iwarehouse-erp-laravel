@@ -23,6 +23,10 @@ use Throwable;
 
 class ImportSalesTransactionsFromCsv
 {
+    private const OUTCOME_HARD_ERROR = 'hard_error';
+
+    private const OUTCOME_SOFT_SKIP_DISCONNECTED = 'soft_skip_disconnected';
+
     private const REQUIRED_HEADERS = [
         'transaction_number',
         'or_number',
@@ -140,9 +144,11 @@ class ImportSalesTransactionsFromCsv
         $first = $rows[0];
         $rowLabel = 'Row '.$first['_row_number'];
 
-        $groupError = $this->validateGroup($first, $lookups);
-        if ($groupError !== null) {
-            $this->recordError($summary, "{$rowLabel}: {$groupError}");
+        $groupIssue = $this->validateGroup($first, $lookups);
+        if ($groupIssue !== null) {
+            if ($groupIssue['outcome'] === self::OUTCOME_HARD_ERROR) {
+                $this->recordError($summary, "{$rowLabel}: {$groupIssue['message']}");
+            }
             $summary['skipped'] += count($rows);
 
             return;
@@ -163,9 +169,11 @@ class ImportSalesTransactionsFromCsv
         $payments = [];
 
         foreach ($rows as $row) {
-            $rowError = $this->validateRow($row, $lookups);
-            if ($rowError !== null) {
-                $this->recordError($summary, 'Row '.$row['_row_number'].': '.$rowError);
+            $rowIssue = $this->validateRow($row, $lookups);
+            if ($rowIssue !== null) {
+                if ($rowIssue['outcome'] === self::OUTCOME_HARD_ERROR) {
+                    $this->recordError($summary, 'Row '.$row['_row_number'].': '.$rowIssue['message']);
+                }
                 $summary['skipped']++;
 
                 continue;
@@ -183,8 +191,13 @@ class ImportSalesTransactionsFromCsv
             }
         }
 
-        if ($validRows === [] || $itemRows === [] || $payments === []) {
+        if ($validRows === []) {
+            return;
+        }
+
+        if ($itemRows === [] || $payments === []) {
             $this->recordError($summary, "{$rowLabel}: transaction has no valid item/payment rows.");
+            $summary['skipped'] += count($validRows);
 
             return;
         }
@@ -275,81 +288,87 @@ class ImportSalesTransactionsFromCsv
         }
     }
 
-    private function validateGroup(array $row, array $lookups): ?string
+    /** @return array{outcome:string,message:string}|null */
+    private function validateGroup(array $row, array $lookups): ?array
     {
         foreach (['transaction_number', 'or_number', 'transaction_date', 'customer_name', 'warehouse_name', 'pos_session_number', 'sales_representative_name', 'mode_of_release'] as $field) {
             if ($row[$field] === '') {
-                return "{$field} is required.";
+                return $this->hardError("{$field} is required.");
             }
         }
 
         if (! $this->isValidDateTime($row['transaction_date'])) {
-            return 'transaction_date is not a valid datetime.';
+            return $this->hardError('transaction_date is not a valid datetime.');
         }
 
         if (! in_array($row['mode_of_release'], [SalesTransaction::MODE_PICKUP, SalesTransaction::MODE_DELIVERY], true)) {
-            return 'mode_of_release is invalid.';
+            return $this->hardError('mode_of_release is invalid.');
         }
 
         if (! isset($lookups['customers'][$this->key($row['customer_name'])])) {
-            return "customer_name '{$row['customer_name']}' not found.";
+            return $this->softSkip("customer_name '{$row['customer_name']}' not found.");
         }
 
         if (! isset($lookups['warehouses'][$this->key($row['warehouse_name'])])) {
-            return "warehouse_name '{$row['warehouse_name']}' not found.";
+            return $this->softSkip("warehouse_name '{$row['warehouse_name']}' not found.");
         }
 
         if (! isset($lookups['sessions'][$this->key($row['pos_session_number'])])) {
-            return "pos_session_number '{$row['pos_session_number']}' not found.";
+            return $this->softSkip("pos_session_number '{$row['pos_session_number']}' not found.");
         }
 
         if (! isset($lookups['employees'][$this->key($row['sales_representative_name'])])) {
-            return "sales_representative_name '{$row['sales_representative_name']}' not found.";
+            return $this->softSkip("sales_representative_name '{$row['sales_representative_name']}' not found.");
         }
 
         return null;
     }
 
-    private function validateRow(array $row, array $lookups): ?string
+    /** @return array{outcome:string,message:string}|null */
+    private function validateRow(array $row, array $lookups): ?array
     {
         if ($row['inventory_identifier'] === '') {
-            return 'inventory_identifier is required.';
+            return $this->hardError('inventory_identifier is required.');
         }
 
         if (! isset($lookups['inventory'][$this->key($row['inventory_identifier'])])) {
-            return "inventory_identifier '{$row['inventory_identifier']}' not found.";
+            return $this->softSkip("inventory_identifier '{$row['inventory_identifier']}' not found.");
+        }
+
+        if ($row['payment_method_name'] === '') {
+            return $this->hardError('payment_method_name is required.');
         }
 
         if (! isset($lookups['paymentMethods'][$this->key($row['payment_method_name'])])) {
-            return "payment_method_name '{$row['payment_method_name']}' not found.";
+            return $this->softSkip("payment_method_name '{$row['payment_method_name']}' not found.");
         }
 
         foreach (['unit_price', 'snapshot_cash_price', 'snapshot_srp', 'snapshot_cost_price', 'discount_amount', 'line_total', 'amount', 'downpayment'] as $field) {
             if ($row[$field] !== '' && ! is_numeric($row[$field])) {
-                return "{$field} must be numeric.";
+                return $this->hardError("{$field} must be numeric.");
             }
         }
 
         if ($row['line_total'] === '' || ! is_numeric($row['line_total'])) {
-            return 'line_total must be numeric.';
+            return $this->hardError('line_total must be numeric.');
         }
 
         if ($row['amount'] === '' || ! is_numeric($row['amount'])) {
-            return 'amount must be numeric.';
+            return $this->hardError('amount must be numeric.');
         }
 
         if (! in_array(Str::lower($row['price_basis']), [SalesTransactionItem::PRICE_BASIS_CASH, SalesTransactionItem::PRICE_BASIS_SRP], true)) {
-            return 'price_basis must be cash or srp.';
+            return $this->hardError('price_basis must be cash or srp.');
         }
 
         foreach (['validated_at'] as $field) {
             if ($row[$field] !== '' && ! $this->isValidDateTime($row[$field])) {
-                return "{$field} is not a valid datetime.";
+                return $this->hardError("{$field} is not a valid datetime.");
             }
         }
 
         if ($row['loan_term_months'] !== '' && (! ctype_digit($row['loan_term_months']) || (int) $row['loan_term_months'] < 0)) {
-            return 'loan_term_months must be a whole number.';
+            return $this->hardError('loan_term_months must be a whole number.');
         }
 
         return null;
@@ -454,6 +473,24 @@ class ImportSalesTransactionsFromCsv
         if (count($summary['error_rows']) < self::MAX_ERROR_ROWS) {
             $summary['error_rows'][] = $message;
         }
+    }
+
+    /** @return array{outcome:string,message:string} */
+    private function hardError(string $message): array
+    {
+        return [
+            'outcome' => self::OUTCOME_HARD_ERROR,
+            'message' => $message,
+        ];
+    }
+
+    /** @return array{outcome:string,message:string} */
+    private function softSkip(string $message): array
+    {
+        return [
+            'outcome' => self::OUTCOME_SOFT_SKIP_DISCONNECTED,
+            'message' => $message,
+        ];
     }
 
     private function nullableFloat(string $value): ?float

@@ -138,6 +138,12 @@ class SalesReportLedgerBuilder
                         $mdrAmount = $isLoanBasedPayment && $payment !== null && $mdrRate !== null ? round($paymentAmount * $mdrRate, 2) : null;
                         $receivableAmount = $mdrAmount !== null ? round($paymentAmount - $mdrAmount, 2) : null;
                         $terminalFeePaidInCash = $this->terminalFeePaidInCash($transaction, $payment);
+                        $cost = $paymentIndex > 0 ? null : (float) ($item['snapshot_cost_price'] ?? 0);
+                        $cost = $cost > 0 ? $cost : null;
+                        $profitWithoutMdr = $paymentIndex > 0 ? null : round($value - (float) ($cost ?? 0), 2);
+                        $profitWithMdr = $profitWithoutMdr !== null && $mdrAmount !== null
+                            ? round($profitWithoutMdr - $mdrAmount, 2)
+                            : null;
                         $actualCashPaid = $this->itemCashShare(
                             $payment,
                             $item,
@@ -173,6 +179,7 @@ class SalesReportLedgerBuilder
                             'subcategoryName' => $paymentIndex > 0 ? '' : ($item['subcategory_name'] ?? '-'),
                             'quantity' => $paymentIndex > 0 ? '' : (int) ($item['quantity'] ?? 1),
                             'barcode' => $paymentIndex > 0 ? '' : ($item['imei1'] ?? $item['imei2'] ?? $item['serial_number'] ?? '-'),
+                            'cost' => $isZeroValueProduct ? null : $cost,
                             'value' => $paymentIndex > 0 ? null : $value,
                             'salesPersonName' => $paymentIndex > 0 ? '' : ($transaction['sales_representative_name'] ?? 'N/A'),
                             'date' => $paymentIndex > 0 ? null : ($transaction['transaction_date'] ?? null),
@@ -186,6 +193,8 @@ class SalesReportLedgerBuilder
                             'loanTermLabel' => $paymentMethodLabel && $isLoanBasedPayment ? ($loanTermMonths > 0 ? $loanTermMonths.' months' : 'Straight Payment') : '-',
                             'mdrAmount' => $isZeroValueProduct ? null : $mdrAmount,
                             'receivableAmount' => $isZeroValueProduct ? null : $receivableAmount,
+                            'profitWithoutMdr' => $isZeroValueProduct ? null : $profitWithoutMdr,
+                            'profitWithMdr' => $isZeroValueProduct ? null : $profitWithMdr,
                             'mdrPercentLabel' => $mdrRate !== null ? $this->mdrPercentLabel($mdrRate) : null,
                             'dynamicPaymentAmounts' => $dynamicAmounts,
                         ];

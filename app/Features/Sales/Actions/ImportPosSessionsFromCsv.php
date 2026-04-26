@@ -3,9 +3,11 @@
 namespace App\Features\Sales\Actions;
 
 use App\Models\PosSession;
+use App\Models\User;
 use App\Models\Warehouse;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -64,6 +66,8 @@ class ImportPosSessionsFromCsv
             ->select(['id', 'name'])
             ->get()
             ->mapWithKeys(fn (Warehouse $w) => [Str::lower(trim($w->name)) => $w->id]);
+        $cashierLookup = $this->cashierLookup();
+        $hasCashierNameColumn = $headerMap->has('cashier_name');
 
         $summary = [
             'created' => 0,
@@ -84,8 +88,11 @@ class ImportPosSessionsFromCsv
             foreach (self::REQUIRED_HEADERS as $header) {
                 $rowPayload[$header] = trim((string) ($row[(int) $headerMap[$header]] ?? ''));
             }
+            $rowPayload['cashier_name'] = $hasCashierNameColumn
+                ? trim((string) ($row[(int) $headerMap['cashier_name']] ?? ''))
+                : '';
 
-            $error = $this->validateRow($rowPayload, $rowNumber, $warehouseMap);
+            $error = $this->validateRow($rowPayload, $rowNumber, $warehouseMap, $cashierLookup, $hasCashierNameColumn);
             if ($error !== null) {
                 $summary['skipped']++;
                 $summary['errors']++;
@@ -97,6 +104,7 @@ class ImportPosSessionsFromCsv
 
             try {
                 DB::transaction(function () use ($rowPayload, $warehouseMap, $userId, &$summary): void {
+                    $resolvedUserId = $this->resolveCashierUserId($rowPayload['cashier_name'], $userId);
                     $warehouseId = (int) $warehouseMap[Str::lower($rowPayload['warehouse_name'])];
                     $incomingStatus = Str::lower($rowPayload['status']);
                     $shiftStart = Carbon::parse($rowPayload['shift_start_time']);
@@ -114,7 +122,7 @@ class ImportPosSessionsFromCsv
                     if ($session === null) {
                         DB::table('pos_sessions')->insert([
                             'session_number' => $rowPayload['session_number'],
-                            'user_id' => $userId,
+                            'user_id' => $resolvedUserId,
                             'warehouse_id' => $warehouseId,
                             'opening_balance' => round($openingBalance, 2),
                             'closing_balance' => $closingBalance !== null ? round($closingBalance, 2) : null,
@@ -137,7 +145,7 @@ class ImportPosSessionsFromCsv
                     DB::table('pos_sessions')
                         ->where('id', $session->id)
                         ->update([
-                            'user_id' => $userId,
+                            'user_id' => $resolvedUserId,
                             'warehouse_id' => $warehouseId,
                             'opening_balance' => round($openingBalance, 2),
                             'closing_balance' => $isDowngradeAttempt
@@ -177,7 +185,13 @@ class ImportPosSessionsFromCsv
         return $summary;
     }
 
-    private function validateRow(array $row, int $rowNumber, $warehouseMap): ?string
+    private function validateRow(
+        array $row,
+        int $rowNumber,
+        Collection $warehouseMap,
+        array $cashierLookup,
+        bool $hasCashierNameColumn,
+    ): ?string
     {
         if ($row['session_number'] === '') {
             return "Row {$rowNumber}: session_number is required.";
@@ -226,7 +240,48 @@ class ImportPosSessionsFromCsv
             }
         }
 
+        if ($hasCashierNameColumn && $row['cashier_name'] !== '') {
+            $cashierKey = Str::lower($row['cashier_name']);
+            if (! isset($cashierLookup[$cashierKey])) {
+                return "Row {$rowNumber}: cashier_name '{$row['cashier_name']}' not found.";
+            }
+
+            if (count($cashierLookup[$cashierKey]) > 1) {
+                return "Row {$rowNumber}: cashier_name '{$row['cashier_name']}' is ambiguous.";
+            }
+        }
+
         return null;
+    }
+
+    private function resolveCashierUserId(string $cashierName, int $fallbackUserId): int
+    {
+        if ($cashierName === '') {
+            return $fallbackUserId;
+        }
+
+        $normalizedCashierName = Str::lower($cashierName);
+        $matchingIds = User::query()
+            ->whereRaw('LOWER(TRIM(name)) = ?', [$normalizedCashierName])
+            ->pluck('id')
+            ->all();
+
+        if (count($matchingIds) === 1) {
+            return (int) $matchingIds[0];
+        }
+
+        return $fallbackUserId;
+    }
+
+    private function cashierLookup(): array
+    {
+        return User::query()
+            ->whereNotNull('name')
+            ->select(['id', 'name'])
+            ->get()
+            ->groupBy(fn (User $user) => Str::lower(trim((string) $user->name)))
+            ->map(fn (Collection $users) => $users->pluck('id')->all())
+            ->all();
     }
 
     private function isBlankRow(array $row): bool

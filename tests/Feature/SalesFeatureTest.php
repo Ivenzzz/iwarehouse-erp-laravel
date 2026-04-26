@@ -425,6 +425,91 @@ class SalesFeatureTest extends TestCase
         ]);
     }
 
+    public function test_sales_import_pos_sessions_resolves_cashier_name_to_user_id(): void
+    {
+        $uploader = User::factory()->create();
+        $cashier = User::factory()->create(['name' => 'Cashier One']);
+        $warehouse = $this->createWarehouse('Cashier Branch', 1);
+
+        $csv = implode("\n", [
+            'session_number,notes,shift_start_time,shift_end_time,closing_balance,opening_balance,cashier_name,warehouse_name,status,cashier_remarks,created_date,updated_date',
+            'POS-CASHIER-1,Imported row,2026-04-25T06:23:28.770Z,,,1000,Cashier One,Cashier Branch,opened,Start shift,2026-04-24T22:23:28.357Z,2026-04-24T22:23:28.357Z',
+        ]);
+
+        $this->actingAs($uploader)
+            ->post(route('sales.import.pos-sessions'), ['file' => UploadedFile::fake()->createWithContent('pos-sessions.csv', $csv)])
+            ->assertRedirect(route('sales.index'))
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('pos_sessions', [
+            'session_number' => 'POS-CASHIER-1',
+            'user_id' => $cashier->id,
+            'warehouse_id' => $warehouse->id,
+        ]);
+    }
+
+    public function test_sales_import_pos_sessions_uses_uploader_when_cashier_name_blank(): void
+    {
+        $uploader = User::factory()->create();
+        $warehouse = $this->createWarehouse('Fallback Branch', 1);
+
+        $csv = implode("\n", [
+            'session_number,notes,shift_start_time,shift_end_time,closing_balance,opening_balance,cashier_name,warehouse_name,status,cashier_remarks,created_date,updated_date',
+            'POS-CASHIER-BLANK,Imported row,2026-04-25T06:23:28.770Z,,,1000,,Fallback Branch,opened,Start shift,2026-04-24T22:23:28.357Z,2026-04-24T22:23:28.357Z',
+        ]);
+
+        $this->actingAs($uploader)
+            ->post(route('sales.import.pos-sessions'), ['file' => UploadedFile::fake()->createWithContent('pos-sessions.csv', $csv)])
+            ->assertRedirect(route('sales.index'))
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('pos_sessions', [
+            'session_number' => 'POS-CASHIER-BLANK',
+            'user_id' => $uploader->id,
+            'warehouse_id' => $warehouse->id,
+        ]);
+    }
+
+    public function test_sales_import_pos_sessions_reports_error_for_unknown_cashier_name(): void
+    {
+        $uploader = User::factory()->create();
+        $this->createWarehouse('Unknown Cashier Branch', 1);
+
+        $csv = implode("\n", [
+            'session_number,notes,shift_start_time,shift_end_time,closing_balance,opening_balance,cashier_name,warehouse_name,status,cashier_remarks,created_date,updated_date',
+            'POS-CASHIER-UNKNOWN,Imported row,2026-04-25T06:23:28.770Z,,,1000,Missing Cashier,Unknown Cashier Branch,opened,Start shift,2026-04-24T22:23:28.357Z,2026-04-24T22:23:28.357Z',
+        ]);
+
+        $response = $this->actingAs($uploader)
+            ->post(route('sales.import.pos-sessions'), ['file' => UploadedFile::fake()->createWithContent('pos-sessions.csv', $csv)]);
+
+        $response->assertRedirect(route('sales.index'));
+        $response->assertSessionHas('error');
+        $this->assertDatabaseMissing('pos_sessions', ['session_number' => 'POS-CASHIER-UNKNOWN']);
+        $this->assertStringContainsString("cashier_name 'Missing Cashier' not found", session('import_summary')['error_rows'][0]);
+    }
+
+    public function test_sales_import_pos_sessions_reports_error_for_ambiguous_cashier_name(): void
+    {
+        $uploader = User::factory()->create();
+        User::factory()->create(['name' => 'Duplicate Cashier']);
+        User::factory()->create(['name' => 'Duplicate Cashier']);
+        $this->createWarehouse('Ambiguous Cashier Branch', 1);
+
+        $csv = implode("\n", [
+            'session_number,notes,shift_start_time,shift_end_time,closing_balance,opening_balance,cashier_name,warehouse_name,status,cashier_remarks,created_date,updated_date',
+            'POS-CASHIER-AMBIGUOUS,Imported row,2026-04-25T06:23:28.770Z,,,1000,Duplicate Cashier,Ambiguous Cashier Branch,opened,Start shift,2026-04-24T22:23:28.357Z,2026-04-24T22:23:28.357Z',
+        ]);
+
+        $response = $this->actingAs($uploader)
+            ->post(route('sales.import.pos-sessions'), ['file' => UploadedFile::fake()->createWithContent('pos-sessions.csv', $csv)]);
+
+        $response->assertRedirect(route('sales.index'));
+        $response->assertSessionHas('error');
+        $this->assertDatabaseMissing('pos_sessions', ['session_number' => 'POS-CASHIER-AMBIGUOUS']);
+        $this->assertStringContainsString("cashier_name 'Duplicate Cashier' is ambiguous", session('import_summary')['error_rows'][0]);
+    }
+
     public function test_sales_import_transactions_creates_rows_from_valid_csv_and_dedupes_items(): void
     {
         $user = User::factory()->create();
@@ -583,7 +668,7 @@ class SalesFeatureTest extends TestCase
             ->assertSessionHasErrors('file');
     }
 
-    public function test_sales_import_transactions_skips_blank_or_unknown_inventory(): void
+    public function test_sales_import_transactions_keeps_blank_inventory_as_hard_error(): void
     {
         $user = User::factory()->create();
         $warehouse = $this->createWarehouse('Inventory Branch', 1);
@@ -625,6 +710,53 @@ class SalesFeatureTest extends TestCase
         $this->assertStringContainsString('inventory_identifier is required', session('import_summary')['error_rows'][0]);
     }
 
+    public function test_sales_import_transactions_soft_skips_unknown_inventory_identifier(): void
+    {
+        $user = User::factory()->create();
+        $warehouse = $this->createWarehouse('Unknown Inventory Branch', 1);
+        PosSession::create([
+            'session_number' => 'POS-UNK-INV-1',
+            'user_id' => $user->id,
+            'warehouse_id' => $warehouse->id,
+            'opening_balance' => 1000,
+            'shift_start_time' => Carbon::parse('2026-04-25T01:00:00Z'),
+            'status' => PosSession::STATUS_OPENED,
+        ]);
+        $this->createEmployee('Sales Representative');
+        $this->createCustomer('Unknown', 'Inventory');
+        PaymentMethod::create(['name' => 'Cash', 'type' => 'cash']);
+
+        $csv = $this->salesTransactionsCsv([[
+            'transaction_number' => 'TXN-UNK-INV',
+            'or_number' => 'OR-UNK-INV',
+            'mode_of_release' => SalesTransaction::MODE_PICKUP,
+            'transaction_date' => '2026-04-25T06:37:15.048Z',
+            'customer_name' => 'Unknown Inventory',
+            'warehouse_name' => 'Unknown Inventory Branch',
+            'pos_session_number' => 'POS-UNK-INV-1',
+            'sales_representative_name' => 'Sales Representative 001',
+            'inventory_identifier' => 'UNKNOWN-INV-IDENTIFIER',
+            'unit_price' => '10000',
+            'price_basis' => 'cash',
+            'line_total' => '10000',
+            'payment_method_name' => 'Cash',
+            'amount' => '10000',
+        ]]);
+
+        $this->actingAs($user)
+            ->post(route('sales.import.transactions'), ['file' => UploadedFile::fake()->createWithContent('sales-transactions.csv', $csv)])
+            ->assertRedirect(route('sales.index'))
+            ->assertSessionHas('success')
+            ->assertSessionMissing('error');
+
+        $summary = session('import_summary');
+        $this->assertSame(0, $summary['created']);
+        $this->assertSame(1, $summary['skipped']);
+        $this->assertSame(0, $summary['errors']);
+        $this->assertSame([], $summary['error_rows']);
+        $this->assertDatabaseMissing('sales_transactions', ['transaction_number' => 'TXN-UNK-INV']);
+    }
+
     public function test_sales_import_transactions_skips_missing_lookup_records(): void
     {
         $user = User::factory()->create();
@@ -648,10 +780,139 @@ class SalesFeatureTest extends TestCase
         $this->actingAs($user)
             ->post(route('sales.import.transactions'), ['file' => UploadedFile::fake()->createWithContent('sales-transactions.csv', $csv)])
             ->assertRedirect(route('sales.index'))
-            ->assertSessionHas('error');
+            ->assertSessionHas('success')
+            ->assertSessionMissing('error');
 
+        $summary = session('import_summary');
+        $this->assertSame(0, $summary['created']);
+        $this->assertSame(1, $summary['skipped']);
+        $this->assertSame(0, $summary['errors']);
+        $this->assertSame([], $summary['error_rows']);
         $this->assertDatabaseMissing('sales_transactions', ['transaction_number' => 'TXN-MISSING-LOOKUP']);
-        $this->assertStringContainsString("customer_name 'Missing Buyer' not found", session('import_summary')['error_rows'][0]);
+    }
+
+    public function test_sales_import_transactions_imports_valid_subset_when_group_has_disconnected_rows(): void
+    {
+        $user = User::factory()->create();
+        $warehouse = $this->createWarehouse('Subset Branch', 1);
+        PosSession::create([
+            'session_number' => 'POS-SUBSET-1',
+            'user_id' => $user->id,
+            'warehouse_id' => $warehouse->id,
+            'opening_balance' => 1000,
+            'shift_start_time' => Carbon::parse('2026-04-25T01:00:00Z'),
+            'status' => PosSession::STATUS_OPENED,
+        ]);
+        $this->createEmployee('Sales Representative');
+        $this->createCustomer('Subset', 'Buyer');
+        PaymentMethod::create(['name' => 'Cash', 'type' => 'cash']);
+        [$variant] = $this->createProductGraph('Apple', 'iPhone Subset', 'APPLE-IPHONE-SUBSET', [
+            ['name' => '128GB', 'sku' => 'APPLE-IPHONE-SUBSET-128'],
+        ]);
+        $this->createInventoryItem($variant, $warehouse, imei: 'SUBSET-IMEI-1', cash: 7000);
+
+        $csv = $this->salesTransactionsCsv([
+            [
+                'transaction_number' => 'TXN-SUBSET-1',
+                'or_number' => 'OR-SUBSET-1',
+                'mode_of_release' => SalesTransaction::MODE_PICKUP,
+                'transaction_date' => '2026-04-25T06:37:15.048Z',
+                'customer_name' => 'Subset Buyer',
+                'warehouse_name' => 'Subset Branch',
+                'pos_session_number' => 'POS-SUBSET-1',
+                'sales_representative_name' => 'Sales Representative 001',
+                'inventory_identifier' => 'SUBSET-IMEI-1',
+                'unit_price' => '7000',
+                'price_basis' => 'cash',
+                'line_total' => '7000',
+                'payment_method_name' => 'Cash',
+                'amount' => '7000',
+            ],
+            [
+                'transaction_number' => 'TXN-SUBSET-1',
+                'or_number' => 'OR-SUBSET-1',
+                'mode_of_release' => SalesTransaction::MODE_PICKUP,
+                'transaction_date' => '2026-04-25T06:37:15.048Z',
+                'customer_name' => 'Subset Buyer',
+                'warehouse_name' => 'Subset Branch',
+                'pos_session_number' => 'POS-SUBSET-1',
+                'sales_representative_name' => 'Sales Representative 001',
+                'inventory_identifier' => 'SUBSET-IMEI-1',
+                'unit_price' => '3000',
+                'price_basis' => 'cash',
+                'line_total' => '3000',
+                'payment_method_name' => 'Unknown Method',
+                'amount' => '3000',
+            ],
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('sales.import.transactions'), ['file' => UploadedFile::fake()->createWithContent('sales-transactions.csv', $csv)])
+            ->assertRedirect(route('sales.index'))
+            ->assertSessionHas('success')
+            ->assertSessionMissing('error');
+
+        $summary = session('import_summary');
+        $this->assertSame(1, $summary['created']);
+        $this->assertSame(1, $summary['skipped']);
+        $this->assertSame(0, $summary['errors']);
+        $this->assertSame([], $summary['error_rows']);
+
+        $transaction = SalesTransaction::where('transaction_number', 'TXN-SUBSET-1')->firstOrFail();
+        $this->assertSame(7000.0, (float) $transaction->total_amount);
+        $this->assertSame(1, SalesTransactionPayment::where('sales_transaction_id', $transaction->id)->count());
+    }
+
+    public function test_sales_import_transactions_soft_skips_fully_disconnected_group_by_row_count(): void
+    {
+        $user = User::factory()->create();
+        $csv = $this->salesTransactionsCsv([
+            [
+                'transaction_number' => 'TXN-DISCONNECTED-GROUP',
+                'or_number' => 'OR-DISCONNECTED-GROUP',
+                'mode_of_release' => SalesTransaction::MODE_PICKUP,
+                'transaction_date' => '2026-04-25T06:37:15.048Z',
+                'customer_name' => 'Missing Group Buyer',
+                'warehouse_name' => 'Missing Group Branch',
+                'pos_session_number' => 'POS-MISSING-GROUP',
+                'sales_representative_name' => 'Missing Group Rep',
+                'inventory_identifier' => 'MISSING-1',
+                'unit_price' => '10000',
+                'price_basis' => 'cash',
+                'line_total' => '10000',
+                'payment_method_name' => 'Cash',
+                'amount' => '10000',
+            ],
+            [
+                'transaction_number' => 'TXN-DISCONNECTED-GROUP',
+                'or_number' => 'OR-DISCONNECTED-GROUP',
+                'mode_of_release' => SalesTransaction::MODE_PICKUP,
+                'transaction_date' => '2026-04-25T06:37:15.048Z',
+                'customer_name' => 'Missing Group Buyer',
+                'warehouse_name' => 'Missing Group Branch',
+                'pos_session_number' => 'POS-MISSING-GROUP',
+                'sales_representative_name' => 'Missing Group Rep',
+                'inventory_identifier' => 'MISSING-2',
+                'unit_price' => '15000',
+                'price_basis' => 'cash',
+                'line_total' => '15000',
+                'payment_method_name' => 'Cash',
+                'amount' => '15000',
+            ],
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('sales.import.transactions'), ['file' => UploadedFile::fake()->createWithContent('sales-transactions.csv', $csv)])
+            ->assertRedirect(route('sales.index'))
+            ->assertSessionHas('success')
+            ->assertSessionMissing('error');
+
+        $summary = session('import_summary');
+        $this->assertSame(0, $summary['created']);
+        $this->assertSame(2, $summary['skipped']);
+        $this->assertSame(0, $summary['errors']);
+        $this->assertSame([], $summary['error_rows']);
+        $this->assertDatabaseMissing('sales_transactions', ['transaction_number' => 'TXN-DISCONNECTED-GROUP']);
     }
 
     public function test_sales_import_transactions_accepts_utf8_bom_header_csv(): void

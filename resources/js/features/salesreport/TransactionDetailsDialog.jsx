@@ -26,6 +26,7 @@ import { Card, CardContent } from "@/shared/components/ui/card";
 import { Separator } from "@/shared/components/ui/separator";
 import { QRStickerPreview } from "@/shared/services/qrStickerPrintService";
 import { getTransactionDiscountTotal } from "@/utils/transactionDiscounts";
+import { formatInManila } from "@/features/salesreport/lib/dateTime";
 
 const formatPHP = (amount) =>
   new Intl.NumberFormat("en-PH", {
@@ -548,7 +549,7 @@ function DiscountValidationSection({ items, onSelectDocument }) {
                 </p>
                 {entry.validatedAt ? (
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Validated: {entry.validatedAtDisplay || format(new Date(entry.validatedAt), "MMM dd, yyyy h:mm a")}
+                    Validated: {entry.validatedAtDisplay || formatInManila(entry.validatedAt, "MMM dd, yyyy h:mm a")}
                   </p>
                 ) : null}
               </div>
@@ -627,7 +628,7 @@ export default function TransactionDetailsDialog({
                   label="Transaction Date"
                   value={
                     transaction?.transaction_date_server_display
-                    || (transaction?.transaction_date ? format(new Date(transaction.transaction_date), "MMM dd, yyyy h:mm a") : "-")
+                    || (transaction?.transaction_date ? formatInManila(transaction.transaction_date, "MMM dd, yyyy h:mm a") : "-")
                   }
                   tone="blue"
                 />

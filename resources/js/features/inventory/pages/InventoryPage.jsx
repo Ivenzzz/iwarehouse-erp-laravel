@@ -42,7 +42,9 @@ export default function InventoryPage({
   models,
   categories,
 }) {
-  const { errors } = usePage().props;
+  const { auth, errors } = usePage().props;
+  const permissions = auth?.permissions ?? [];
+  const can = useMemo(() => (permission) => permissions.includes(permission), [permissions]);
   const [selectedItems, setSelectedItems] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -298,33 +300,37 @@ export default function InventoryPage({
                     <QrCode className="size-4" />
                     Print QR Codes ({selectedItems.length})
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      const productMasterId = getSelectedBatchUpdateProductMasterId();
+                  {can("inventory.update") ? (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        const productMasterId = getSelectedBatchUpdateProductMasterId();
 
-                      if (!productMasterId) {
-                        return;
-                      }
+                        if (!productMasterId) {
+                          return;
+                        }
 
-                      setBatchUpdateOpen(true);
-                      setBatchUpdateProductMasterId(productMasterId);
-                      setBatchUpdateState({ isLoading: false, result: null });
-                    }}
-                  >
-                    <Pencil className="size-4" />
-                    Batch Update ({selectedItems.length})
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={() => {
-                      setBatchDeleteOpen(true);
-                      setBatchDeleteState({ isLoading: false, result: null });
-                    }}
-                  >
-                    <Trash2 className="size-4" />
-                    Delete ({selectedItems.length})
-                  </Button>
+                        setBatchUpdateOpen(true);
+                        setBatchUpdateProductMasterId(productMasterId);
+                        setBatchUpdateState({ isLoading: false, result: null });
+                      }}
+                    >
+                      <Pencil className="size-4" />
+                      Batch Update ({selectedItems.length})
+                    </Button>
+                  ) : null}
+                  {can("inventory.delete") ? (
+                    <Button
+                      variant="destructive"
+                      onClick={() => {
+                        setBatchDeleteOpen(true);
+                        setBatchDeleteState({ isLoading: false, result: null });
+                      }}
+                    >
+                      <Trash2 className="size-4" />
+                      Delete ({selectedItems.length})
+                    </Button>
+                  ) : null}
                 </>
               ) : null}
 

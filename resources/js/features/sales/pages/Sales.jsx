@@ -44,6 +44,10 @@ function SortableHeader({ label, sortKey, filters, onSort }) {
 
 export default function Sales({ filters, warehouses, rows }) {
   const { props } = usePage();
+  const permissions = props.auth?.permissions ?? [];
+  const can = useMemo(() => (permission) => permissions.includes(permission), [permissions]);
+  const canImportPosSessions = can("sales.import.pos-sessions");
+  const canImportTransactions = can("sales.import.transactions");
   usePageToasts([props.errors?.file], "destructive");
 
   const [searchTerm, setSearchTerm] = useState(filters.search ?? "");
@@ -221,27 +225,35 @@ export default function Sales({ filters, warehouses, rows }) {
                 <Download className="mr-2 h-4 w-4" />Export XLSX
               </Button>
 
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv,.txt"
-                className="hidden"
-                onChange={handleImportPosSessions}
-              />
-              <Button variant="outline" onClick={handleOpenImportPicker} disabled={isImporting}>
-                <Upload className="mr-2 h-4 w-4" />{isImporting ? "Importing..." : "Import POS Sessions"}
-              </Button>
+              {canImportPosSessions ? (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv,.txt"
+                    className="hidden"
+                    onChange={handleImportPosSessions}
+                  />
+                  <Button variant="outline" onClick={handleOpenImportPicker} disabled={isImporting}>
+                    <Upload className="mr-2 h-4 w-4" />{isImporting ? "Importing..." : "Import POS Sessions"}
+                  </Button>
+                </>
+              ) : null}
 
-              <input
-                ref={transactionsFileInputRef}
-                type="file"
-                accept=".csv,.txt"
-                className="hidden"
-                onChange={handleImportTransactions}
-              />
-              <Button variant="outline" onClick={handleOpenTransactionsImportPicker} disabled={isImportingTransactions}>
-                <Upload className="mr-2 h-4 w-4" />{isImportingTransactions ? "Importing..." : "Import Sales Transactions"}
-              </Button>
+              {canImportTransactions ? (
+                <>
+                  <input
+                    ref={transactionsFileInputRef}
+                    type="file"
+                    accept=".csv,.txt"
+                    className="hidden"
+                    onChange={handleImportTransactions}
+                  />
+                  <Button variant="outline" onClick={handleOpenTransactionsImportPicker} disabled={isImportingTransactions}>
+                    <Upload className="mr-2 h-4 w-4" />{isImportingTransactions ? "Importing..." : "Import Sales Transactions"}
+                  </Button>
+                </>
+              ) : null}
             </div>
 
             <div className="max-h-[70vh] overflow-auto rounded-b-lg">

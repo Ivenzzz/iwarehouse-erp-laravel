@@ -8,6 +8,8 @@ class RolesPermissionsCatalog
 {
     public const PERMISSIONS = [
         ...UserManagement::USER_PERMISSIONS,
+        'inventory.update',
+        'inventory.delete',
         'companies.view',
         'companies.update',
         'roles-permissions.view',

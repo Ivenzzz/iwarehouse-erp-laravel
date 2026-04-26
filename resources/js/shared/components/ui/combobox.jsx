@@ -78,6 +78,7 @@ function Combobox({
   renderSelectedOption,
   footer,
   onInputValueChange,
+  wrapText = false,
 }) {
   const [open, setOpen] = useState(false)
   const [inputValue, setInputValue] = useState("")
@@ -184,18 +185,25 @@ function Combobox({
           aria-expanded={open}
           disabled={disabled}
           className={cn(
-            "h-9 w-full justify-between rounded-lg border border-slate-300 bg-white px-3 text-slate-900 shadow-sm hover:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-[#020617] dark:text-slate-100 dark:border-slate-800 dark:hover:bg-[#020617] dark:focus:border-indigo-500 dark:focus:ring-indigo-500/30",
+            "w-full justify-between rounded-lg border border-slate-300 bg-white px-3 text-slate-900 shadow-sm hover:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:bg-[#020617] dark:text-slate-100 dark:border-slate-800 dark:hover:bg-[#020617] dark:focus:border-indigo-500 dark:focus:ring-indigo-500/30",
+            wrapText ? "min-h-9 h-auto py-1.5" : "h-9",
             className
           )}
         >
           {effectiveSelectedOption && renderSelectedOption ? (
-            <div className="flex min-w-0 flex-1 items-center overflow-hidden text-left">
+            <div className={cn("flex min-w-0 flex-1 items-center text-left", wrapText ? "whitespace-normal break-words" : "overflow-hidden")}>
               {renderSelectedOption(effectiveSelectedOption)}
             </div>
           ) : (
-            <ResponsiveText>
-              {effectiveSelectedOption?.label || placeholder}
-            </ResponsiveText>
+            wrapText ? (
+              <span className="min-w-0 flex-1 text-left whitespace-normal break-words leading-tight">
+                {effectiveSelectedOption?.label || placeholder}
+              </span>
+            ) : (
+              <ResponsiveText>
+                {effectiveSelectedOption?.label || placeholder}
+              </ResponsiveText>
+            )
           )}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />
         </Button>
@@ -252,9 +260,11 @@ function Combobox({
                     >
                       {renderOption ? renderOption(option, isSelected) : (
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate font-medium">{option.label}</span>
+                          <span className={cn("block font-medium", wrapText ? "whitespace-normal break-words" : "truncate")}>
+                            {option.label}
+                          </span>
                           {option.description && (
-                            <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
+                            <span className={cn("block text-xs text-slate-500 dark:text-slate-400", wrapText ? "whitespace-normal break-words" : "truncate")}>
                               {option.description}
                             </span>
                           )}

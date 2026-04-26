@@ -11,7 +11,7 @@ import { Input } from "@/shared/components/ui/input";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All Statuses" },
-  { value: "available", label: "available" },
+  { value: "available", label: "active" },
   { value: "reserved", label: "reserved" },
   { value: "reserved_for_transfer", label: "reserved for transfer" },
   { value: "sold", label: "sold" },
@@ -300,7 +300,8 @@ export default function InventoryTable({
           onValueChange={(value) => updateFilter("location", value || "all")}
           options={locationOptions}
           placeholder="All Warehouses"
-          className="h-10"
+          className="min-h-10 h-auto py-1.5"
+          wrapText
         />
 
         <Combobox
@@ -308,7 +309,8 @@ export default function InventoryTable({
           onValueChange={(value) => updateFilter("status", value || "all")}
           options={STATUS_OPTIONS}
           placeholder="All Statuses"
-          className="h-10"
+          className="min-h-10 h-auto py-1.5"
+          wrapText
         />
 
         <Combobox
@@ -316,7 +318,8 @@ export default function InventoryTable({
           onValueChange={(value) => updateFilter("brand", value || "all")}
           options={brandOptions}
           placeholder="All Brands"
-          className="h-10"
+          className="min-h-10 h-auto py-1.5"
+          wrapText
         />
 
         <Combobox
@@ -324,7 +327,8 @@ export default function InventoryTable({
           onValueChange={(value) => updateFilter("model", value || "all")}
           options={modelOptions}
           placeholder="All Models"
-          className="h-10"
+          className="min-h-10 h-auto py-1.5"
+          wrapText
         />
 
         <Combobox
@@ -332,7 +336,8 @@ export default function InventoryTable({
           onValueChange={(value) => updateFilter("category", value || "all")}
           options={categoryOptions}
           placeholder="All Categories"
-          className="h-10"
+          className="min-h-10 h-auto py-1.5"
+          wrapText
         />
 
         <Combobox
@@ -340,7 +345,8 @@ export default function InventoryTable({
           onValueChange={(value) => updateFilter("condition", value || "all")}
           options={conditionOptions}
           placeholder="All Conditions"
-          className="h-10"
+          className="min-h-10 h-auto py-1.5"
+          wrapText
         />
 
         <Combobox
@@ -348,7 +354,8 @@ export default function InventoryTable({
           onValueChange={(value) => updateFilter("stockAge", value || "all")}
           options={STOCK_AGE_OPTIONS}
           placeholder="All Stock Age"
-          className="h-10"
+          className="min-h-10 h-auto py-1.5"
+          wrapText
         />
       </div>
 

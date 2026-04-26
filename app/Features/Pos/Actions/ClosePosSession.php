@@ -15,6 +15,6 @@ class ClosePosSession
             'cashier_remarks' => $cashierRemarks,
         ]);
 
-        return $session->fresh(['warehouse', 'employee']);
+        return $session->fresh(['warehouse', 'user']);
     }
 }

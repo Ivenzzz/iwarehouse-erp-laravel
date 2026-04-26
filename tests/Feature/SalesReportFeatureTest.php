@@ -27,6 +27,9 @@ use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use Tests\TestCase;
 
 class SalesReportFeatureTest extends TestCase
@@ -219,7 +222,13 @@ class SalesReportFeatureTest extends TestCase
             ->assertJsonCount(1, 'dynamicPaymentColumns')
             ->assertJsonPath('ledgerRows.0.categoryName', 'Phones')
             ->assertJsonPath('ledgerRows.0.subcategoryName', 'iPhone 17 Subcategory')
+            ->assertJsonPath('ledgerRows.0.cost', 9000)
+            ->assertJsonPath('ledgerRows.0.profitWithoutMdr', 6000)
+            ->assertJsonPath('ledgerRows.0.profitWithMdr', null)
             ->assertJsonPath('ledgerRows.1.transactionId', $transaction->id)
+            ->assertJsonPath('ledgerRows.1.cost', 25000)
+            ->assertJsonPath('ledgerRows.1.profitWithoutMdr', 15000)
+            ->assertJsonPath('ledgerRows.1.profitWithMdr', null)
             ->assertJsonPath('ledgerRows.2.hideFirstFourColumns', true)
             ->assertJsonPath('ledgerRows.2.isRepeatedPaymentRow', true)
             ->assertJsonPath('ledgerRows.2.nonCashPaymentAmount', 30000)
@@ -258,17 +267,109 @@ class SalesReportFeatureTest extends TestCase
         $spreadsheet = IOFactory::load($tempFile);
         $sheet = $spreadsheet->getActiveSheet();
 
-        $this->assertSame('Customer Name', $sheet->getCell('A1')->getValue());
-        $this->assertSame('Pedro Santos', $sheet->getCell('A2')->getValue());
-        $this->assertSame('Maria Santos', $sheet->getCell('A3')->getValue());
-        $this->assertSame('Category', $sheet->getCell('H1')->getValue());
-        $this->assertSame('Phones', $sheet->getCell('H2')->getValue());
-        $this->assertSame('iPhone 17 Subcategory', $sheet->getCell('I2')->getValue());
-        $this->assertSame('TF Paid in Cash', $sheet->getCell('Q1')->getValue());
-        $this->assertSame('MDR', $sheet->getCell('U1')->getValue());
-        $this->assertSame(1950, (int) $sheet->getCell('U4')->getValue());
-        $this->assertSame(28050, (int) $sheet->getCell('V4')->getValue());
-        $this->assertSame('Credit Card (BPI)', $sheet->getCell('W1')->getValue());
+        $this->assertSame('Transactions', $sheet->getTitle());
+        $this->assertSame('A19', $sheet->getFreezePane());
+        $this->assertContains('B1:C1', array_keys($sheet->getMergeCells()));
+        $this->assertContains('D1:E1', array_keys($sheet->getMergeCells()));
+        $this->assertContains('G1:H1', array_keys($sheet->getMergeCells()));
+        $this->assertContains('B2:C2', array_keys($sheet->getMergeCells()));
+        $this->assertContains('D2:E2', array_keys($sheet->getMergeCells()));
+
+        $this->assertSame('Name and Signature:', $sheet->getCell('B1')->getValue());
+        $this->assertSame($user->name, $sheet->getCell('D1')->getValue());
+        $this->assertSame('Date:', $sheet->getCell('B2')->getValue());
+        $this->assertSame('04-05-26', $sheet->getCell('D2')->getFormattedValue());
+        $this->assertSame('Total Manual Gross Sales', $sheet->getCell('B4')->getValue());
+        $this->assertSame('POS Sales System', $sheet->getCell('F9')->getValue());
+
+        $this->assertSame('Customer Name', $sheet->getCell('A18')->getValue());
+        $this->assertSame('Cost', $sheet->getCell('L18')->getValue());
+        $this->assertSame('Non-Cash Payment', $sheet->getCell('S18')->getValue());
+        $this->assertSame('Credit Card (BPI)', $sheet->getCell('X18')->getValue());
+        $this->assertSame('Profit (without MDR)', $sheet->getCell('Y18')->getValue());
+        $this->assertSame('Profit with MDR', $sheet->getCell('Z18')->getValue());
+
+        $this->assertSame('Pedro Santos', $sheet->getCell('A19')->getValue());
+        $this->assertSame(9000, (int) $sheet->getCell('L19')->getValue());
+        $this->assertSame(15000, (int) $sheet->getCell('M19')->getValue());
+        $this->assertSame('04-07-26', $sheet->getCell('O19')->getFormattedValue());
+        $this->assertSame(6000, (int) $sheet->getCell('Y19')->getValue());
+        $this->assertSame(1950, (int) $sheet->getCell('V21')->getValue());
+        $this->assertSame(28050, (int) $sheet->getCell('W21')->getValue());
+
+        $this->assertSame('FFE5E7EB', $sheet->getStyle('A18')->getFill()->getStartColor()->getARGB());
+        $this->assertTrue($sheet->getStyle('A18')->getFont()->getBold());
+        $this->assertSame(Border::BORDER_THIN, $sheet->getStyle('A18')->getBorders()->getTop()->getBorderStyle());
+        $this->assertSame(Border::BORDER_THIN, $sheet->getStyle('A18')->getBorders()->getLeft()->getBorderStyle());
+        $this->assertSame(Alignment::HORIZONTAL_CENTER, $sheet->getStyle('J19')->getAlignment()->getHorizontal());
+        $this->assertSame('#,##0', $sheet->getStyle('J19')->getNumberFormat()->getFormatCode());
+        $this->assertSame(Alignment::HORIZONTAL_RIGHT, $sheet->getStyle('L19')->getAlignment()->getHorizontal());
+        $this->assertSame('#,##0.00', $sheet->getStyle('L19')->getNumberFormat()->getFormatCode());
+        $this->assertSame('FFF2F6F7', $sheet->getStyle('A19')->getFill()->getStartColor()->getARGB());
+        $this->assertSame('FFEAF6FB', $sheet->getStyle('A20')->getFill()->getStartColor()->getARGB());
+        $this->assertSame('FFEAF6FB', $sheet->getStyle('A21')->getFill()->getStartColor()->getARGB());
+
+        @unlink($tempFile);
+    }
+
+    public function test_sales_report_export_keeps_profit_columns_last_when_dynamic_payment_columns_expand(): void
+    {
+        $user = User::factory()->create();
+        $warehouse = $this->createWarehouse('Main Branch', 1);
+        $cash = PaymentMethod::create(['name' => 'Cash', 'type' => 'cash']);
+        $creditCard = PaymentMethod::create(['name' => 'Credit Card', 'type' => 'card']);
+        $bankTransfer = PaymentMethod::create(['name' => 'Bank Transfer', 'type' => 'bank_transfer']);
+        $financing = PaymentMethod::create(['name' => 'Financing', 'type' => 'financing']);
+        $debitCard = PaymentMethod::create(['name' => 'Debit Card', 'type' => 'card']);
+        [$variant] = $this->createProductGraph('Apple', 'iPhone 17', 'APPLE-IPHONE17', [
+            ['name' => '256GB Black', 'sku' => 'APPLE-IPHONE17-256'],
+        ]);
+
+        $session = $this->createSession($this->createEmployee('Cashier'), $warehouse, Carbon::create(2026, 4, 8, 9, 0, 0));
+        $salesRep = $this->createEmployee('Sales Representative');
+
+        $this->createTransaction(
+            $session,
+            $this->createCustomer('Ramon', 'Santos'),
+            $this->createInventoryItem($variant, $warehouse, serial: 'REPORT-DYN-1', cash: 11500, cost: 7000),
+            [
+                ['method' => $cash, 'amount' => 1000],
+                ['method' => $creditCard, 'amount' => 2000, 'detail' => ['bank' => 'BPI', 'reference_number' => 'CC-1', 'loan_term_months' => 6]],
+                ['method' => $bankTransfer, 'amount' => 3000, 'detail' => ['bank' => 'BDO', 'reference_number' => 'BT-1']],
+                ['method' => $financing, 'amount' => 4000, 'detail' => ['reference_number' => 'FIN-1', 'loan_term_months' => 12]],
+                ['method' => $debitCard, 'amount' => 1500, 'detail' => ['reference_number' => 'DB-1']],
+            ],
+            $salesRep,
+            Carbon::create(2026, 4, 8, 10, 0, 0),
+            'OR-DYNAMIC-1',
+        );
+
+        $export = $this->actingAs($user)->get(route('sales-report.consolidated.export.xlsx', [
+            'date' => '2026-04-08',
+            'warehouse_id' => $warehouse->id,
+        ]));
+
+        $export->assertOk();
+        $export->assertDownload('sales_report_2026-04-08_'.$warehouse->id.'.xlsx');
+
+        $tempFile = tempnam(sys_get_temp_dir(), 'sales-report-xlsx-dynamic-');
+        file_put_contents($tempFile, $export->streamedContent());
+        $spreadsheet = IOFactory::load($tempFile);
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $this->assertSame('Credit Card (BPI)', $sheet->getCell('X18')->getValue());
+        $this->assertSame('Bank Transfer (BDO)', $sheet->getCell('Y18')->getValue());
+        $this->assertSame('Financing', $sheet->getCell('Z18')->getValue());
+        $this->assertSame('Debit Card', $sheet->getCell('AA18')->getValue());
+        $this->assertSame('Profit (without MDR)', $sheet->getCell('AB18')->getValue());
+        $this->assertSame('Profit with MDR', $sheet->getCell('AC18')->getValue());
+
+        $highestColumnIndex = Coordinate::columnIndexFromString($sheet->getHighestColumn());
+        $lastHeaderColumn = Coordinate::stringFromColumnIndex($highestColumnIndex);
+        $previousHeaderColumn = Coordinate::stringFromColumnIndex($highestColumnIndex - 1);
+
+        $this->assertSame('Profit with MDR', $sheet->getCell($lastHeaderColumn.'18')->getValue());
+        $this->assertSame('Profit (without MDR)', $sheet->getCell($previousHeaderColumn.'18')->getValue());
 
         @unlink($tempFile);
     }

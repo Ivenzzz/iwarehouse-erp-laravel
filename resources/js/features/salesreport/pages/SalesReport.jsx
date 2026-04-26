@@ -13,6 +13,7 @@ import {
   XCircle, CalendarRange, UserRound, Landmark,
 } from "lucide-react";
 import { format } from "date-fns";
+import { formatDateOnly, formatInManila } from "@/features/salesreport/lib/dateTime";
 
 // ─── Formatters ──────────────────────────────────────────────────────────────
 const formatPHP    = (v) => new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(v || 0);
@@ -282,11 +283,11 @@ export default function SalesReport({ filters, warehouses, individualRows, conso
                       <Td>{row.cashier_name}</Td>
                       <Td>{row.warehouse_name}</Td>
                       <Td className="whitespace-nowrap text-slate-500">
-                        {row.shift_start_time ? format(new Date(row.shift_start_time), "MMM dd, yy h:mm a") : "—"}
+                        {row.shift_start_time ? formatInManila(row.shift_start_time, "MMM dd, yy h:mm a") : "—"}
                       </Td>
                       <Td className="whitespace-nowrap">
                         {row.shift_end_time
-                          ? <span className="text-slate-500">{format(new Date(row.shift_end_time), "MMM dd, yy h:mm a")}</span>
+                          ? <span className="text-slate-500">{formatInManila(row.shift_end_time, "MMM dd, yy h:mm a")}</span>
                           : <span className="font-medium text-amber-500">Active</span>}
                       </Td>
                       <Td className="text-right font-semibold tabular-nums text-slate-900 dark:text-slate-100">{formatPHP(row.total_sales)}</Td>
@@ -364,7 +365,7 @@ export default function SalesReport({ filters, warehouses, individualRows, conso
                     <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40">
                       <Td>
                         <div className="whitespace-nowrap font-medium text-slate-900 dark:text-slate-100">
-                          {format(new Date(`${row.report_date}T00:00:00`), "MMM dd, yyyy")}
+                          {formatDateOnly(row.report_date, "MMM dd, yyyy")}
                         </div>
                         <div className="text-[10px] text-slate-400">Wk {row.week_number}</div>
                       </Td>
@@ -373,10 +374,10 @@ export default function SalesReport({ filters, warehouses, individualRows, conso
                       <Td className="text-right tabular-nums">{row.transaction_count}</Td>
                       <Td className="text-right font-semibold tabular-nums text-slate-900 dark:text-slate-100">{formatPHP(row.total_sales)}</Td>
                       <Td className="whitespace-nowrap text-slate-500">
-                        {row.earliest_shift_start ? format(new Date(row.earliest_shift_start), "h:mm a") : "—"}
+                        {row.earliest_shift_start ? formatInManila(row.earliest_shift_start, "h:mm a") : "—"}
                         {" – "}
                         {row.latest_shift_end
-                          ? format(new Date(row.latest_shift_end), "h:mm a")
+                          ? formatInManila(row.latest_shift_end, "h:mm a")
                           : <span className="font-medium text-amber-500">Active</span>}
                       </Td>
                       <Td className="text-center"><StatusBadge status={row.status} /></Td>
@@ -532,7 +533,7 @@ export default function SalesReport({ filters, warehouses, individualRows, conso
                         <Td className="font-mono">{tx.transaction_number}</Td>
                         <Td className="whitespace-nowrap">{tx.customer_name}</Td>
                         <Td className="whitespace-nowrap text-slate-500">
-                          {tx.transaction_date ? format(new Date(tx.transaction_date), "MMM dd, yy h:mm a") : "—"}
+                          {tx.transaction_date ? formatInManila(tx.transaction_date, "MMM dd, yy h:mm a") : "—"}
                         </Td>
                         <Td>{tx.products.map((p) => <div key={p.name}>{p.name}</div>)}</Td>
                         <Td className="text-right font-semibold tabular-nums text-slate-900 dark:text-slate-100">{formatPHP(tx.total_sales)}</Td>
@@ -576,7 +577,7 @@ export default function SalesReport({ filters, warehouses, individualRows, conso
                   {groupDetail.group.branch_name}
                   {groupDetail.group.report_date && (
                     <span className="ml-2 font-normal text-slate-500">
-                      {format(new Date(`${groupDetail.group.report_date}T00:00:00`), "MMMM dd, yyyy")}
+                      {formatDateOnly(groupDetail.group.report_date, "MMMM dd, yyyy")}
                     </span>
                   )}
                 </h2>
@@ -621,11 +622,11 @@ export default function SalesReport({ filters, warehouses, individualRows, conso
                       </div>
                       <div className="font-medium text-slate-900 dark:text-slate-100">
                         {groupDetail.group.earliest_shift_start
-                          ? format(new Date(groupDetail.group.earliest_shift_start), "h:mm a")
+                          ? formatInManila(groupDetail.group.earliest_shift_start, "h:mm a")
                           : "—"}
                         {" – "}
                         {groupDetail.group.latest_shift_end
-                          ? format(new Date(groupDetail.group.latest_shift_end), "h:mm a")
+                          ? formatInManila(groupDetail.group.latest_shift_end, "h:mm a")
                           : <span className="text-amber-500">Active</span>}
                       </div>
                     </div>
@@ -698,11 +699,11 @@ export default function SalesReport({ filters, warehouses, individualRows, conso
                             <Td><span className="font-mono text-indigo-600 dark:text-indigo-400">{session.session_number || "—"}</span></Td>
                             <Td>{session.cashier_name}</Td>
                             <Td className="whitespace-nowrap text-slate-500">
-                              {session.shift_start_time ? format(new Date(session.shift_start_time), "MMM dd, yy h:mm a") : "—"}
+                              {session.shift_start_time ? formatInManila(session.shift_start_time, "MMM dd, yy h:mm a") : "—"}
                             </Td>
                             <Td className="whitespace-nowrap">
                               {session.shift_end_time
-                                ? <span className="text-slate-500">{format(new Date(session.shift_end_time), "MMM dd, yy h:mm a")}</span>
+                                ? <span className="text-slate-500">{formatInManila(session.shift_end_time, "MMM dd, yy h:mm a")}</span>
                                 : <span className="font-medium text-amber-500">Active</span>}
                             </Td>
                             <Td className="text-right tabular-nums">{session.transaction_count}</Td>
@@ -787,7 +788,7 @@ export default function SalesReport({ filters, warehouses, individualRows, conso
                             </Td>
                             <Td className="whitespace-nowrap">{row.isRepeatedPaymentRow ? "" : row.salesPersonName}</Td>
                             <Td className="whitespace-nowrap">
-                              {row.isRepeatedPaymentRow ? "" : row.date ? format(new Date(row.date), "MM-dd-yy") : "—"}
+                              {row.isRepeatedPaymentRow ? "" : row.date ? formatDateOnly(row.date, "MM-dd-yy") : "—"}
                             </Td>
                             <Td className="text-right font-semibold tabular-nums whitespace-nowrap">
                               {row.actualCashPaid === null ? "—" : row.isSplitActualCashPaid ? (

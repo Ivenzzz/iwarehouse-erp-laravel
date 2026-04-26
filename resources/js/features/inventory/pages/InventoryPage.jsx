@@ -1,20 +1,21 @@
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { Download, Pencil, QrCode, Trash2, Upload } from "lucide-react";
 import { Head, router, usePage } from "@inertiajs/react";
 
-import InventoryKPIs from "@/features/inventory/components/InventoryKPIs";
-import InventoryItemDetailsDialog from "@/features/inventory/components/InventoryItemDetailsDialog";
-import InventoryTable from "@/features/inventory/components/InventoryTable";
-import BatchDeleteDialog from "@/features/inventory/dialogs/BatchDeleteDialog";
-import BatchUpdateDialog from "@/features/inventory/dialogs/BatchUpdateDialog";
-import ImportInventoryItemsDialog from "@/features/inventory/dialogs/ImportInventoryItemsDialog";
 import { printInventoryQRStickers } from "@/features/inventory/services/inventoryPrintService";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { usePageToasts } from "@/shared/hooks/use-page-toasts";
 import { toast } from "@/shared/hooks/use-toast";
 import AppShell from "@/shared/layouts/AppShell";
+
+const InventoryKPIs = lazy(() => import("@/features/inventory/components/InventoryKPIs"));
+const InventoryItemDetailsDialog = lazy(() => import("@/features/inventory/components/InventoryItemDetailsDialog"));
+const InventoryTable = lazy(() => import("@/features/inventory/components/InventoryTable"));
+const BatchDeleteDialog = lazy(() => import("@/features/inventory/dialogs/BatchDeleteDialog"));
+const BatchUpdateDialog = lazy(() => import("@/features/inventory/dialogs/BatchUpdateDialog"));
+const ImportInventoryItemsDialog = lazy(() => import("@/features/inventory/dialogs/ImportInventoryItemsDialog"));
 
 const RELOAD_PROPS = [
   "inventory",
@@ -26,6 +27,10 @@ const RELOAD_PROPS = [
   "models",
   "categories",
 ];
+const FILTER_WITH_ALL_KEYS = ["location", "status", "brand", "model", "category", "condition", "stockAge"];
+const DEFAULT_SORT = "encoded_date";
+const DEFAULT_DIRECTION = "desc";
+const DEFAULT_PER_PAGE = 50;
 
 export default function InventoryPage({
   inventory,
@@ -70,20 +75,8 @@ export default function InventoryPage({
     filters.direction,
   ]);
 
-  const visitInventory = (params = {}) => {
-    const requestedPerPage = params.perPage;
-    const normalizedRequestedPerPage = Number(requestedPerPage);
-
-    if (
-      requestedPerPage !== undefined
-      && Number.isFinite(normalizedRequestedPerPage)
-      && normalizedRequestedPerPage >= 500
-      && normalizedRequestedPerPage !== Number(filters.perPage)
-    ) {
-      toast({ description: "Large page size may slow loading and impact browser performance." });
-    }
-
-    router.get(route("inventory.index"), {
+  const buildCanonicalInventoryParams = useCallback((params = {}, { includePage = true } = {}) => {
+    const mergedFilters = {
       search: params.search ?? filters.search,
       location: params.location ?? filters.location,
       status: params.status ?? filters.status,
@@ -96,12 +89,67 @@ export default function InventoryPage({
       direction: params.direction ?? filters.direction,
       perPage: params.perPage ?? filters.perPage,
       page: params.page,
-    }, {
+    };
+
+    const canonicalParams = {};
+    const normalizedSearch = String(mergedFilters.search ?? "").trim();
+    if (normalizedSearch !== "") {
+      canonicalParams.search = normalizedSearch;
+    }
+
+    FILTER_WITH_ALL_KEYS.forEach((key) => {
+      const normalizedValue = String(mergedFilters[key] ?? "all").trim() || "all";
+      if (normalizedValue !== "all") {
+        canonicalParams[key] = normalizedValue;
+      }
+    });
+
+    const normalizedSort = String(mergedFilters.sort ?? DEFAULT_SORT).trim() || DEFAULT_SORT;
+    if (normalizedSort !== DEFAULT_SORT) {
+      canonicalParams.sort = normalizedSort;
+    }
+
+    const normalizedDirection = String(mergedFilters.direction ?? DEFAULT_DIRECTION).trim().toLowerCase() === "asc"
+      ? "asc"
+      : DEFAULT_DIRECTION;
+    if (normalizedDirection !== DEFAULT_DIRECTION) {
+      canonicalParams.direction = normalizedDirection;
+    }
+
+    const normalizedPerPage = Number(mergedFilters.perPage);
+    if (Number.isFinite(normalizedPerPage) && normalizedPerPage > 0 && normalizedPerPage !== DEFAULT_PER_PAGE) {
+      canonicalParams.perPage = normalizedPerPage;
+    }
+
+    if (includePage) {
+      const normalizedPage = Number(mergedFilters.page);
+      if (Number.isFinite(normalizedPage) && normalizedPage > 0) {
+        canonicalParams.page = Math.trunc(normalizedPage);
+      }
+    }
+
+    return canonicalParams;
+  }, [filters]);
+
+  const visitInventory = useCallback((params = {}) => {
+    const requestedPerPage = params.perPage;
+    const normalizedRequestedPerPage = Number(requestedPerPage);
+
+    if (
+      requestedPerPage !== undefined
+      && Number.isFinite(normalizedRequestedPerPage)
+      && normalizedRequestedPerPage >= 500
+      && normalizedRequestedPerPage !== Number(filters.perPage)
+    ) {
+      toast({ description: "Large page size may slow loading and impact browser performance." });
+    }
+
+    router.get(route("inventory.index"), buildCanonicalInventoryParams(params), {
       preserveState: true,
       preserveScroll: true,
       replace: true,
     });
-  };
+  }, [buildCanonicalInventoryParams, filters.perPage]);
 
   const refreshInventoryData = () => {
     router.reload({
@@ -137,21 +185,9 @@ export default function InventoryPage({
     return selectedInventoryItems[0].product_master_id;
   };
 
-  const exportInventory = () => {
-    window.location.href = route("inventory.export", {
-      search: filters.search,
-      location: filters.location,
-      status: filters.status,
-      brand: filters.brand,
-      model: filters.model,
-      category: filters.category,
-      condition: filters.condition,
-      stockAge: filters.stockAge,
-      sort: filters.sort,
-      direction: filters.direction,
-      perPage: filters.perPage,
-    });
-  };
+  const exportInventory = useCallback(() => {
+    window.location.href = route("inventory.export", buildCanonicalInventoryParams({}, { includePage: false }));
+  }, [buildCanonicalInventoryParams]);
 
   const handleBatchUpdate = async (itemIds, updateFields) => {
     setBatchUpdateState({ isLoading: true, result: null });
@@ -202,36 +238,44 @@ export default function InventoryPage({
     <AppShell title="Inventory">
       <Head title="Inventory" />
 
-      <ImportInventoryItemsDialog open={importOpen} onOpenChange={setImportOpen} onSuccess={refreshInventoryData} />
-      <InventoryItemDetailsDialog
-        open={detailsOpen}
-        onOpenChange={setDetailsOpen}
-        item={selectedItem}
-      />
-      <BatchUpdateDialog
-        open={batchUpdateOpen}
-        onOpenChange={setBatchUpdateOpen}
-        selectedCount={selectedItems.length}
-        selectedItemIds={selectedItems}
-        productMasterId={batchUpdateProductMasterId}
-        warehouses={warehouses}
-        onConfirm={handleBatchUpdate}
-        isUpdating={batchUpdateState.isLoading}
-        result={batchUpdateState.result}
-        onReset={() => {
-          setBatchUpdateState({ isLoading: false, result: null });
-          setBatchUpdateProductMasterId(null);
-        }}
-      />
-      <BatchDeleteDialog
-        open={batchDeleteOpen}
-        onOpenChange={setBatchDeleteOpen}
-        selectedCount={selectedItems.length}
-        onConfirm={handleBatchDelete}
-        isDeleting={batchDeleteState.isLoading}
-        result={batchDeleteState.result}
-        onReset={() => setBatchDeleteState({ isLoading: false, result: null })}
-      />
+      <Suspense fallback={null}>
+        <ImportInventoryItemsDialog open={importOpen} onOpenChange={setImportOpen} onSuccess={refreshInventoryData} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <InventoryItemDetailsDialog
+          open={detailsOpen}
+          onOpenChange={setDetailsOpen}
+          item={selectedItem}
+        />
+      </Suspense>
+      <Suspense fallback={null}>
+        <BatchUpdateDialog
+          open={batchUpdateOpen}
+          onOpenChange={setBatchUpdateOpen}
+          selectedCount={selectedItems.length}
+          selectedItemIds={selectedItems}
+          productMasterId={batchUpdateProductMasterId}
+          warehouses={warehouses}
+          onConfirm={handleBatchUpdate}
+          isUpdating={batchUpdateState.isLoading}
+          result={batchUpdateState.result}
+          onReset={() => {
+            setBatchUpdateState({ isLoading: false, result: null });
+            setBatchUpdateProductMasterId(null);
+          }}
+        />
+      </Suspense>
+      <Suspense fallback={null}>
+        <BatchDeleteDialog
+          open={batchDeleteOpen}
+          onOpenChange={setBatchDeleteOpen}
+          selectedCount={selectedItems.length}
+          onConfirm={handleBatchDelete}
+          isDeleting={batchDeleteState.isLoading}
+          result={batchDeleteState.result}
+          onReset={() => setBatchDeleteState({ isLoading: false, result: null })}
+        />
+      </Suspense>
 
       <div className="mx-auto flex w-full flex-col gap-6">
         <section className="bg-background text-card-foreground shadow-sm">
@@ -300,28 +344,38 @@ export default function InventoryPage({
           </div>
 
           <div className="space-y-5 px-1">
-            <InventoryKPIs refreshToken={refreshToken} filters={filters} />
+            <Suspense fallback={(
+              <div className="grid grid-cols-1 gap-4 px-4 md:grid-cols-2 xl:grid-cols-3">
+                <Card className="rounded-xl border-border bg-background">
+                  <CardContent className="h-24 p-4" />
+                </Card>
+              </div>
+            )}>
+              <InventoryKPIs refreshToken={refreshToken} filters={filters} />
+            </Suspense>
 
             <Card className="rounded-xl border-border bg-background">
               <CardContent className="p-4">
-                <InventoryTable
-                  items={visibleItems}
-                  filters={filters}
-                  warehouses={warehouses}
-                  brands={brands}
-                  models={models}
-                  categories={categories}
-                  pagination={tablePagination}
-                  perPageOptions={perPageOptions}
-                  exactLookup={exactLookup}
-                  selectedItems={selectedItems}
-                  onSelectionChange={setSelectedItems}
-                  onViewDetails={(item) => {
-                    setSelectedItem(item);
-                    setDetailsOpen(true);
-                  }}
-                  onVisit={visitInventory}
-                />
+                <Suspense fallback={<div className="py-12 text-center text-sm text-muted-foreground">Loading inventory table...</div>}>
+                  <InventoryTable
+                    items={visibleItems}
+                    filters={filters}
+                    warehouses={warehouses}
+                    brands={brands}
+                    models={models}
+                    categories={categories}
+                    pagination={tablePagination}
+                    perPageOptions={perPageOptions}
+                    exactLookup={exactLookup}
+                    selectedItems={selectedItems}
+                    onSelectionChange={setSelectedItems}
+                    onViewDetails={(item) => {
+                      setSelectedItem(item);
+                      setDetailsOpen(true);
+                    }}
+                    onVisit={visitInventory}
+                  />
+                </Suspense>
               </CardContent>
             </Card>
           </div>

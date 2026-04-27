@@ -52,6 +52,46 @@ function formatDateSafe(value) {
   return format(date, "MM/dd/yyyy, h:mm:ss a");
 }
 
+function normalizeLogoUrl(logoUrl) {
+  if (!logoUrl || typeof logoUrl !== "string") return null;
+
+  const trimmed = logoUrl.trim().replaceAll("\\", "/");
+  if (!trimmed) return null;
+
+  if (
+    trimmed.startsWith("http://")
+    || trimmed.startsWith("https://")
+    || trimmed.startsWith("data:")
+    || trimmed.startsWith("blob:")
+  ) {
+    return trimmed;
+  }
+
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const protocol = typeof window !== "undefined" ? window.location.protocol : "https:";
+
+  if (trimmed.startsWith("//")) {
+    return `${protocol}${trimmed}`;
+  }
+
+  if (trimmed.startsWith("/")) {
+    return origin ? `${origin}${trimmed}` : trimmed;
+  }
+
+  if (trimmed.startsWith("company-logos/")) {
+    const path = `/storage/${trimmed}`;
+    return origin ? `${origin}${path}` : path;
+  }
+
+  if (trimmed.startsWith("storage/")) {
+    const path = `/${trimmed}`;
+    return origin ? `${origin}${path}` : path;
+  }
+
+  const normalizedPath = `/${trimmed.replace(/^\.?\//, "")}`;
+  return origin ? `${origin}${normalizedPath}` : normalizedPath;
+}
+
 /**
  * Generates the warranty receipt HTML string (no window management).
  * Used by both the legacy popup flow and the new in-tab print page.
@@ -63,7 +103,7 @@ export function generateWarrantyReceiptHTML({
   const company = companyInfo?.[0] || null;
   const normalizedItems = (transaction.items || []).map((item) => normalizeReceiptItem(item));
 
-  const logoUrl = company?.logo_url || null;
+  const logoUrl = normalizeLogoUrl(company?.logo_url || company?.logo_path || "");
   const transactionDiscount = getTransactionDiscountTotal(transaction);
   const companyAddressLine = getCompanyHeaderAddress(company);
   const companyPhone = getFirstNonEmpty(company?.phone);
@@ -115,7 +155,7 @@ export function generateWarrantyReceiptHTML({
     </head>
     <body>
       <div class="header">
-        ${logoUrl ? `<img src="${logoUrl}" alt="Company Logo" class="company-logo" />` : ""}
+        ${logoUrl ? `<img src="${logoUrl}" alt="Company Logo" class="company-logo" onerror="this.style.display='none';" />` : ""}
         <div class="document-title">Warranty Receipt</div>
       </div>
       <div class="company-info">

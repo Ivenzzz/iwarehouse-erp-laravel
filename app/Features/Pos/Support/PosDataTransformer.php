@@ -402,15 +402,25 @@ class PosDataTransformer
 
     public function nextTransactionNumberPreview(): string
     {
-        $latestNumber = SalesTransaction::query()
-            ->orderByDesc('id')
-            ->value('transaction_number');
+        $connection = SalesTransaction::query()->getConnection();
+        $nextId = null;
 
-        if (! is_string($latestNumber) || ! preg_match('/(\d+)$/', $latestNumber, $matches)) {
-            return '000001';
+        if ($connection->getDriverName() === 'mysql') {
+            $table = (new SalesTransaction())->getTable();
+            $database = $connection->getDatabaseName();
+            $metadata = $connection->selectOne(
+                'SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? LIMIT 1',
+                [$database, $table],
+            );
+            $nextId = (int) data_get((array) $metadata, 'AUTO_INCREMENT', 0);
+            $nextId = $nextId > 0 ? $nextId : null;
         }
 
-        return sprintf('%06d', ((int) $matches[1]) + 1);
+        if ($nextId === null) {
+            $nextId = ((int) (SalesTransaction::query()->max('id') ?? 0)) + 1;
+        }
+
+        return SalesTransaction::resolveUniqueTransactionNumberForId($nextId);
     }
 
     private function employeeFullName(Employee $employee): string

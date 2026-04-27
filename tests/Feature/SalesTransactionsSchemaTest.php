@@ -60,7 +60,7 @@ class SalesTransactionsSchemaTest extends TestCase
         $this->assertSame('000002', $second->transaction_number);
     }
 
-    public function test_transaction_number_generation_preserves_large_numeric_width(): void
+    public function test_transaction_number_generation_ignores_custom_latest_value_and_uses_id_based_format(): void
     {
         [$customer, $posSession] = $this->createSalesContext();
 
@@ -79,7 +79,29 @@ class SalesTransactionsSchemaTest extends TestCase
             'total_amount' => 2000,
         ]);
 
-        $this->assertSame('78209729283', $next->transaction_number);
+        $this->assertSame('000002', $next->transaction_number);
+    }
+
+    public function test_transaction_number_generation_adds_suffix_when_id_based_number_already_exists(): void
+    {
+        [$customer, $posSession] = $this->createSalesContext();
+
+        SalesTransaction::create([
+            'transaction_number' => '000002',
+            'or_number' => 'OR-9101',
+            'customer_id' => $customer->id,
+            'pos_session_id' => $posSession->id,
+            'total_amount' => 1000,
+        ]);
+
+        $next = SalesTransaction::create([
+            'or_number' => 'OR-9102',
+            'customer_id' => $customer->id,
+            'pos_session_id' => $posSession->id,
+            'total_amount' => 1200,
+        ]);
+
+        $this->assertSame('000002-1', $next->transaction_number);
     }
 
     public function test_or_number_is_required(): void

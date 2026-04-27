@@ -12,6 +12,12 @@ class SalesTransaction extends Model
 {
     use HasFactory;
 
+    private const TRANSACTION_NUMBER_MIN_WIDTH = 6;
+    private const TRANSACTION_NUMBER_MAX_LENGTH = 20;
+    private const TEMP_TRANSACTION_PREFIX = 'tmp_';
+
+    public bool $shouldResolveTransactionNumberFromId = false;
+
     public const MODE_PICKUP = 'Item Claimed / Pick-up';
     public const MODE_DELIVERY = 'Delivery';
 
@@ -37,7 +43,6 @@ class SalesTransaction extends Model
     protected static function booted(): void
     {
         static::saving(function (self $transaction): void {
-            $transaction->transaction_number ??= static::nextTransactionNumber();
             $transaction->mode_of_release ??= self::MODE_PICKUP;
 
             if (blank($transaction->or_number)) {
@@ -55,6 +60,29 @@ class SalesTransaction extends Model
             if (! in_array($transaction->mode_of_release, [self::MODE_PICKUP, self::MODE_DELIVERY], true)) {
                 throw new InvalidArgumentException('Mode of release is invalid.');
             }
+        });
+
+        static::creating(function (self $transaction): void {
+            if (blank($transaction->transaction_number)) {
+                $transaction->shouldResolveTransactionNumberFromId = true;
+                $transaction->transaction_number = static::temporaryTransactionNumber();
+            }
+        });
+
+        static::created(function (self $transaction): void {
+            if (! $transaction->shouldResolveTransactionNumberFromId) {
+                return;
+            }
+
+            $resolved = static::resolveUniqueTransactionNumberForId($transaction->id, $transaction->id);
+
+            static::query()
+                ->whereKey($transaction->id)
+                ->update(['transaction_number' => $resolved]);
+
+            $transaction->transaction_number = $resolved;
+            $transaction->syncOriginalAttribute('transaction_number');
+            $transaction->shouldResolveTransactionNumberFromId = false;
         });
     }
 
@@ -88,16 +116,43 @@ class SalesTransaction extends Model
         return $this->hasMany(SalesTransactionDocument::class);
     }
 
-    private static function nextTransactionNumber(): string
+    public static function resolveUniqueTransactionNumberForId(int|string $id, ?int $ignoreRecordId = null): string
     {
-        $latestNumber = static::query()
-            ->orderByDesc('id')
-            ->value('transaction_number');
+        $suffixIndex = 0;
 
-        if (! is_string($latestNumber) || ! preg_match('/(\d+)$/', $latestNumber, $matches)) {
-            return '000001';
+        while (true) {
+            $candidate = static::formatTransactionNumberFromId($id, $suffixIndex);
+            $query = static::query()->where('transaction_number', $candidate);
+
+            if ($ignoreRecordId !== null) {
+                $query->where('id', '!=', $ignoreRecordId);
+            }
+
+            if (! $query->exists()) {
+                return $candidate;
+            }
+
+            $suffixIndex++;
+        }
+    }
+
+    public static function formatTransactionNumberFromId(int|string $id, int $suffixIndex = 0): string
+    {
+        $base = str_pad((string) $id, self::TRANSACTION_NUMBER_MIN_WIDTH, '0', STR_PAD_LEFT);
+
+        if ($suffixIndex <= 0) {
+            return substr($base, 0, self::TRANSACTION_NUMBER_MAX_LENGTH);
         }
 
-        return sprintf('%06d', ((int) $matches[1]) + 1);
+        $suffix = '-'.$suffixIndex;
+        $baseLength = self::TRANSACTION_NUMBER_MAX_LENGTH - strlen($suffix);
+        $trimmedBase = $baseLength > 0 ? substr($base, 0, $baseLength) : '';
+
+        return $trimmedBase.$suffix;
+    }
+
+    private static function temporaryTransactionNumber(): string
+    {
+        return self::TEMP_TRANSACTION_PREFIX.bin2hex(random_bytes(8));
     }
 }

@@ -160,7 +160,7 @@ class PosFeatureTest extends TestCase
     public function test_pos_inventory_search_returns_joined_item_rows(): void
     {
         $user = User::factory()->create();
-        [$variant, $warehouse] = $this->createInventoryGraph();
+        [, $warehouse] = $this->createInventoryGraph();
 
         InventoryItem::create([
             'product_variant_id' => $variant->id,
@@ -237,6 +237,42 @@ class PosFeatureTest extends TestCase
                 ->where('customers.0.display_label', 'Juan Dela Cruz - 09171234567')
                 ->where('salesReps.0.display_label', 'Ana Seller - Sales Representative')
             );
+    }
+
+    public function test_pos_transaction_number_preview_uses_next_id_not_latest_transaction_number_value(): void
+    {
+        [$user, $employee] = $this->createCashierUserAndEmployee();
+        $this->createCustomerDefaults();
+        [$variant, $warehouse] = $this->createInventoryGraph();
+
+        $customer = Customer::create([
+            'firstname' => 'Preview',
+            'lastname' => 'Customer',
+        ]);
+
+        $session = PosSession::create([
+            'user_id' => $user->id,
+            'warehouse_id' => $warehouse->id,
+            'opening_balance' => 1000,
+            'shift_start_time' => now(),
+            'status' => PosSession::STATUS_OPENED,
+        ]);
+
+        SalesTransaction::create([
+            'transaction_number' => '78209729282',
+            'or_number' => 'OR-PREVIEW-001',
+            'customer_id' => $customer->id,
+            'pos_session_id' => $session->id,
+            'total_amount' => 12000,
+        ]);
+
+        $nextId = ((int) (SalesTransaction::query()->max('id') ?? 0)) + 1;
+        $expectedPreview = SalesTransaction::resolveUniqueTransactionNumberForId($nextId);
+
+        $this->actingAs($user)
+            ->getJson(route('pos.transaction-number-preview'))
+            ->assertOk()
+            ->assertJsonPath('transaction_number', $expectedPreview);
     }
 
     public function test_pos_customer_and_sales_rep_creation_use_backend_schema(): void
@@ -471,7 +507,7 @@ class PosFeatureTest extends TestCase
             'srp_price' => 12500,
         ]);
 
-        $this->actingAs($user)
+        $response = $this->actingAs($user)
             ->postJson(route('pos.transactions.store'), [
                 'pos_session_id' => $session->id,
                 'customer_id' => $customer->id,
@@ -518,7 +554,6 @@ class PosFeatureTest extends TestCase
                 ],
             ])
             ->assertOk()
-            ->assertJsonPath('transaction.transaction_number', '000001')
             ->assertJsonPath('transaction.or_number', 'OR-10001')
             ->assertJsonPath('transaction.total_amount', 11800)
             ->assertJsonPath('transaction.customer_name', 'Walk In')
@@ -530,10 +565,11 @@ class PosFeatureTest extends TestCase
             ->assertJsonPath('transaction.items.0.discount_proof_image_url', 'https://example.com/discount-proof.jpg');
 
         $transaction = SalesTransaction::firstOrFail();
+        $response->assertJsonPath('transaction.transaction_number', $transaction->transaction_number);
 
         $this->assertDatabaseHas('sales_transactions', [
             'id' => $transaction->id,
-            'transaction_number' => '000001',
+            'transaction_number' => $transaction->transaction_number,
             'customer_id' => $customer->id,
             'pos_session_id' => $session->id,
             'or_number' => 'OR-10001',

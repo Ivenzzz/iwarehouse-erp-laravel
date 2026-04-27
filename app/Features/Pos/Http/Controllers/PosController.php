@@ -23,6 +23,7 @@ use App\Features\Pos\Support\PosDataTransformer;
 use App\Features\Pos\Support\ResolvesCashier;
 use App\Http\Controllers\Controller;
 use App\Models\PosSession;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -31,6 +32,8 @@ use InvalidArgumentException;
 
 class PosController extends Controller
 {
+    private const TRANSACTION_NUMBER_CONFLICT_MESSAGE = 'Transaction number conflict. Please retry.';
+
     public function index(Request $request, ListPosPageData $listPosPageData): InertiaResponse
     {
         return Inertia::render('POS', $listPosPageData($request));
@@ -190,6 +193,14 @@ class PosController extends Controller
             return response()->json([
                 'message' => $exception->getMessage(),
             ], 422);
+        } catch (QueryException $exception) {
+            if ($this->isTransactionNumberUniqueConstraintViolation($exception)) {
+                return response()->json([
+                    'message' => self::TRANSACTION_NUMBER_CONFLICT_MESSAGE,
+                ], 422);
+            }
+
+            throw $exception;
         }
 
         return response()->json([
@@ -204,5 +215,13 @@ class PosController extends Controller
         ]);
 
         return response()->json($storePosUpload->handle($validated['file']));
+    }
+
+    private function isTransactionNumberUniqueConstraintViolation(QueryException $exception): bool
+    {
+        $message = $exception->getMessage();
+
+        return str_contains($message, 'uq_sales_transactions_transaction_number')
+            || str_contains($message, 'sales_transactions.transaction_number');
     }
 }

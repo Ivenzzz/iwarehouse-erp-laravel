@@ -28,8 +28,11 @@ use App\Models\SalesTransactionPaymentDetail;
 use App\Models\SalesTransactionPaymentDocument;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Features\Pos\Actions\CreatePosTransaction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
+use InvalidArgumentException;
+use Mockery\MockInterface;
 use Tests\TestCase;
 
 class PosFeatureTest extends TestCase
@@ -515,6 +518,7 @@ class PosFeatureTest extends TestCase
                 ],
             ])
             ->assertOk()
+            ->assertJsonPath('transaction.transaction_number', '000001')
             ->assertJsonPath('transaction.or_number', 'OR-10001')
             ->assertJsonPath('transaction.total_amount', 11800)
             ->assertJsonPath('transaction.customer_name', 'Walk In')
@@ -529,6 +533,7 @@ class PosFeatureTest extends TestCase
 
         $this->assertDatabaseHas('sales_transactions', [
             'id' => $transaction->id,
+            'transaction_number' => '000001',
             'customer_id' => $customer->id,
             'pos_session_id' => $session->id,
             'or_number' => 'OR-10001',
@@ -685,6 +690,80 @@ class PosFeatureTest extends TestCase
             'discount_amount' => 0,
             'discount_proof_image_url' => null,
         ]);
+    }
+
+    public function test_pos_transaction_returns_cashier_safe_message_when_transaction_number_conflict_occurs(): void
+    {
+        [$user, $employee] = $this->createCashierUserAndEmployee();
+        $this->createCustomerDefaults();
+        [$variant, $warehouse] = $this->createInventoryGraph();
+        $paymentMethod = PaymentMethod::create([
+            'name' => 'Cash',
+            'type' => 'cash',
+        ]);
+
+        $customer = Customer::create([
+            'firstname' => 'Conflict',
+            'lastname' => 'Buyer',
+        ]);
+
+        $session = PosSession::create([
+            'user_id' => $user->id,
+            'warehouse_id' => $warehouse->id,
+            'opening_balance' => 1000,
+            'shift_start_time' => now(),
+            'status' => PosSession::STATUS_OPENED,
+        ]);
+
+        $inventoryItem = InventoryItem::create([
+            'product_variant_id' => $variant->id,
+            'warehouse_id' => $warehouse->id,
+            'imei' => '123123123123123',
+            'serial_number' => 'TXN-SN-CONFLICT',
+            'status' => 'available',
+            'cost_price' => 10000,
+            'cash_price' => 12000,
+            'srp_price' => 12500,
+        ]);
+
+        $this->mock(CreatePosTransaction::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('handle')
+                ->once()
+                ->andThrow(new InvalidArgumentException('Transaction number conflict. Please retry.'));
+        });
+
+        $this->actingAs($user)
+            ->postJson(route('pos.transactions.store'), [
+                'pos_session_id' => $session->id,
+                'customer_id' => $customer->id,
+                'sales_representative_id' => null,
+                'or_number' => 'OR-CONFLICT-001',
+                'mode_of_release' => SalesTransaction::MODE_PICKUP,
+                'remarks' => 'Conflict simulation',
+                'total_amount' => 12000,
+                'items' => [
+                    [
+                        'inventory_item_id' => $inventoryItem->id,
+                        'price_basis' => 'cash',
+                        'snapshot_cash_price' => 12000,
+                        'snapshot_srp' => 12500,
+                        'snapshot_cost_price' => 10000,
+                        'discount_amount' => 0,
+                        'line_total' => 12000,
+                    ],
+                ],
+                'payments' => [
+                    [
+                        'payment_method_id' => $paymentMethod->id,
+                        'amount' => 12000,
+                    ],
+                ],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Transaction number conflict. Please retry.')
+            ->assertJsonMissingPath('exception')
+            ->assertJsonMissingPath('file')
+            ->assertJsonMissingPath('trace');
     }
 
     public function test_pos_transaction_logs_main_and_bundle_component_items_as_sold(): void

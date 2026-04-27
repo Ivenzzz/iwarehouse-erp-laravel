@@ -60,6 +60,28 @@ class SalesTransactionsSchemaTest extends TestCase
         $this->assertSame('000002', $second->transaction_number);
     }
 
+    public function test_transaction_number_generation_preserves_large_numeric_width(): void
+    {
+        [$customer, $posSession] = $this->createSalesContext();
+
+        SalesTransaction::create([
+            'transaction_number' => '78209729282',
+            'or_number' => 'OR-9001',
+            'customer_id' => $customer->id,
+            'pos_session_id' => $posSession->id,
+            'total_amount' => 1000,
+        ]);
+
+        $next = SalesTransaction::create([
+            'or_number' => 'OR-9002',
+            'customer_id' => $customer->id,
+            'pos_session_id' => $posSession->id,
+            'total_amount' => 2000,
+        ]);
+
+        $this->assertSame('78209729283', $next->transaction_number);
+    }
+
     public function test_or_number_is_required(): void
     {
         [$customer, $posSession] = $this->createSalesContext();

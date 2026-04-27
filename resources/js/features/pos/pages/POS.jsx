@@ -69,6 +69,7 @@ export default function POS(props) {
 
   const searchInputRef = useRef(null);
   const searchTimerRef = useRef(null);
+  const processingTransactionRef = useRef(false);
 
   const [currentSession, setCurrentSession] = useState(activeSession);
   const [customers, setCustomers] = useState(initialCustomers || []);
@@ -525,6 +526,10 @@ export default function POS(props) {
   };
 
   const processTransaction = async () => {
+    if (processingTransactionRef.current || processingTransaction) {
+      return;
+    }
+
     if (!currentSession?.id) {
       toast({ variant: "destructive", description: "No active session found." });
       return;
@@ -554,6 +559,8 @@ export default function POS(props) {
       toast({ variant: "destructive", description: "The transaction still has an outstanding balance." });
       return;
     }
+
+    processingTransactionRef.current = true;
 
     const queuedPrintWindow = window.open("", "_blank");
     if (queuedPrintWindow) {
@@ -779,6 +786,7 @@ export default function POS(props) {
         description: firstFieldErrors?.[0] || error?.message || error.response?.data?.message || "Transaction failed.",
       });
     } finally {
+      processingTransactionRef.current = false;
       setProcessingTransaction(false);
     }
   };
